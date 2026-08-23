@@ -1,0 +1,36 @@
+{
+  "name": "qr-menu",
+  "version": "1.0.0",
+  "description": "QR-меню сервис для мини-заведений",
+  "private": true,
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "migrate": "node-pg-migrate --envPath .env",
+    "migrate:up": "node-pg-migrate up --envPath .env",
+    "migrate:down": "node-pg-migrate down --envPath .env",
+    "seed": "node --env-file=.env seed/seed.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
+    "express-session": "^1.18.1",
+    "method-override": "^3.0.0",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "node-pg-migrate": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

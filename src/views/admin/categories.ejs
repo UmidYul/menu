@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Категории меню — панель управления</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    nav { margin-bottom: 1.5rem; }
+    nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+    h1 { font-size: 1.25rem; margin: 0; }
+    h2 { font-size: 1.05rem; margin: 0 0 1rem; }
+    .role { color: #666; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.primary:hover { background: #1558b0; }
+    button.danger { background: #fdecea; color: #b3261e; border-color: #f5c6c2; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 2rem; }
+    th, td { text-align: left; padding: 0.6rem 1rem; border-bottom: 1px solid #eee; vertical-align: middle; }
+    th { background: #fafafa; font-size: 0.85rem; color: #555; }
+    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: #333; }
+    input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem; }
+    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
+    form.inline { display: inline; }
+    .row-form { display: flex; gap: 0.4rem; align-items: center; }
+    .order-controls { display: flex; gap: 0.25rem; }
+    .order-controls button { padding: 0.3rem 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Категории меню</h1>
+      <div class="role">Вы вошли как <%= login %> (администратор заведения)</div>
+    </div>
+    <form method="POST" action="/admin/logout">
+      <button type="submit">Выйти</button>
+    </form>
+  </header>
+  <nav>
+    <a href="/admin">Кабинет</a>
+    <a href="/admin/categories">Категории</a>
+  </nav>
+
+  <% if (error) { %>
+    <div class="error"><%= error %></div>
+  <% } %>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Порядок</th>
+        <th>Название (RU)</th>
+        <th>Название (UZ)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (categories.length === 0) { %>
+        <tr><td colspan="4">Категорий пока нет — добавьте первую ниже.</td></tr>
+      <% } %>
+      <% categories.forEach((category, index) => { %>
+        <tr>
+          <td>
+            <div class="order-controls">
+              <form class="inline" method="POST" action="/admin/categories/<%= category.id %>/move">
+                <input type="hidden" name="direction" value="up">
+                <button type="submit" <%= index === 0 ? 'disabled' : '' %>>▲</button>
+              </form>
+              <form class="inline" method="POST" action="/admin/categories/<%= category.id %>/move">
+                <input type="hidden" name="direction" value="down">
+                <button type="submit" <%= index === categories.length - 1 ? 'disabled' : '' %>>▼</button>
+              </form>
+            </div>
+          </td>
+          <td>
+            <form class="row-form" method="POST" action="/admin/categories/<%= category.id %>?_method=PATCH">
+              <input type="text" name="name_ru" value="<%= category.name_ru %>" required>
+              <input type="text" name="name_uz" value="<%= category.name_uz %>" required>
+              <button type="submit">Сохранить</button>
+            </form>
+          </td>
+          <td></td>
+          <td>
+            <form class="inline" method="POST" action="/admin/categories/<%= category.id %>?_method=DELETE"
+                  onsubmit="return confirm('Удалить категорию «<%= category.name_ru %>»?');">
+              <button type="submit" class="danger">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <div class="card">
+    <h2>Добавить категорию</h2>
+    <form method="POST" action="/admin/categories">
+      <label for="name_ru">Название (русский)</label>
+      <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required style="width:100%; margin-bottom: 1rem;">
+
+      <label for="name_uz">Название (oʻzbekcha)</label>
+      <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required style="width:100%; margin-bottom: 1rem;">
+
+      <button type="submit" class="primary">Добавить</button>
+    </form>
+  </div>
+</body>
+</html>

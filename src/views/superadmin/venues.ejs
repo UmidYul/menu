@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заведения — суперадмин</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.25rem; margin: 0; }
+    h2 { font-size: 1.05rem; margin: 0 0 1rem; }
+    .role { color: #666; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.primary:hover { background: #1558b0; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 2rem; }
+    th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid #eee; }
+    th { background: #fafafa; font-size: 0.85rem; color: #555; }
+    .status-active { color: #1a7f37; }
+    .status-inactive { color: #b3261e; }
+    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: #333; }
+    input, select { width: 100%; padding: 0.55rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
+    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
+    .hint { font-size: 0.8rem; color: #777; margin: -0.75rem 0 1rem; }
+    form.inline { display: inline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Все заведения</h1>
+      <div class="role">Вы вошли как <%= login %> (суперадминистратор)</div>
+    </div>
+    <form method="POST" action="/admin/logout">
+      <button type="submit">Выйти</button>
+    </form>
+  </header>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Slug</th>
+        <th>Название</th>
+        <th>Статус</th>
+        <th>Оплачено до</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (venues.length === 0) { %>
+        <tr><td colspan="5">Заведений пока нет.</td></tr>
+      <% } %>
+      <% venues.forEach((venue) => { %>
+        <tr>
+          <td><%= venue.slug %></td>
+          <td><%= venue.name %></td>
+          <td class="<%= venue.is_active ? 'status-active' : 'status-inactive' %>">
+            <%= venue.is_active ? 'активно' : 'отключено' %>
+          </td>
+          <td><%= venue.subscription_until ? venue.subscription_until.toISOString().slice(0, 10) : '—' %></td>
+          <td>
+            <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
+              <button type="submit"><%= venue.is_active ? 'Отключить' : 'Включить' %></button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <div class="card">
+    <h2>Создать заведение</h2>
+    <% if (error) { %>
+      <div class="error"><%= error %></div>
+    <% } %>
+    <form method="POST" action="/superadmin/venues">
+      <label for="slug">Slug (для ссылки /menu/:slug)</label>
+      <input type="text" id="slug" name="slug" value="<%= formValues.slug %>" placeholder="my-cafe" required>
+      <div class="hint">Только строчные латинские буквы, цифры и дефис. Изменить потом будет нельзя.</div>
+
+      <label for="name">Название заведения</label>
+      <input type="text" id="name" name="name" value="<%= formValues.name %>" required>
+
+      <label for="lang_default">Язык по умолчанию</label>
+      <select id="lang_default" name="lang_default">
+        <option value="ru" <%= formValues.lang_default === 'ru' ? 'selected' : '' %>>Русский</option>
+        <option value="uz" <%= formValues.lang_default === 'uz' ? 'selected' : '' %>>Oʻzbekcha</option>
+      </select>
+
+      <label for="admin_login">Логин администратора заведения</label>
+      <input type="text" id="admin_login" name="admin_login" value="<%= formValues.admin_login %>" required>
+
+      <label for="admin_password">Пароль администратора заведения</label>
+      <input type="password" id="admin_password" name="admin_password" required minlength="6">
+
+      <button type="submit" class="primary">Создать заведение</button>
+    </form>
+  </div>
+</body>
+</html>
