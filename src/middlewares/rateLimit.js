@@ -7,7 +7,7 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).render('admin/login', {
-      error: 'Слишком много попыток входа. Попробуйте снова через 15 минут.',
+      error: res.locals.t('login.errorRateLimited'),
       login: req.body.login || '',
     });
   },

@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 
 async function listAll() {
   const result = await pool.query(
-    'SELECT id, slug, name, is_active, subscription_until FROM venues ORDER BY created_at DESC'
+    'SELECT id, slug, name, is_active, subscription_until, show_powered_by FROM venues ORDER BY created_at DESC'
   );
   return result.rows;
 }
@@ -14,6 +14,16 @@ async function findBySlug(slug) {
 
 async function findById(id) {
   const result = await pool.query('SELECT * FROM venues WHERE id = $1', [id]);
+  return result.rows[0] || null;
+}
+
+async function findPublicBySlug(slug) {
+  const result = await pool.query(
+    `SELECT id, slug, name, phone, address, address_2gis_url, working_hours,
+            instagram_url, telegram_url, lang_default, is_active, show_powered_by
+     FROM venues WHERE slug = $1`,
+    [slug]
+  );
   return result.rows[0] || null;
 }
 
@@ -35,4 +45,32 @@ async function toggleActive(id) {
   return result.rows[0] || null;
 }
 
-module.exports = { listAll, findBySlug, findById, create, toggleActive };
+async function toggleShowPoweredBy(id) {
+  const result = await pool.query(
+    'UPDATE venues SET show_powered_by = NOT show_powered_by WHERE id = $1 RETURNING id, slug, name, show_powered_by',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+async function updateSettings(id, { phone, address, address2gisUrl, workingHours, instagramUrl, telegramUrl }) {
+  const result = await pool.query(
+    `UPDATE venues
+     SET phone = $1, address = $2, address_2gis_url = $3, working_hours = $4, instagram_url = $5, telegram_url = $6
+     WHERE id = $7
+     RETURNING *`,
+    [phone, address, address2gisUrl, JSON.stringify(workingHours), instagramUrl, telegramUrl, id]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  listAll,
+  findBySlug,
+  findById,
+  findPublicBySlug,
+  create,
+  toggleActive,
+  toggleShowPoweredBy,
+  updateSettings,
+};

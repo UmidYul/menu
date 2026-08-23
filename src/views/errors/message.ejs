@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +16,7 @@
   <div class="card">
     <h1><%= title %></h1>
     <p><%= message %></p>
-    <a href="<%= backUrl || '/admin/login' %>">Назад</a>
+    <a href="<%= backUrl || '/admin/login' %>"><%= t('errors.back') %></a>
   </div>
 </body>
 </html>

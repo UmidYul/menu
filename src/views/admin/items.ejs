@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('items.pageTitle') %></title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
+    .lang-switch a.active { background: #1a1a1a; color: #fff; }
+    h1 { font-size: 1.25rem; margin: 0; }
+    h2 { font-size: 1.05rem; margin: 1.5rem 0 0.75rem; }
+    .role { color: #666; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.primary:hover { background: #1558b0; }
+    button.danger { background: #fdecea; color: #b3261e; border-color: #f5c6c2; }
+    button.toggle-on { background: #e6f4ea; color: #1a7f37; border-color: #b7e1c1; }
+    button.toggle-off { background: #fdecea; color: #b3261e; border-color: #f5c6c2; }
+    .card { background: #fff; padding: 1.25rem 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 640px; margin-bottom: 1rem; }
+    .card.unavailable { opacity: 0.6; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .card-header .name { font-weight: 600; }
+    label { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; color: #555; }
+    input, select, textarea { width: 100%; padding: 0.5rem; margin-bottom: 0.75rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem; font-family: inherit; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; max-width: 640px; }
+    .tags-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.75rem; }
+    .tags-row label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; margin-bottom: 0; color: #333; }
+    .tags-row input { width: auto; margin: 0; }
+    .actions { display: flex; gap: 0.5rem; align-items: center; }
+    form.inline { display: inline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1><%= t('items.heading') %></h1>
+      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.venue_admin') %>)</div>
+    </div>
+    <form method="POST" action="/admin/logout">
+      <button type="submit"><%= t('common.logout') %></button>
+    </form>
+  </header>
+  <nav>
+    <div>
+      <a href="/admin"><%= t('nav.dashboard') %></a>
+      <a href="/admin/categories"><%= t('nav.categories') %></a>
+      <a href="/admin/items"><%= t('nav.items') %></a>
+      <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
+      <a href="/admin/staff"><%= t('nav.staff') %></a>
+    </div>
+    <div class="lang-switch">
+      <a href="/admin/lang?lang=ru&redirect=/admin/items" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+      <a href="/admin/lang?lang=uz&redirect=/admin/items" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+    </div>
+  </nav>
+
+  <% if (error) { %>
+    <div class="error"><%= error %></div>
+  <% } %>
+
+  <% if (groups.length === 0) { %>
+    <p><%= t('items.empty') %></p>
+  <% } %>
+
+  <% groups.forEach((group) => { %>
+    <h2><%= group.categoryName %></h2>
+    <% group.items.forEach((item) => { %>
+      <div class="card <%= item.is_available ? '' : 'unavailable' %>">
+        <div class="card-header">
+          <span class="name">
+            <% if (item.photo_thumb_url) { %>
+              <img src="<%= item.photo_thumb_url %>" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:0.5rem;">
+            <% } %>
+            <%= item.name_ru %>
+          </span>
+          <div class="actions">
+            <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
+              <button type="submit" class="<%= item.is_available ? 'toggle-on' : 'toggle-off' %>">
+                <%= item.is_available ? t('items.available') : t('items.unavailable') %>
+              </button>
+            </form>
+            <form class="inline" method="POST" action="/admin/items/<%= item.id %>?_method=DELETE"
+                  onsubmit="return confirm('<%= t('items.confirmDelete', { name: item.name_ru }) %>');">
+              <button type="submit" class="danger"><%= t('common.delete') %></button>
+            </form>
+          </div>
+        </div>
+
+        <form method="POST" action="/admin/items/<%= item.id %>?_method=PATCH" enctype="multipart/form-data">
+          <input type="hidden" name="category_id" value="<%= item.category_id %>">
+
+          <label><%= t('items.photoLabel') %></label>
+          <input type="file" name="photo" accept="image/*">
+
+          <div class="grid-2">
+            <div>
+              <label><%= t('items.nameRuLabel') %></label>
+              <input type="text" name="name_ru" value="<%= item.name_ru %>" required>
+            </div>
+            <div>
+              <label><%= t('items.nameUzLabel') %></label>
+              <input type="text" name="name_uz" value="<%= item.name_uz %>" required>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label><%= t('items.descriptionRuLabel') %></label>
+              <textarea name="description_ru" rows="2"><%= item.description_ru || '' %></textarea>
+            </div>
+            <div>
+              <label><%= t('items.descriptionUzLabel') %></label>
+              <textarea name="description_uz" rows="2"><%= item.description_uz || '' %></textarea>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label><%= t('items.priceLabel') %></label>
+              <input type="number" name="price" value="<%= item.price %>" step="0.01" min="0" required>
+            </div>
+            <div>
+              <label><%= t('items.currencyLabel') %></label>
+              <input type="text" name="currency" value="<%= item.currency %>" required>
+            </div>
+          </div>
+
+          <label><%= t('items.tagsLabel') %></label>
+          <div class="tags-row">
+            <% allowedTags.forEach((tag) => { %>
+              <label>
+                <input type="checkbox" name="tags" value="<%= tag %>" <%= item.tags.includes(tag) ? 'checked' : '' %>>
+                <%= t('tags.' + tag) %>
+              </label>
+            <% }) %>
+          </div>
+
+          <button type="submit" class="primary"><%= t('common.save') %></button>
+        </form>
+      </div>
+    <% }) %>
+  <% }) %>
+
+  <div class="card">
+    <h2 style="margin-top:0;"><%= t('items.addHeading') %></h2>
+    <form method="POST" action="/admin/items" enctype="multipart/form-data">
+      <label for="category_id"><%= t('items.categoryLabel') %></label>
+      <select id="category_id" name="category_id" required>
+        <option value=""><%= t('items.categoryPlaceholder') %></option>
+        <% categories.forEach((category) => { %>
+          <option value="<%= category.id %>" <%= String(formValues.category_id) === String(category.id) ? 'selected' : '' %>>
+            <%= category.name_ru %>
+          </option>
+        <% }) %>
+      </select>
+
+      <label for="photo"><%= t('items.photoOptionalLabel') %></label>
+      <input type="file" id="photo" name="photo" accept="image/*">
+
+      <div class="grid-2">
+        <div>
+          <label for="name_ru"><%= t('items.nameRuLabelFull') %></label>
+          <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required>
+        </div>
+        <div>
+          <label for="name_uz"><%= t('items.nameUzLabelFull') %></label>
+          <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label for="description_ru"><%= t('items.descriptionRuLabel') %></label>
+          <textarea id="description_ru" name="description_ru" rows="2"><%= formValues.description_ru %></textarea>
+        </div>
+        <div>
+          <label for="description_uz"><%= t('items.descriptionUzLabel') %></label>
+          <textarea id="description_uz" name="description_uz" rows="2"><%= formValues.description_uz %></textarea>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label for="price"><%= t('items.priceLabel') %></label>
+          <input type="number" id="price" name="price" value="<%= formValues.price %>" step="0.01" min="0" required>
+        </div>
+        <div>
+          <label for="currency"><%= t('items.currencyLabel') %></label>
+          <input type="text" id="currency" name="currency" value="<%= formValues.currency %>" required>
+        </div>
+      </div>
+
+      <label><%= t('items.tagsLabel') %></label>
+      <div class="tags-row">
+        <% allowedTags.forEach((tag) => { %>
+          <label>
+            <input type="checkbox" name="tags" value="<%= tag %>" <%= formValues.tags.includes(tag) ? 'checked' : '' %>>
+            <%= t('tags.' + tag) %>
+          </label>
+        <% }) %>
+      </div>
+
+      <button type="submit" class="primary"><%= t('common.add') %></button>
+    </form>
+  </div>
+</body>
+</html>

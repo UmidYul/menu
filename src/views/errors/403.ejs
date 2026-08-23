@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Доступ запрещён</title>
+  <title><%= t('errors.forbiddenTitle') %></title>
   <style>
     body { font-family: system-ui, sans-serif; background: #f4f5f7; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
     .card { background: #fff; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
@@ -14,9 +14,9 @@
 </head>
 <body>
   <div class="card">
-    <h1>403 — доступ запрещён</h1>
-    <p>У вас нет прав для просмотра этой страницы.</p>
-    <a href="/admin/login">Вернуться ко входу</a>
+    <h1><%= t('errors.forbiddenTitle') %></h1>
+    <p><%= t('errors.forbiddenMessage') %></p>
+    <a href="/admin/login"><%= t('errors.forbiddenBackLink') %></a>
   </div>
 </body>
 </html>

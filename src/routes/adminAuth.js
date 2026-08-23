@@ -15,11 +15,12 @@ router.get('/login', (req, res) => {
 });
 
 router.post('/login', loginLimiter, async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).render('admin/login', {
-        error: 'Заполните логин и пароль',
+        error: t('login.errorEmptyFields'),
         login: typeof req.body.login === 'string' ? req.body.login : '',
       });
     }
@@ -28,7 +29,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     const admin = await findByLogin(login);
     if (!admin) {
       return res.status(401).render('admin/login', {
-        error: 'Неверный логин или пароль',
+        error: t('login.errorInvalidCredentials'),
         login,
       });
     }
@@ -36,14 +37,21 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     const passwordMatches = await bcrypt.compare(password, admin.password_hash);
     if (!passwordMatches) {
       return res.status(401).render('admin/login', {
-        error: 'Неверный логин или пароль',
+        error: t('login.errorInvalidCredentials'),
+        login,
+      });
+    }
+
+    if (admin.is_active === false) {
+      return res.status(403).render('admin/login', {
+        error: t('login.errorAccountDisabled'),
         login,
       });
     }
 
     if (admin.role !== 'superadmin' && admin.venue_is_active === false) {
       return res.status(403).render('admin/login', {
-        error: 'Заведение временно отключено. Обратитесь к администратору сервиса.',
+        error: t('login.errorVenueDisabled'),
         login,
       });
     }
@@ -56,6 +64,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         login: admin.login,
         role: admin.role,
         venueId: admin.venue_id,
+        venueSlug: admin.venue_slug || null,
       };
 
       req.session.save((saveErr) => {

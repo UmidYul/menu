@@ -6,6 +6,7 @@ const { pool } = require('../config/db');
 const categoryModel = require('../models/categoryModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { categorySchema } = require('../validators/categoryValidators');
+const menuCache = require('../services/menuCache');
 
 router.use(requireAuth, requireRole(['venue_admin']));
 
@@ -23,11 +24,12 @@ async function renderList(req, res, status, error, formValues) {
 // Загружает категорию по id и проверяет, что она принадлежит текущему заведению.
 // Возвращает null и сама отправляет 404, если категория не найдена или чужая.
 async function loadOwnCategoryOr404(req, res) {
+  const { t } = res.locals;
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     res.status(404).render('errors/message', {
-      title: 'Категория не найдена',
-      message: 'Такой категории не существует.',
+      title: t('categories.notFoundTitle'),
+      message: t('categories.notFoundMessage'),
       backUrl: '/admin/categories',
     });
     return null;
@@ -36,8 +38,8 @@ async function loadOwnCategoryOr404(req, res) {
   const category = await categoryModel.findById(id);
   if (!category || category.venue_id !== req.session.admin.venueId) {
     res.status(404).render('errors/message', {
-      title: 'Категория не найдена',
-      message: 'Такой категории не существует или она принадлежит другому заведению.',
+      title: t('categories.notFoundTitle'),
+      message: t('categories.notFoundForeignMessage'),
       backUrl: '/admin/categories',
     });
     return null;
@@ -55,10 +57,11 @@ router.get('/', async (req, res, next) => {
 });
 
 router.post('/', async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const parsed = categorySchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderList(req, res, 400, parsed.error.issues[0].message, {
+      return renderList(req, res, 400, t(parsed.error.issues[0].message), {
         name_ru: typeof req.body.name_ru === 'string' ? req.body.name_ru : '',
         name_uz: typeof req.body.name_uz === 'string' ? req.body.name_uz : '',
       });
@@ -79,6 +82,7 @@ router.post('/', async (req, res, next) => {
       details: { name_ru: category.name_ru, name_uz: category.name_uz },
     });
 
+    menuCache.invalidateVenue(req.session.admin.venueSlug);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);
@@ -86,13 +90,14 @@ router.post('/', async (req, res, next) => {
 });
 
 router.patch('/:id', async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const category = await loadOwnCategoryOr404(req, res);
     if (!category) return;
 
     const parsed = categorySchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderList(req, res, 400, parsed.error.issues[0].message);
+      return renderList(req, res, 400, t(parsed.error.issues[0].message));
     }
 
     const before = { name_ru: category.name_ru, name_uz: category.name_uz };
@@ -110,6 +115,7 @@ router.patch('/:id', async (req, res, next) => {
       details: { before, after: { name_ru: updated.name_ru, name_uz: updated.name_uz } },
     });
 
+    menuCache.invalidateVenue(req.session.admin.venueSlug);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);
@@ -117,6 +123,7 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 router.delete('/:id', async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const category = await loadOwnCategoryOr404(req, res);
     if (!category) return;
@@ -127,7 +134,7 @@ router.delete('/:id', async (req, res, next) => {
         req,
         res,
         409,
-        `Нельзя удалить категорию "${category.name_ru}" — в ней ${itemsCount} позиций. Сначала перенесите или удалите их.`
+        t('categories.errorHasItems', { name: category.name_ru, count: itemsCount })
       );
     }
 
@@ -142,23 +149,25 @@ router.delete('/:id', async (req, res, next) => {
       details: { name_ru: category.name_ru, name_uz: category.name_uz },
     });
 
+    menuCache.invalidateVenue(req.session.admin.venueSlug);
     res.redirect('/admin/categories');
   } catch (err) {
     if (err.code === '23503') {
-      return renderList(req, res, 409, 'Нельзя удалить категорию, пока в ней есть позиции меню.');
+      return renderList(req, res, 409, t('categories.errorHasItemsGeneric'));
     }
     next(err);
   }
 });
 
 router.post('/:id/move', async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const category = await loadOwnCategoryOr404(req, res);
     if (!category) return;
 
     const direction = req.body.direction;
     if (direction !== 'up' && direction !== 'down') {
-      return renderList(req, res, 400, 'Некорректное направление перемещения.');
+      return renderList(req, res, 400, t('categories.errorInvalidDirection'));
     }
 
     const venueId = req.session.admin.venueId;
@@ -191,6 +200,7 @@ router.post('/:id/move', async (req, res, next) => {
       details: { moved: direction },
     });
 
+    menuCache.invalidateVenue(req.session.admin.venueSlug);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);

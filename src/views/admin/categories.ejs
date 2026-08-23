@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Категории меню — панель управления</title>
+  <title><%= t('categories.pageTitle') %></title>
   <style>
     body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    nav { margin-bottom: 1.5rem; }
+    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
     nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
+    .lang-switch a.active { background: #1a1a1a; color: #fff; }
     h1 { font-size: 1.25rem; margin: 0; }
     h2 { font-size: 1.05rem; margin: 0 0 1rem; }
     .role { color: #666; font-size: 0.85rem; }
@@ -32,16 +34,25 @@
 <body>
   <header>
     <div>
-      <h1>Категории меню</h1>
-      <div class="role">Вы вошли как <%= login %> (администратор заведения)</div>
+      <h1><%= t('categories.heading') %></h1>
+      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.venue_admin') %>)</div>
     </div>
     <form method="POST" action="/admin/logout">
-      <button type="submit">Выйти</button>
+      <button type="submit"><%= t('common.logout') %></button>
     </form>
   </header>
   <nav>
-    <a href="/admin">Кабинет</a>
-    <a href="/admin/categories">Категории</a>
+    <div>
+      <a href="/admin"><%= t('nav.dashboard') %></a>
+      <a href="/admin/categories"><%= t('nav.categories') %></a>
+      <a href="/admin/items"><%= t('nav.items') %></a>
+      <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
+      <a href="/admin/staff"><%= t('nav.staff') %></a>
+    </div>
+    <div class="lang-switch">
+      <a href="/admin/lang?lang=ru&redirect=/admin/categories" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+      <a href="/admin/lang?lang=uz&redirect=/admin/categories" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+    </div>
   </nav>
 
   <% if (error) { %>
@@ -51,15 +62,15 @@
   <table>
     <thead>
       <tr>
-        <th>Порядок</th>
-        <th>Название (RU)</th>
-        <th>Название (UZ)</th>
+        <th><%= t('categories.colOrder') %></th>
+        <th><%= t('categories.colNameRu') %></th>
+        <th><%= t('categories.colNameUz') %></th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       <% if (categories.length === 0) { %>
-        <tr><td colspan="4">Категорий пока нет — добавьте первую ниже.</td></tr>
+        <tr><td colspan="4"><%= t('categories.empty') %></td></tr>
       <% } %>
       <% categories.forEach((category, index) => { %>
         <tr>
@@ -79,14 +90,14 @@
             <form class="row-form" method="POST" action="/admin/categories/<%= category.id %>?_method=PATCH">
               <input type="text" name="name_ru" value="<%= category.name_ru %>" required>
               <input type="text" name="name_uz" value="<%= category.name_uz %>" required>
-              <button type="submit">Сохранить</button>
+              <button type="submit"><%= t('common.save') %></button>
             </form>
           </td>
           <td></td>
           <td>
             <form class="inline" method="POST" action="/admin/categories/<%= category.id %>?_method=DELETE"
-                  onsubmit="return confirm('Удалить категорию «<%= category.name_ru %>»?');">
-              <button type="submit" class="danger">Удалить</button>
+                  onsubmit="return confirm('<%= t('categories.confirmDelete', { name: category.name_ru }) %>');">
+              <button type="submit" class="danger"><%= t('common.delete') %></button>
             </form>
           </td>
         </tr>
@@ -95,15 +106,15 @@
   </table>
 
   <div class="card">
-    <h2>Добавить категорию</h2>
+    <h2><%= t('categories.addHeading') %></h2>
     <form method="POST" action="/admin/categories">
-      <label for="name_ru">Название (русский)</label>
+      <label for="name_ru"><%= t('categories.nameRuLabel') %></label>
       <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required style="width:100%; margin-bottom: 1rem;">
 
-      <label for="name_uz">Название (oʻzbekcha)</label>
+      <label for="name_uz"><%= t('categories.nameUzLabel') %></label>
       <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required style="width:100%; margin-bottom: 1rem;">
 
-      <button type="submit" class="primary">Добавить</button>
+      <button type="submit" class="primary"><%= t('common.add') %></button>
     </form>
   </div>
 </body>

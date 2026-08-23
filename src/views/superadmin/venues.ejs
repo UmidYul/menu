@@ -1,15 +1,18 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Заведения — суперадмин</title>
+  <title><%= t('superadmin.pageTitle') %></title>
   <style>
     body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     h1 { font-size: 1.25rem; margin: 0; }
     h2 { font-size: 1.05rem; margin: 0 0 1rem; }
     .role { color: #666; font-size: 0.85rem; }
+    .lang-switch { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; }
+    .lang-switch a { padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; text-decoration: none; }
+    .lang-switch a.active { background: #1a1a1a; color: #fff; }
     button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
     button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
     button.primary:hover { background: #1558b0; }
@@ -29,39 +32,48 @@
 <body>
   <header>
     <div>
-      <h1>Все заведения</h1>
-      <div class="role">Вы вошли как <%= login %> (суперадминистратор)</div>
+      <h1><%= t('superadmin.heading') %></h1>
+      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.superadmin') %>)</div>
     </div>
     <form method="POST" action="/admin/logout">
-      <button type="submit">Выйти</button>
+      <button type="submit"><%= t('common.logout') %></button>
     </form>
   </header>
+  <div class="lang-switch">
+    <a href="/admin/lang?lang=ru&redirect=/superadmin/venues" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+    <a href="/admin/lang?lang=uz&redirect=/superadmin/venues" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+  </div>
 
   <table>
     <thead>
       <tr>
-        <th>Slug</th>
-        <th>Название</th>
-        <th>Статус</th>
-        <th>Оплачено до</th>
+        <th><%= t('superadmin.colSlug') %></th>
+        <th><%= t('superadmin.colName') %></th>
+        <th><%= t('superadmin.colStatus') %></th>
+        <th><%= t('superadmin.colPaidUntil') %></th>
+        <th><%= t('superadmin.colPoweredBy') %></th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       <% if (venues.length === 0) { %>
-        <tr><td colspan="5">Заведений пока нет.</td></tr>
+        <tr><td colspan="6"><%= t('superadmin.empty') %></td></tr>
       <% } %>
       <% venues.forEach((venue) => { %>
         <tr>
           <td><%= venue.slug %></td>
           <td><%= venue.name %></td>
           <td class="<%= venue.is_active ? 'status-active' : 'status-inactive' %>">
-            <%= venue.is_active ? 'активно' : 'отключено' %>
+            <%= venue.is_active ? t('superadmin.statusActive') : t('superadmin.statusInactive') %>
           </td>
           <td><%= venue.subscription_until ? venue.subscription_until.toISOString().slice(0, 10) : '—' %></td>
+          <td><%= venue.show_powered_by ? t('superadmin.poweredByShown') : t('superadmin.poweredByHidden') %></td>
           <td>
             <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
-              <button type="submit"><%= venue.is_active ? 'Отключить' : 'Включить' %></button>
+              <button type="submit"><%= venue.is_active ? t('superadmin.disable') : t('superadmin.enable') %></button>
+            </form>
+            <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-powered-by">
+              <button type="submit"><%= venue.show_powered_by ? t('superadmin.hidePoweredBy') : t('superadmin.showPoweredByAction') %></button>
             </form>
           </td>
         </tr>
@@ -70,31 +82,31 @@
   </table>
 
   <div class="card">
-    <h2>Создать заведение</h2>
+    <h2><%= t('superadmin.addHeading') %></h2>
     <% if (error) { %>
       <div class="error"><%= error %></div>
     <% } %>
     <form method="POST" action="/superadmin/venues">
-      <label for="slug">Slug (для ссылки /menu/:slug)</label>
+      <label for="slug"><%= t('superadmin.slugLabel') %></label>
       <input type="text" id="slug" name="slug" value="<%= formValues.slug %>" placeholder="my-cafe" required>
-      <div class="hint">Только строчные латинские буквы, цифры и дефис. Изменить потом будет нельзя.</div>
+      <div class="hint"><%= t('superadmin.slugHint') %></div>
 
-      <label for="name">Название заведения</label>
+      <label for="name"><%= t('superadmin.nameLabel') %></label>
       <input type="text" id="name" name="name" value="<%= formValues.name %>" required>
 
-      <label for="lang_default">Язык по умолчанию</label>
+      <label for="lang_default"><%= t('superadmin.langDefaultLabel') %></label>
       <select id="lang_default" name="lang_default">
         <option value="ru" <%= formValues.lang_default === 'ru' ? 'selected' : '' %>>Русский</option>
         <option value="uz" <%= formValues.lang_default === 'uz' ? 'selected' : '' %>>Oʻzbekcha</option>
       </select>
 
-      <label for="admin_login">Логин администратора заведения</label>
+      <label for="admin_login"><%= t('superadmin.adminLoginLabel') %></label>
       <input type="text" id="admin_login" name="admin_login" value="<%= formValues.admin_login %>" required>
 
-      <label for="admin_password">Пароль администратора заведения</label>
+      <label for="admin_password"><%= t('superadmin.adminPasswordLabel') %></label>
       <input type="password" id="admin_password" name="admin_password" required minlength="6">
 
-      <button type="submit" class="primary">Создать заведение</button>
+      <button type="submit" class="primary"><%= t('superadmin.submit') %></button>
     </form>
   </div>
 </body>

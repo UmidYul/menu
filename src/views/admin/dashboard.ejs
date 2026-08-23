@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= venue.name %> — панель управления</title>
+  <title><%= venue.name %> — panel</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     h1 { font-size: 1.25rem; margin: 0; }
     .role { color: #666; font-size: 0.85rem; }
-    nav { margin-bottom: 1.5rem; }
+    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
     nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
+    .lang-switch a.active { background: #1a1a1a; color: #fff; }
     button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; }
     .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
   </style>
@@ -19,21 +21,38 @@
   <header>
     <div>
       <h1><%= venue.name %></h1>
-      <div class="role">Вы вошли как <%= login %> (<%= role === 'venue_admin' ? 'администратор заведения' : 'сотрудник' %>)</div>
+      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.' + role) %>)</div>
     </div>
     <form method="POST" action="/admin/logout">
-      <button type="submit">Выйти</button>
+      <button type="submit"><%= t('common.logout') %></button>
     </form>
   </header>
   <% if (role === 'venue_admin') { %>
     <nav>
-      <a href="/admin">Кабинет</a>
-      <a href="/admin/categories">Категории</a>
+      <div>
+        <a href="/admin"><%= t('nav.dashboard') %></a>
+        <a href="/admin/categories"><%= t('nav.categories') %></a>
+        <a href="/admin/items"><%= t('nav.items') %></a>
+        <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
+      <a href="/admin/staff"><%= t('nav.staff') %></a>
+      </div>
+      <div class="lang-switch">
+        <a href="/admin/lang?lang=ru&redirect=/admin" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+        <a href="/admin/lang?lang=uz&redirect=/admin" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+      </div>
+    </nav>
+  <% } else { %>
+    <nav>
+      <a href="/admin/items"><%= t('nav.availability') %></a>
+      <div class="lang-switch">
+        <a href="/admin/lang?lang=ru&redirect=/admin" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+        <a href="/admin/lang?lang=uz&redirect=/admin" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+      </div>
     </nav>
   <% } %>
   <div class="card">
-    <p><strong>Slug:</strong> <%= venue.slug %></p>
-    <p><strong>Статус:</strong> <%= venue.is_active ? 'активно' : 'отключено' %></p>
+    <p><strong><%= t('dashboard.slugLabel') %>:</strong> <%= venue.slug %></p>
+    <p><strong><%= t('dashboard.statusLabel') %>:</strong> <%= venue.is_active ? t('dashboard.statusActive') : t('dashboard.statusInactive') %></p>
   </div>
 </body>
 </html>

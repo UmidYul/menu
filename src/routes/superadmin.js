@@ -8,6 +8,7 @@ const venueModel = require('../models/venueModel');
 const adminModel = require('../models/adminModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { createVenueSchema } = require('../validators/venueValidators');
+const menuCache = require('../services/menuCache');
 
 router.use(requireAuth, requireRole(['superadmin']));
 
@@ -26,6 +27,7 @@ router.get('/venues', async (req, res, next) => {
 });
 
 router.post('/venues', async (req, res, next) => {
+  const { t } = res.locals;
   const renderWithError = async (status, error) => {
     const venues = await venueModel.listAll();
     res.status(status).render('superadmin/venues', {
@@ -44,19 +46,19 @@ router.post('/venues', async (req, res, next) => {
   try {
     const parsed = createVenueSchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderWithError(400, parsed.error.issues[0].message);
+      return renderWithError(400, t(parsed.error.issues[0].message));
     }
     const { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: adminPassword } =
       parsed.data;
 
     const existingVenue = await venueModel.findBySlug(slug);
     if (existingVenue) {
-      return renderWithError(409, `Заведение со slug "${slug}" уже существует`);
+      return renderWithError(409, t('superadmin.errorSlugTaken', { slug }));
     }
 
     const existingAdmin = await adminModel.findByLogin(adminLogin);
     if (existingAdmin) {
-      return renderWithError(409, `Логин администратора "${adminLogin}" уже занят`);
+      return renderWithError(409, t('superadmin.errorLoginTaken', { login: adminLogin }));
     }
 
     const client = await pool.connect();
@@ -85,7 +87,7 @@ router.post('/venues', async (req, res, next) => {
     } catch (err) {
       await client.query('ROLLBACK');
       if (err.code === '23505') {
-        return renderWithError(409, 'Такой slug или логин администратора уже используется');
+        return renderWithError(409, t('superadmin.errorGenericConflict'));
       }
       throw err;
     } finally {
@@ -99,12 +101,13 @@ router.post('/venues', async (req, res, next) => {
 });
 
 router.post('/venues/:id/toggle-active', async (req, res, next) => {
+  const { t } = res.locals;
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).render('errors/message', {
-        title: 'Некорректный запрос',
-        message: 'Неверный идентификатор заведения.',
+        title: t('superadmin.notFoundInvalidId'),
+        message: t('superadmin.notFoundInvalidIdMessage'),
         backUrl: '/superadmin/venues',
       });
     }
@@ -112,8 +115,8 @@ router.post('/venues/:id/toggle-active', async (req, res, next) => {
     const venue = await venueModel.toggleActive(id);
     if (!venue) {
       return res.status(404).render('errors/message', {
-        title: 'Заведение не найдено',
-        message: 'Заведение с таким идентификатором не найдено — возможно, оно уже было удалено.',
+        title: t('superadmin.notFoundVenue'),
+        message: t('superadmin.notFoundVenueMessage'),
         backUrl: '/superadmin/venues',
       });
     }
@@ -127,6 +130,43 @@ router.post('/venues/:id/toggle-active', async (req, res, next) => {
       details: { is_active: venue.is_active },
     });
 
+    res.redirect('/superadmin/venues');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/venues/:id/toggle-powered-by', async (req, res, next) => {
+  const { t } = res.locals;
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).render('errors/message', {
+        title: t('superadmin.notFoundInvalidId'),
+        message: t('superadmin.notFoundInvalidIdMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    const venue = await venueModel.toggleShowPoweredBy(id);
+    if (!venue) {
+      return res.status(404).render('errors/message', {
+        title: t('superadmin.notFoundVenue'),
+        message: t('superadmin.notFoundVenueMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    await logAction(pool, {
+      adminId: req.session.admin.id,
+      venueId: venue.id,
+      actionType: 'update',
+      entityType: 'venue',
+      entityId: venue.id,
+      details: { show_powered_by: venue.show_powered_by },
+    });
+
+    menuCache.invalidateVenue(venue.slug);
     res.redirect('/superadmin/venues');
   } catch (err) {
     next(err);

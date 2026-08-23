@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ошибка сервера</title>
+  <title><%= t('errors.serverErrorTitle') %></title>
   <style>
     body { font-family: system-ui, sans-serif; background: #f4f5f7; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
     .card { background: #fff; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
@@ -13,8 +13,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>Что-то пошло не так</h1>
-    <p>Попробуйте обновить страницу через минуту. Если ошибка повторяется, сообщите администратору сервиса.</p>
+    <h1><%= t('errors.serverErrorTitle') %></h1>
+    <p><%= t('errors.serverErrorMessage') %></p>
   </div>
 </body>
 </html>

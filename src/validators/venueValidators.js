@@ -6,14 +6,14 @@ const createVenueSchema = z.object({
   slug: z
     .string()
     .trim()
-    .min(1, 'Введите slug')
-    .regex(slugRegex, 'Slug может содержать только строчные латинские буквы, цифры и дефис (без пробелов и подряд идущих дефисов)'),
-  name: z.string().trim().min(1, 'Введите название заведения'),
+    .min(1, 'superadmin.errorSlugRequired')
+    .regex(slugRegex, 'superadmin.errorSlugFormat'),
+  name: z.string().trim().min(1, 'superadmin.errorNameRequired'),
   lang_default: z.enum(['ru', 'uz'], {
-    errorMap: () => ({ message: 'Выберите язык по умолчанию' }),
+    errorMap: () => ({ message: 'superadmin.errorLangRequired' }),
   }),
-  admin_login: z.string().trim().min(3, 'Логин администратора должен быть не короче 3 символов'),
-  admin_password: z.string().min(6, 'Пароль администратора должен быть не короче 6 символов'),
+  admin_login: z.string().trim().min(3, 'superadmin.errorAdminLoginTooShort'),
+  admin_password: z.string().min(6, 'superadmin.errorAdminPasswordTooShort'),
 });
 
 module.exports = { createVenueSchema };

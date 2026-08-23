@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('venueSettings.pageTitle') %></title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
+    .lang-switch a.active { background: #1a1a1a; color: #fff; }
+    h1 { font-size: 1.25rem; margin: 0; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.75rem; }
+    .role { color: #666; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.primary:hover { background: #1558b0; }
+    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 560px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: #333; }
+    input { width: 100%; padding: 0.55rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
+    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; max-width: 560px; }
+    .success { background: #e6f4ea; color: #1a7f37; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; max-width: 560px; }
+    .hint { font-size: 0.8rem; color: #777; margin: -0.75rem 0 1rem; }
+    .hours-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+    .hours-row .day-label { width: 130px; font-size: 0.85rem; color: #333; flex-shrink: 0; }
+    .hours-row input { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1><%= t('venueSettings.heading') %></h1>
+      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.venue_admin') %>)</div>
+    </div>
+    <form method="POST" action="/admin/logout">
+      <button type="submit"><%= t('common.logout') %></button>
+    </form>
+  </header>
+  <nav>
+    <div>
+      <a href="/admin"><%= t('nav.dashboard') %></a>
+      <a href="/admin/categories"><%= t('nav.categories') %></a>
+      <a href="/admin/items"><%= t('nav.items') %></a>
+      <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
+      <a href="/admin/staff"><%= t('nav.staff') %></a>
+    </div>
+    <div class="lang-switch">
+      <a href="/admin/lang?lang=ru&redirect=/admin/venue-settings" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+      <a href="/admin/lang?lang=uz&redirect=/admin/venue-settings" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+    </div>
+  </nav>
+
+  <% if (error) { %>
+    <div class="error"><%= error %></div>
+  <% } %>
+  <% if (saved) { %>
+    <div class="success"><%= t('venueSettings.saved') %></div>
+  <% } %>
+
+  <div class="card">
+    <form method="POST" action="/admin/venue-settings">
+      <label for="phone"><%= t('venueSettings.phoneLabel') %></label>
+      <input type="text" id="phone" name="phone" value="<%= formValues.phone %>" placeholder="<%= t('venueSettings.phonePlaceholder') %>">
+
+      <label for="address"><%= t('venueSettings.addressLabel') %></label>
+      <input type="text" id="address" name="address" value="<%= formValues.address %>">
+
+      <label for="address_2gis_url"><%= t('venueSettings.address2gisLabel') %></label>
+      <input type="text" id="address_2gis_url" name="address_2gis_url" value="<%= formValues.address_2gis_url %>" placeholder="https://2gis.uz/...">
+
+      <label for="instagram_url"><%= t('venueSettings.instagramLabel') %></label>
+      <input type="text" id="instagram_url" name="instagram_url" value="<%= formValues.instagram_url %>" placeholder="https://instagram.com/...">
+
+      <label for="telegram_url"><%= t('venueSettings.telegramLabel') %></label>
+      <input type="text" id="telegram_url" name="telegram_url" value="<%= formValues.telegram_url %>" placeholder="https://t.me/...">
+
+      <h2><%= t('venueSettings.workingHoursLabel') %></h2>
+      <div class="hint"><%= t('venueSettings.workingHoursHint') %></div>
+      <% days.forEach((day) => { %>
+        <div class="hours-row">
+          <span class="day-label"><%= t('days.' + day) %></span>
+          <input type="text" name="working_hours[<%= day %>]" value="<%= formValues.working_hours[day] %>" placeholder="09:00–22:00">
+        </div>
+      <% }) %>
+
+      <button type="submit" class="primary" style="margin-top: 0.5rem;"><%= t('venueSettings.submit') %></button>
+    </form>
+  </div>
+</body>
+</html>
