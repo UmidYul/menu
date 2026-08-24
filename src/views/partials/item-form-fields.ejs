@@ -1,0 +1,75 @@
+<%
+// Ожидает: v (name_ru, name_uz, description_ru, description_uz, composition_ru, composition_uz,
+// calories, price, currency, tags — все строки/массив, готовые к рендеру), t, allowedTags, photoLabel
+%>
+<div class="field">
+  <label><%= photoLabel %></label>
+  <input type="file" name="photo" accept="image/*">
+</div>
+
+<div class="field-grid">
+  <div class="field">
+    <label><%= t('items.nameRuLabelFull') %></label>
+    <input type="text" name="name_ru" value="<%= v.name_ru %>" required>
+  </div>
+  <div class="field">
+    <label><%= t('items.nameUzLabelFull') %></label>
+    <input type="text" name="name_uz" value="<%= v.name_uz %>" required>
+  </div>
+</div>
+
+<div class="field-grid">
+  <div class="field">
+    <label><%= t('items.descriptionRuLabel') %></label>
+    <textarea name="description_ru" rows="2"><%= v.description_ru %></textarea>
+  </div>
+  <div class="field">
+    <label><%= t('items.descriptionUzLabel') %></label>
+    <textarea name="description_uz" rows="2"><%= v.description_uz %></textarea>
+  </div>
+</div>
+
+<div class="field-grid">
+  <div class="field">
+    <label><%= t('items.compositionRuLabel') %></label>
+    <textarea name="composition_ru" rows="2"><%= v.composition_ru %></textarea>
+  </div>
+  <div class="field">
+    <label><%= t('items.compositionUzLabel') %></label>
+    <textarea name="composition_uz" rows="2"><%= v.composition_uz %></textarea>
+  </div>
+</div>
+
+<div class="field">
+  <label><%= t('items.caloriesLabel') %></label>
+  <input type="number" name="calories" min="0" step="1" value="<%= v.calories %>">
+</div>
+
+<div class="field-grid">
+  <div class="field">
+    <label><%= t('items.priceLabel') %></label>
+    <input type="number" name="price" value="<%= v.price %>" step="0.01" min="0" required>
+  </div>
+  <div class="field">
+    <label><%= t('items.currencyLabel') %></label>
+    <input type="text" name="currency" value="<%= v.currency %>" required>
+  </div>
+</div>
+
+<div class="field">
+  <label><%= t('items.oldPriceLabel') %></label>
+  <input type="number" name="old_price" value="<%= v.old_price %>" step="0.01" min="0">
+  <div class="hint"><%= t('items.oldPriceHint') %></div>
+</div>
+
+<div class="field">
+  <label><%= t('items.tagsLabel') %></label>
+  <div class="checkbox-row">
+    <% allowedTags.forEach((tag) => { %>
+      <label>
+        <input type="checkbox" name="tags" value="<%= tag %>" <%= v.tags.includes(tag) ? 'checked' : '' %>>
+        <%= t('tags.' + tag) %>
+      </label>
+    <% }) %>
+  </div>
+</div>

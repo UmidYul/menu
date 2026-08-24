@@ -4,110 +4,104 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= t('superadmin.pageTitle') %></title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    h1 { font-size: 1.25rem; margin: 0; }
-    h2 { font-size: 1.05rem; margin: 0 0 1rem; }
-    .role { color: #666; font-size: 0.85rem; }
-    .lang-switch { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; }
-    .lang-switch a { padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; text-decoration: none; }
-    .lang-switch a.active { background: #1a1a1a; color: #fff; }
-    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-    button.primary:hover { background: #1558b0; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 2rem; }
-    th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid #eee; }
-    th { background: #fafafa; font-size: 0.85rem; color: #555; }
-    .status-active { color: #1a7f37; }
-    .status-inactive { color: #b3261e; }
-    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
-    label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: #333; }
-    input, select { width: 100%; padding: 0.55rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
-    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-    .hint { font-size: 0.8rem; color: #777; margin: -0.75rem 0 1rem; }
-    form.inline { display: inline; }
-  </style>
+  <%- include('../partials/head-assets') %>
 </head>
 <body>
-  <header>
-    <div>
-      <h1><%= t('superadmin.heading') %></h1>
-      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.superadmin') %>)</div>
-    </div>
-    <form method="POST" action="/admin/logout">
-      <button type="submit"><%= t('common.logout') %></button>
-    </form>
-  </header>
-  <div class="lang-switch">
-    <a href="/admin/lang?lang=ru&redirect=/superadmin/venues" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
-    <a href="/admin/lang?lang=uz&redirect=/superadmin/venues" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
-  </div>
+<%
+  const activeCount = venues.filter((v) => v.is_active).length;
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'venues', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: t('superadmin.heading'), lang, currentPath: '/superadmin/venues', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div><span class="eyebrow"><%= t('roles.superadmin') %></span><h1><%= t('superadmin.heading') %></h1></div>
+        </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th><%= t('superadmin.colSlug') %></th>
-        <th><%= t('superadmin.colName') %></th>
-        <th><%= t('superadmin.colStatus') %></th>
-        <th><%= t('superadmin.colPaidUntil') %></th>
-        <th><%= t('superadmin.colPoweredBy') %></th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (venues.length === 0) { %>
-        <tr><td colspan="6"><%= t('superadmin.empty') %></td></tr>
-      <% } %>
-      <% venues.forEach((venue) => { %>
-        <tr>
-          <td><%= venue.slug %></td>
-          <td><%= venue.name %></td>
-          <td class="<%= venue.is_active ? 'status-active' : 'status-inactive' %>">
-            <%= venue.is_active ? t('superadmin.statusActive') : t('superadmin.statusInactive') %>
-          </td>
-          <td><%= venue.subscription_until ? venue.subscription_until.toISOString().slice(0, 10) : '—' %></td>
-          <td><%= venue.show_powered_by ? t('superadmin.poweredByShown') : t('superadmin.poweredByHidden') %></td>
-          <td>
-            <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
-              <button type="submit"><%= venue.is_active ? t('superadmin.disable') : t('superadmin.enable') %></button>
+        <div class="super-stats">
+          <div><span><%= t('superadmin.statTotal') %></span><b><%= venues.length %></b></div>
+          <div><span><%= t('superadmin.statusActive') %></span><b><%= activeCount %></b></div>
+          <div><span><%= t('superadmin.statusInactive') %></span><b><%= venues.length - activeCount %></b></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-heading">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.heading') %></h3></div>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('add-venue-modal').showModal()">
+              <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %>
+            </button>
+          </div>
+          <% if (venues.length === 0) { %>
+            <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('superadmin.empty') %></div>
+          <% } %>
+          <% venues.forEach((venue) => { %>
+            <div class="venue-row" style="grid-template-columns: 35px 1.1fr .9fr .9fr 1fr 90px 90px;">
+              <span class="venue-mini"><%= venue.name.charAt(0).toUpperCase() %></span>
+              <b><%= venue.name %></b>
+              <span><%= venue.slug %></span>
+              <span class="<%= venue.is_active ? 'status' : 'status off' %>"><i></i> <%= venue.is_active ? t('superadmin.statusActive') : t('superadmin.statusInactive') %></span>
+              <span><%= venue.show_powered_by ? t('superadmin.poweredByShown') : t('superadmin.poweredByHidden') %></span>
+              <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
+                <button type="submit" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= venue.is_active ? t('superadmin.disable') : t('superadmin.enable') %></button>
+              </form>
+              <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-powered-by">
+                <button type="submit" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= venue.show_powered_by ? t('superadmin.hidePoweredBy') : t('superadmin.showPoweredByAction') %></button>
+              </form>
+            </div>
+          <% }) %>
+        </div>
+
+        <dialog id="add-venue-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('superadmin.addHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (error) { %>
+              <div class="alert alert-error"><%= error %></div>
+            <% } %>
+            <form method="POST" action="/superadmin/venues">
+              <div class="field">
+                <label for="slug"><%= t('superadmin.slugLabel') %></label>
+                <input type="text" id="slug" name="slug" value="<%= formValues.slug %>" placeholder="my-cafe" required>
+                <div class="hint"><%= t('superadmin.slugHint') %></div>
+              </div>
+
+              <div class="field">
+                <label for="name"><%= t('superadmin.nameLabel') %></label>
+                <input type="text" id="name" name="name" value="<%= formValues.name %>" required>
+              </div>
+
+              <div class="field">
+                <label for="lang_default"><%= t('superadmin.langDefaultLabel') %></label>
+                <select id="lang_default" name="lang_default">
+                  <option value="ru" <%= formValues.lang_default === 'ru' ? 'selected' : '' %>>Русский</option>
+                  <option value="uz" <%= formValues.lang_default === 'uz' ? 'selected' : '' %>>Oʻzbekcha</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="admin_login"><%= t('superadmin.adminLoginLabel') %></label>
+                <input type="text" id="admin_login" name="admin_login" value="<%= formValues.admin_login %>" required>
+              </div>
+
+              <div class="field">
+                <label for="admin_password"><%= t('superadmin.adminPasswordLabel') %></label>
+                <input type="password" id="admin_password" name="admin_password" required minlength="6">
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('superadmin.submit') %></button>
             </form>
-            <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-powered-by">
-              <button type="submit"><%= venue.show_powered_by ? t('superadmin.hidePoweredBy') : t('superadmin.showPoweredByAction') %></button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-
-  <div class="card">
-    <h2><%= t('superadmin.addHeading') %></h2>
-    <% if (error) { %>
-      <div class="error"><%= error %></div>
-    <% } %>
-    <form method="POST" action="/superadmin/venues">
-      <label for="slug"><%= t('superadmin.slugLabel') %></label>
-      <input type="text" id="slug" name="slug" value="<%= formValues.slug %>" placeholder="my-cafe" required>
-      <div class="hint"><%= t('superadmin.slugHint') %></div>
-
-      <label for="name"><%= t('superadmin.nameLabel') %></label>
-      <input type="text" id="name" name="name" value="<%= formValues.name %>" required>
-
-      <label for="lang_default"><%= t('superadmin.langDefaultLabel') %></label>
-      <select id="lang_default" name="lang_default">
-        <option value="ru" <%= formValues.lang_default === 'ru' ? 'selected' : '' %>>Русский</option>
-        <option value="uz" <%= formValues.lang_default === 'uz' ? 'selected' : '' %>>Oʻzbekcha</option>
-      </select>
-
-      <label for="admin_login"><%= t('superadmin.adminLoginLabel') %></label>
-      <input type="text" id="admin_login" name="admin_login" value="<%= formValues.admin_login %>" required>
-
-      <label for="admin_password"><%= t('superadmin.adminPasswordLabel') %></label>
-      <input type="password" id="admin_password" name="admin_password" required minlength="6">
-
-      <button type="submit" class="primary"><%= t('superadmin.submit') %></button>
-    </form>
+          </div>
+        </dialog>
+        <% if (formTarget === 'add' && error) { %>
+          <script>document.getElementById('add-venue-modal').showModal();</script>
+        <% } %>
+      </div>
+    </section>
   </div>
 </body>
 </html>

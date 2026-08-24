@@ -1,7 +1,5 @@
 const { z } = require('zod');
 
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-
 const optionalText = z
   .string()
   .trim()
@@ -17,22 +15,36 @@ const optionalUrl = z
     message: 'venueSettings.errorInvalidUrl',
   });
 
-const workingHoursShape = {};
-DAYS.forEach((day) => {
-  workingHoursShape[day] = z
+const optionalCoordinate = (min, max) =>
+  z
     .string()
     .trim()
     .optional()
-    .transform((v) => v || '');
-});
+    .transform((v) => (v && v !== '' ? v : undefined))
+    .refine((v) => v === undefined || (!Number.isNaN(Number(v)) && Number(v) >= min && Number(v) <= max), {
+      message: 'venueSettings.errorInvalidCoordinate',
+    })
+    .transform((v) => (v === undefined ? null : Number(v)));
 
-const venueSettingsSchema = z.object({
-  phone: optionalText,
-  address: optionalText,
-  address_2gis_url: optionalUrl,
-  instagram_url: optionalUrl,
-  telegram_url: optionalUrl,
-  working_hours: z.object(workingHoursShape),
-});
+const venueSettingsSchema = z
+  .object({
+    phone: optionalText,
+    address: optionalText,
+    address_2gis_url: optionalUrl,
+    latitude: optionalCoordinate(-90, 90),
+    longitude: optionalCoordinate(-180, 180),
+    wifi_ssid: optionalText,
+    wifi_password: optionalText,
+    instagram_url: optionalUrl,
+    telegram_url: optionalUrl,
+  })
+  .refine((data) => (data.latitude === null) === (data.longitude === null), {
+    message: 'venueSettings.errorCoordinatesIncomplete',
+    path: ['latitude'],
+  })
+  .refine((data) => (data.wifi_ssid === null) === (data.wifi_password === null), {
+    message: 'venueSettings.errorWifiIncomplete',
+    path: ['wifi_ssid'],
+  });
 
-module.exports = { venueSettingsSchema, DAYS };
+module.exports = { venueSettingsSchema };

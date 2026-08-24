@@ -15,35 +15,9 @@ router.use(requireAuth);
 
 const { groupByCategory } = itemModel;
 
-// Выбирает нужное языковое поле (например name_ru/name_uz) под язык интерфейса
-// текущего администратора, с фолбэком на другой язык, если поле пустое.
-function pickLang(row, baseField, lang) {
-  const otherLang = lang === 'ru' ? 'uz' : 'ru';
-  const primary = row[`${baseField}_${lang}`];
-  if (primary && String(primary).trim()) return primary;
-  return row[`${baseField}_${otherLang}`] || '';
-}
-
-async function renderList(req, res, status, error, formValues) {
+async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
   const role = req.session.admin.role;
-  const { lang } = res.locals;
-
-  if (role === 'staff') {
-    const items = await itemModel.listByVenueGrouped(venueId);
-    const groups = groupByCategory(items).map((group) => ({
-      categoryName: lang === 'ru' ? (group.categoryNameRu || group.categoryNameUz) : (group.categoryNameUz || group.categoryNameRu),
-      items: group.items.map((item) => ({
-        ...item,
-        displayName: pickLang(item, 'name', lang),
-        displayDescription: pickLang(item, 'description', lang),
-      })),
-    }));
-    return res.status(status || 200).render('admin/items-staff', {
-      groups,
-      login: req.session.admin.login,
-    });
-  }
 
   const [items, categories] = await Promise.all([
     itemModel.listByVenueGrouped(venueId),
@@ -54,9 +28,11 @@ async function renderList(req, res, status, error, formValues) {
     categories,
     allowedTags: ALLOWED_TAGS,
     error: error || null,
-    formValues: formValues || { category_id: '', name_ru: '', name_uz: '', description_ru: '', description_uz: '', price: '', currency: 'UZS', tags: [] },
+    formValues: formValues || { category_id: '', name_ru: '', name_uz: '', description_ru: '', description_uz: '', composition_ru: '', composition_uz: '', calories: '', price: '', old_price: '', currency: 'UZS', tags: [] },
+    formTarget: formTarget || null,
     login: req.session.admin.login,
     role,
+    venueSlug: req.session.admin.venueSlug,
   });
 }
 
@@ -68,7 +44,11 @@ function readFormValues(body) {
     name_uz: typeof body.name_uz === 'string' ? body.name_uz : '',
     description_ru: typeof body.description_ru === 'string' ? body.description_ru : '',
     description_uz: typeof body.description_uz === 'string' ? body.description_uz : '',
+    composition_ru: typeof body.composition_ru === 'string' ? body.composition_ru : '',
+    composition_uz: typeof body.composition_uz === 'string' ? body.composition_uz : '',
+    calories: typeof body.calories === 'string' ? body.calories : '',
     price: typeof body.price === 'string' ? body.price : '',
+    old_price: typeof body.old_price === 'string' ? body.old_price : '',
     currency: typeof body.currency === 'string' ? body.currency : 'UZS',
     tags,
   };
@@ -101,7 +81,7 @@ async function loadOwnItemOr404(req, res) {
   return item;
 }
 
-router.get('/', requireRole(['venue_admin', 'staff']), async (req, res, next) => {
+router.get('/', requireRole(['venue_admin']), async (req, res, next) => {
   try {
     await renderList(req, res);
   } catch (err) {
@@ -113,18 +93,18 @@ router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res,
   const { t } = res.locals;
   try {
     if (req.uploadError) {
-      return renderList(req, res, 400, req.uploadError, readFormValues(req.body));
+      return renderList(req, res, 400, req.uploadError, readFormValues(req.body), 'add');
     }
 
     const parsed = itemSchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderList(req, res, 400, t(parsed.error.issues[0].message), readFormValues(req.body));
+      return renderList(req, res, 400, t(parsed.error.issues[0].message), readFormValues(req.body), 'add');
     }
 
     const venueId = req.session.admin.venueId;
     const belongs = await itemModel.categoryBelongsToVenue(parsed.data.category_id, venueId);
     if (!belongs) {
-      return renderList(req, res, 400, t('items.errorCategoryNotFound'), readFormValues(req.body));
+      return renderList(req, res, 400, t('items.errorCategoryNotFound'), readFormValues(req.body), 'add');
     }
 
     let photo = null;
@@ -133,7 +113,7 @@ router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res,
         photo = await saveItemPhoto(venueId, req.file.buffer);
       } catch (err) {
         if (err.message === 'IMAGE_PROCESSING_FAILED') {
-          return renderList(req, res, 400, t('items.errorImageProcessing'), readFormValues(req.body));
+          return renderList(req, res, 400, t('items.errorImageProcessing'), readFormValues(req.body), 'add');
         }
         throw err;
       }
@@ -145,7 +125,11 @@ router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res,
       nameUz: parsed.data.name_uz,
       descriptionRu: parsed.data.description_ru,
       descriptionUz: parsed.data.description_uz,
+      compositionRu: parsed.data.composition_ru,
+      compositionUz: parsed.data.composition_uz,
+      calories: parsed.data.calories,
       price: parsed.data.price,
+      oldPrice: parsed.data.old_price,
       currency: parsed.data.currency,
       tags: parsed.data.tags,
       photoUrl: photo ? photo.photoUrl : null,
@@ -174,19 +158,21 @@ router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, 
     const item = await loadOwnItemOr404(req, res);
     if (!item) return;
 
+    const formTarget = `edit-${item.id}`;
+
     if (req.uploadError) {
-      return renderList(req, res, 400, req.uploadError, readFormValues(req.body));
+      return renderList(req, res, 400, req.uploadError, readFormValues(req.body), formTarget);
     }
 
     const parsed = itemSchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderList(req, res, 400, t(parsed.error.issues[0].message), readFormValues(req.body));
+      return renderList(req, res, 400, t(parsed.error.issues[0].message), readFormValues(req.body), formTarget);
     }
 
     const venueId = req.session.admin.venueId;
     const belongs = await itemModel.categoryBelongsToVenue(parsed.data.category_id, venueId);
     if (!belongs) {
-      return renderList(req, res, 400, t('items.errorCategoryNotFound'), readFormValues(req.body));
+      return renderList(req, res, 400, t('items.errorCategoryNotFound'), readFormValues(req.body), formTarget);
     }
 
     let photo = null;
@@ -195,7 +181,7 @@ router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, 
         photo = await saveItemPhoto(venueId, req.file.buffer);
       } catch (err) {
         if (err.message === 'IMAGE_PROCESSING_FAILED') {
-          return renderList(req, res, 400, t('items.errorImageProcessing'), readFormValues(req.body));
+          return renderList(req, res, 400, t('items.errorImageProcessing'), readFormValues(req.body), formTarget);
         }
         throw err;
       }
@@ -210,7 +196,11 @@ router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, 
       nameUz: parsed.data.name_uz,
       descriptionRu: parsed.data.description_ru,
       descriptionUz: parsed.data.description_uz,
+      compositionRu: parsed.data.composition_ru,
+      compositionUz: parsed.data.composition_uz,
+      calories: parsed.data.calories,
       price: parsed.data.price,
+      oldPrice: parsed.data.old_price,
       currency: parsed.data.currency,
       tags: parsed.data.tags,
       photoUrl: photo ? photo.photoUrl : null,
@@ -264,7 +254,7 @@ router.delete('/:id', requireRole(['venue_admin']), async (req, res, next) => {
   }
 });
 
-router.post('/:id/toggle', requireRole(['venue_admin', 'staff']), async (req, res, next) => {
+router.post('/:id/toggle', requireRole(['venue_admin']), async (req, res, next) => {
   try {
     const item = await loadOwnItemOr404(req, res);
     if (!item) return;
@@ -281,7 +271,8 @@ router.post('/:id/toggle', requireRole(['venue_admin', 'staff']), async (req, re
     });
 
     menuCache.invalidateVenue(req.session.admin.venueSlug);
-    res.redirect('/admin/items');
+    const redirectTo = req.body.redirect === '/admin' ? '/admin' : '/admin/items';
+    res.redirect(redirectTo);
   } catch (err) {
     next(err);
   }

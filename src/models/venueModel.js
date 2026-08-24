@@ -19,8 +19,8 @@ async function findById(id) {
 
 async function findPublicBySlug(slug) {
   const result = await pool.query(
-    `SELECT id, slug, name, phone, address, address_2gis_url, working_hours,
-            instagram_url, telegram_url, lang_default, is_active, show_powered_by
+    `SELECT id, slug, name, phone, address, address_2gis_url, latitude, longitude,
+            wifi_ssid, wifi_password, instagram_url, telegram_url, lang_default, is_active, show_powered_by
      FROM venues WHERE slug = $1`,
     [slug]
   );
@@ -53,13 +53,14 @@ async function toggleShowPoweredBy(id) {
   return result.rows[0] || null;
 }
 
-async function updateSettings(id, { phone, address, address2gisUrl, workingHours, instagramUrl, telegramUrl }) {
+async function updateSettings(id, { phone, address, address2gisUrl, latitude, longitude, wifiSsid, wifiPassword, instagramUrl, telegramUrl }) {
   const result = await pool.query(
     `UPDATE venues
-     SET phone = $1, address = $2, address_2gis_url = $3, working_hours = $4, instagram_url = $5, telegram_url = $6
-     WHERE id = $7
+     SET phone = $1, address = $2, address_2gis_url = $3, latitude = $4, longitude = $5,
+         wifi_ssid = $6, wifi_password = $7, instagram_url = $8, telegram_url = $9
+     WHERE id = $10
      RETURNING *`,
-    [phone, address, address2gisUrl, JSON.stringify(workingHours), instagramUrl, telegramUrl, id]
+    [phone, address, address2gisUrl, latitude, longitude, wifiSsid, wifiPassword, instagramUrl, telegramUrl, id]
   );
   return result.rows[0] || null;
 }

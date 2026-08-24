@@ -1,0 +1,43 @@
+<%
+// Ожидает: role, login, active (ключ текущего пункта меню), venueSlug (опционально), lang, t
+let _navItems = [];
+if (role === 'venue_admin') {
+  _navItems = [
+    { key: 'dashboard', href: '/admin', icon: 'grid', label: t('nav.dashboard') },
+    { key: 'categories', href: '/admin/categories', icon: 'list', label: t('nav.categories') },
+    { key: 'items', href: '/admin/items', icon: 'utensils', label: t('nav.items') },
+    { key: 'venueSettings', href: '/admin/venue-settings', icon: 'sliders', label: t('nav.venueSettings') },
+  ];
+} else if (role === 'superadmin') {
+  _navItems = [
+    { key: 'venues', href: '/superadmin/venues', icon: 'store', label: t('nav.venues') },
+    { key: 'logs', href: '/superadmin/logs', icon: 'activity', label: t('nav.logs') },
+  ];
+}
+const _initials = (login || '?').slice(0, 2).toUpperCase();
+%>
+<aside class="sidebar">
+  <div class="brand"><%- include('./brand', { compact: true }) %></div>
+  <div class="side-label"><%= t('nav.dashboard') %></div>
+  <% _navItems.forEach((item) => { %>
+    <a href="<%= item.href %>" class="<%= active === item.key ? 'selected' : '' %>">
+      <%- include('./icon', { name: item.icon, size: 17 }) %>
+      <%= item.label %>
+    </a>
+  <% }) %>
+  <div class="side-bottom">
+    <div class="user">
+      <span><%= _initials %></span>
+      <div>
+        <b><%= login %></b>
+        <small><%= t('roles.' + role) %></small>
+      </div>
+    </div>
+    <form method="POST" action="/admin/logout" class="logout-form">
+      <button type="submit" class="logout-btn">
+        <%- include('./icon', { name: 'logout', size: 16 }) %>
+        <%= t('common.logout') %>
+      </button>
+    </form>
+  </div>
+</aside>

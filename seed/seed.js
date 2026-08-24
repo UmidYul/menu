@@ -3,85 +3,26 @@ const bcrypt = require('bcrypt');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const SLUG = 'test-cafe';
+const DEMO_SLUG = 'demo';
 
 // Учётные данные только для локальной разработки — не использовать в проде.
 const DEV_ADMINS = [
   { login: 'superadmin', password: 'superadmin123', role: 'superadmin', venueId: null },
-  { login: 'venue_admin', password: 'venueadmin123', role: 'venue_admin', venueId: 'test-cafe' },
-  { login: 'staff', password: 'staff123', role: 'staff', venueId: 'test-cafe' },
+  { login: 'venue_admin', password: 'venueadmin123', role: 'venue_admin', venueId: 'demo' },
 ];
 
-async function seedVenue(client) {
-  const existing = await client.query('SELECT id FROM venues WHERE slug = $1', [SLUG]);
-  if (existing.rows.length > 0) {
-    console.log(`Тестовое заведение "${SLUG}" уже существует (id=${existing.rows[0].id}), сидирование меню пропущено.`);
-    return existing.rows[0].id;
+// Заведение "demo" — постоянный фикстур, создаётся миграцией 1787502000000_seed-demo-venue.cjs
+// (и наполняется меню миграцией 1787502500000_replace-demo-venue-menu.cjs), поэтому здесь только
+// ищем его id, чтобы привязать dev-аккаунт venue_admin.
+async function findDemoVenueId(client) {
+  const existing = await client.query('SELECT id FROM venues WHERE slug = $1', [DEMO_SLUG]);
+  if (existing.rows.length === 0) {
+    throw new Error(`Заведение "${DEMO_SLUG}" не найдено — прогоните миграции (npm run migrate:up) перед сидированием.`);
   }
-
-  await client.query('BEGIN');
-  try {
-    const venueResult = await client.query(
-      `INSERT INTO venues (slug, name, phone, address, address_2gis_url, working_hours, instagram_url, telegram_url, lang_default, is_active, show_powered_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id`,
-      [
-        SLUG,
-        'Тестовое кафе',
-        '+998901234567',
-        'г. Ташкент, ул. Примерная, 1',
-        'https://2gis.uz/tashkent',
-        JSON.stringify({
-          mon: '09:00-22:00',
-          tue: '09:00-22:00',
-          wed: '09:00-22:00',
-          thu: '09:00-22:00',
-          fri: '09:00-23:00',
-          sat: '10:00-23:00',
-          sun: '10:00-22:00',
-        }),
-        'https://instagram.com/test_cafe',
-        'https://t.me/test_cafe',
-        'ru',
-        true,
-        true,
-      ]
-    );
-    const venueId = venueResult.rows[0].id;
-
-    const drinksResult = await client.query(
-      `INSERT INTO categories (venue_id, name_ru, name_uz, sort_order) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [venueId, 'Напитки', 'Ichimliklar', 1]
-    );
-    const drinksId = drinksResult.rows[0].id;
-
-    const foodResult = await client.query(
-      `INSERT INTO categories (venue_id, name_ru, name_uz, sort_order) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [venueId, 'Еда', 'Taomlar', 2]
-    );
-    const foodId = foodResult.rows[0].id;
-
-    await client.query(
-      `INSERT INTO items (category_id, name_ru, name_uz, description_ru, description_uz, price, currency, tags, is_available, sort_order)
-       VALUES
-        ($1, 'Капучино', 'Kapuchino', 'Классический капучино на молоке', 'Sutli klassik kapuchino', 25000, 'UZS', ARRAY['vegetarian']::text[], true, 1),
-        ($1, 'Латте', 'Latte', 'Нежный латте', 'Nafis latte', 27000, 'UZS', ARRAY['vegetarian']::text[], true, 2),
-        ($2, 'Плов', 'Osh', 'Узбекский плов с бараниной', 'Qo''y go''shtli o''zbek oshi', 45000, 'UZS', ARRAY['halal']::text[], true, 1),
-        ($2, 'Салат овощной', 'Sabzavotli salat', 'Свежие сезонные овощи', 'Yangi mavsumiy sabzavotlar', 20000, 'UZS', ARRAY['vegan', 'new']::text[], false, 2)
-       `,
-      [drinksId, foodId]
-    );
-
-    await client.query('COMMIT');
-    console.log(`Тестовое заведение "${SLUG}" (id=${venueId}) засеяно: 2 категории, 4 позиции.`);
-    return venueId;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  }
+  return existing.rows[0].id;
 }
 
-async function seedAdmins(client, testCafeVenueId) {
+async function seedAdmins(client, demoVenueId) {
   for (const admin of DEV_ADMINS) {
     const existing = await client.query('SELECT id FROM admins WHERE login = $1', [admin.login]);
     if (existing.rows.length > 0) {
@@ -89,7 +30,7 @@ async function seedAdmins(client, testCafeVenueId) {
       continue;
     }
 
-    const venueId = admin.venueId === 'test-cafe' ? testCafeVenueId : null;
+    const venueId = admin.venueId === 'demo' ? demoVenueId : null;
     const passwordHash = await bcrypt.hash(admin.password, 10);
 
     await client.query(
@@ -103,8 +44,8 @@ async function seedAdmins(client, testCafeVenueId) {
 async function seed() {
   const client = await pool.connect();
   try {
-    const testCafeVenueId = await seedVenue(client);
-    await seedAdmins(client, testCafeVenueId);
+    const demoVenueId = await findDemoVenueId(client);
+    await seedAdmins(client, demoVenueId);
   } finally {
     client.release();
     await pool.end();

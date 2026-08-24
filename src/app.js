@@ -14,9 +14,9 @@ const adminDashboardRoutes = require('./routes/adminDashboard');
 const superadminRoutes = require('./routes/superadmin');
 const adminCategoriesRoutes = require('./routes/adminCategories');
 const adminItemsRoutes = require('./routes/adminItems');
-const adminStaffRoutes = require('./routes/adminStaff');
 const adminVenueSettingsRoutes = require('./routes/adminVenueSettings');
 const publicMenuRoutes = require('./routes/publicMenu');
+const landingRoutes = require('./routes/landing');
 
 const app = express();
 
@@ -47,10 +47,10 @@ app.use('/admin', adminLocale, adminLocaleRoutes);
 app.use('/admin', adminLocale, adminDashboardRoutes);
 app.use('/admin/categories', adminLocale, adminCategoriesRoutes);
 app.use('/admin/items', adminLocale, adminItemsRoutes);
-app.use('/admin/staff', adminLocale, adminStaffRoutes);
 app.use('/admin/venue-settings', adminLocale, adminVenueSettingsRoutes);
 app.use('/superadmin', adminLocale, superadminRoutes);
 app.use('/menu', publicMenuRoutes);
+app.use('/', landingRoutes);
 
 app.use((req, res) => {
   res.status(404).send('Страница не найдена');

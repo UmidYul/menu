@@ -6,7 +6,7 @@ const { requireAuth, requireRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const adminModel = require('../models/adminModel');
-const { logAction } = require('../models/adminActionLogModel');
+const { logAction, listRecent } = require('../models/adminActionLogModel');
 const { createVenueSchema } = require('../validators/venueValidators');
 const menuCache = require('../services/menuCache');
 
@@ -18,7 +18,9 @@ router.get('/venues', async (req, res, next) => {
     res.render('superadmin/venues', {
       venues,
       login: req.session.admin.login,
+      role: req.session.admin.role,
       error: null,
+      formTarget: null,
       formValues: { slug: '', name: '', lang_default: 'ru', admin_login: '' },
     });
   } catch (err) {
@@ -33,7 +35,9 @@ router.post('/venues', async (req, res, next) => {
     res.status(status).render('superadmin/venues', {
       venues,
       login: req.session.admin.login,
+      role: req.session.admin.role,
       error,
+      formTarget: 'add',
       formValues: {
         slug: typeof req.body.slug === 'string' ? req.body.slug : '',
         name: typeof req.body.name === 'string' ? req.body.name : '',
@@ -168,6 +172,54 @@ router.post('/venues/:id/toggle-powered-by', async (req, res, next) => {
 
     menuCache.invalidateVenue(venue.slug);
     res.redirect('/superadmin/venues');
+  } catch (err) {
+    next(err);
+  }
+});
+
+const LOG_ACTION_TYPES = ['create', 'update', 'delete', 'toggle_availability'];
+const ACTION_LABEL_KEYS = {
+  create: 'superadmin.actionCreate',
+  update: 'superadmin.actionUpdate',
+  delete: 'superadmin.actionDelete',
+  toggle_availability: 'superadmin.actionToggleAvailability',
+};
+const ENTITY_LABEL_KEYS = {
+  item: 'superadmin.entityItem',
+  category: 'superadmin.entityCategory',
+  venue: 'superadmin.entityVenue',
+  admin: 'superadmin.entityAdmin',
+};
+
+router.get('/logs', async (req, res, next) => {
+  const { t } = res.locals;
+  try {
+    const venues = await venueModel.listAll();
+
+    const venueId = Number(req.query.venue_id);
+    const actionType = LOG_ACTION_TYPES.includes(req.query.action_type) ? req.query.action_type : '';
+    const page = Number.isInteger(Number(req.query.page)) && Number(req.query.page) > 0 ? Number(req.query.page) : 1;
+
+    const logs = await listRecent({
+      venueId: Number.isInteger(venueId) && venueId > 0 ? venueId : null,
+      actionType: actionType || null,
+      page,
+    });
+    logs.rows = logs.rows.map((row) => ({
+      ...row,
+      actionLabel: t(ACTION_LABEL_KEYS[row.action_type] || row.action_type),
+      entityLabel: t(ENTITY_LABEL_KEYS[row.entity_type] || row.entity_type),
+    }));
+
+    res.render('superadmin/logs', {
+      logs,
+      venues,
+      actionTypeOptions: LOG_ACTION_TYPES.map((type) => ({ value: type, label: t(ACTION_LABEL_KEYS[type]) })),
+      filterVenueId: req.query.venue_id || '',
+      filterActionType: actionType,
+      login: req.session.admin.login,
+      role: req.session.admin.role,
+    });
   } catch (err) {
     next(err);
   }

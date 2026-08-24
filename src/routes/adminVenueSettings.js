@@ -5,34 +5,34 @@ const { requireAuth, requireRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
-const { venueSettingsSchema, DAYS } = require('../validators/venueSettingsValidators');
+const { venueSettingsSchema } = require('../validators/venueSettingsValidators');
 const menuCache = require('../services/menuCache');
 
 router.use(requireAuth, requireRole(['venue_admin']));
 
-function emptyWorkingHours() {
-  const obj = {};
-  DAYS.forEach((day) => {
-    obj[day] = '';
-  });
-  return obj;
+function toFormValues(venue) {
+  return {
+    phone: venue.phone || '',
+    address: venue.address || '',
+    address_2gis_url: venue.address_2gis_url || '',
+    latitude: venue.latitude === null || venue.latitude === undefined ? '' : venue.latitude,
+    longitude: venue.longitude === null || venue.longitude === undefined ? '' : venue.longitude,
+    wifi_ssid: venue.wifi_ssid || '',
+    wifi_password: venue.wifi_password || '',
+    instagram_url: venue.instagram_url || '',
+    telegram_url: venue.telegram_url || '',
+  };
 }
 
 async function renderForm(req, res, status, error, saved) {
   const venue = await venueModel.findById(req.session.admin.venueId);
   res.status(status || 200).render('admin/venue-settings', {
-    formValues: {
-      phone: venue.phone || '',
-      address: venue.address || '',
-      address_2gis_url: venue.address_2gis_url || '',
-      instagram_url: venue.instagram_url || '',
-      telegram_url: venue.telegram_url || '',
-      working_hours: { ...emptyWorkingHours(), ...(venue.working_hours || {}) },
-    },
-    days: DAYS,
+    formValues: toFormValues(venue),
     error: error || null,
     saved: !!saved,
     login: req.session.admin.login,
+    role: req.session.admin.role,
+    venueSlug: req.session.admin.venueSlug,
   });
 }
 
@@ -47,24 +47,25 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   const { t } = res.locals;
   try {
-    const parsed = venueSettingsSchema.safeParse({
-      ...req.body,
-      working_hours: req.body.working_hours || {},
-    });
+    const parsed = venueSettingsSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).render('admin/venue-settings', {
         formValues: {
           phone: typeof req.body.phone === 'string' ? req.body.phone : '',
           address: typeof req.body.address === 'string' ? req.body.address : '',
           address_2gis_url: typeof req.body.address_2gis_url === 'string' ? req.body.address_2gis_url : '',
+          latitude: typeof req.body.latitude === 'string' ? req.body.latitude : '',
+          longitude: typeof req.body.longitude === 'string' ? req.body.longitude : '',
+          wifi_ssid: typeof req.body.wifi_ssid === 'string' ? req.body.wifi_ssid : '',
+          wifi_password: typeof req.body.wifi_password === 'string' ? req.body.wifi_password : '',
           instagram_url: typeof req.body.instagram_url === 'string' ? req.body.instagram_url : '',
           telegram_url: typeof req.body.telegram_url === 'string' ? req.body.telegram_url : '',
-          working_hours: { ...emptyWorkingHours(), ...(req.body.working_hours || {}) },
         },
-        days: DAYS,
         error: t(parsed.error.issues[0].message),
         saved: false,
         login: req.session.admin.login,
+        role: req.session.admin.role,
+        venueSlug: req.session.admin.venueSlug,
       });
     }
 
@@ -73,7 +74,10 @@ router.post('/', async (req, res, next) => {
       phone: parsed.data.phone,
       address: parsed.data.address,
       address2gisUrl: parsed.data.address_2gis_url,
-      workingHours: parsed.data.working_hours,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
+      wifiSsid: parsed.data.wifi_ssid,
+      wifiPassword: parsed.data.wifi_password,
       instagramUrl: parsed.data.instagram_url,
       telegramUrl: parsed.data.telegram_url,
     });
@@ -88,9 +92,10 @@ router.post('/', async (req, res, next) => {
         phone: parsed.data.phone,
         address: parsed.data.address,
         address_2gis_url: parsed.data.address_2gis_url,
+        latitude: parsed.data.latitude,
+        longitude: parsed.data.longitude,
         instagram_url: parsed.data.instagram_url,
         telegram_url: parsed.data.telegram_url,
-        working_hours: parsed.data.working_hours,
       },
     });
 

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= serviceName %> — цифровое меню для вашего бизнеса</title>
+  <meta name="description" content="Красивое меню по QR-коду за 5 минут. Без приложений и лишних забот.">
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <main class="landing">
+    <nav class="nav container">
+      <div class="brand"><%- include('../partials/brand') %></div>
+      <div class="nav-links">
+        <a href="#how"><%= t('landing.navHow') %></a>
+        <a href="#prices"><%= t('landing.navPrices') %></a>
+        <div class="lang">
+          <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+          <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+        </div>
+        <a href="/admin/login" class="btn btn-outline"><%= t('landing.navLogin') %></a>
+      </div>
+    </nav>
+
+    <section class="hero container">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> <%= t('landing.heroEyebrow') %></div>
+        <h1><%= t('landing.heroTitleLine1') %><br><em><%= t('landing.heroTitleLine2') %></em></h1>
+        <p><%= t('landing.heroSubtitle') %></p>
+        <div class="hero-actions">
+          <a href="/menu/demo" class="btn btn-primary">
+            <%- include('../partials/icon', { name: 'eye', size: 17 }) %> <%= t('landing.ctaDemo') %>
+          </a>
+          <a href="/admin/login" class="btn btn-outline"><%= t('landing.ctaLogin') %></a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-card">
+          <div class="hero-card-top"><span class="live-dot"></span> ВАШЕ МЕНЮ <span class="hero-card-more">•••</span></div>
+          <div class="menu-preview">
+            <div class="preview-logo">О</div>
+            <h3>Одесса MA</h3>
+            <p>Odesa cuisine · Dubai</p>
+            <div class="preview-line"></div>
+            <div class="preview-food"><span>🥞</span><div><b>Блины «Одесская нежность»</b><small>С начинкой из семги</small></div><strong>37 AED</strong></div>
+            <div class="preview-food"><span>🥟</span><div><b>Пельмени с семгой</b><small>Подаются со сметаной</small></div><strong>60 AED</strong></div>
+          </div>
+        </div>
+        <div class="float-note">
+          <%- include('../partials/icon', { name: 'qrcode', size: 19 }) %>
+          <span><b>Наведите камеру</b><small>и откройте меню</small></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats container">
+      <div><b><%= t('landing.statMinutesValue') %></b><span><%= t('landing.statMinutesLabel') %></span></div>
+      <div><b><%= t('landing.statPriceValue') %></b><span><%= t('landing.statPriceLabel') %></span></div>
+      <div><b><%= t('landing.statAvailabilityValue') %></b><span><%= t('landing.statAvailabilityLabel') %></span></div>
+    </section>
+
+    <section class="section container" id="how">
+      <div class="section-heading">
+        <span class="eyebrow"><%= t('landing.howEyebrow') %></span>
+        <h2><%= t('landing.howTitleLine1') %><br><em><%= t('landing.howTitleLine2') %></em></h2>
+      </div>
+      <div class="steps">
+        <div>
+          <span>01</span>
+          <%- include('../partials/icon', { name: 'externallink', size: 22 }) %>
+          <h3><%= t('landing.step1Title') %></h3>
+          <p><%= t('landing.step1Desc') %></p>
+        </div>
+        <div>
+          <span>02</span>
+          <%- include('../partials/icon', { name: 'qrcode', size: 22 }) %>
+          <h3><%= t('landing.step2Title') %></h3>
+          <p><%= t('landing.step2Desc') %></p>
+        </div>
+        <div>
+          <span>03</span>
+          <%- include('../partials/icon', { name: 'utensils', size: 22 }) %>
+          <h3><%= t('landing.step3Title') %></h3>
+          <p><%= t('landing.step3Desc') %></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing container" id="prices">
+      <div>
+        <span class="eyebrow"><%= t('landing.pricesEyebrow') %></span>
+        <h2><%= t('landing.pricesTitleLine1') %><br><em><%= t('landing.pricesTitleLine2') %></em></h2>
+      </div>
+      <div class="price-card">
+        <div>
+          <span class="plan-label"><%= t('landing.planLabel') %></span>
+          <h3><%= t('landing.planPrice') %> <small><%= t('landing.planPriceSuffix') %></small></h3>
+          <p><%= t('landing.planDesc') %></p>
+        </div>
+        <ul>
+          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature1') %></li>
+          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature2') %></li>
+          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature3') %></li>
+        </ul>
+        <a href="/admin/login" class="btn btn-primary"><%= t('landing.planCta') %></a>
+      </div>
+    </section>
+
+    <footer class="footer container">
+      <div class="brand"><%- include('../partials/brand', { compact: true }) %></div>
+      <span><%= t('landing.footerTagline') %></span>
+      <span>© <%= new Date().getFullYear() %> <%= serviceName %></span>
+    </footer>
+  </main>
+</body>
+</html>

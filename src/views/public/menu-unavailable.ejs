@@ -4,17 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= venueName %> — <%= t('publicMenu.unavailableTitle') %></title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; padding: 1.5rem; }
-    .card { max-width: 380px; }
-    h1 { font-size: 1.4rem; margin: 0 0 0.5rem; }
-    p { color: #666; }
-  </style>
+  <%- include('../partials/head-assets') %>
 </head>
 <body>
-  <div class="card">
-    <h1><%= t('publicMenu.unavailableTitle') %></h1>
-    <p><%= t('publicMenu.unavailableMessage', { venueName }) %></p>
+  <div class="message-shell">
+    <div class="message-card">
+      <div class="brand" style="justify-content:center; margin-bottom:24px;"><%- include('../partials/brand', { compact: true }) %></div>
+      <h1><%= t('publicMenu.unavailableTitle') %></h1>
+      <p><%= t('publicMenu.unavailableMessage', { venueName }) %></p>
+    </div>
   </div>
 </body>
 </html>

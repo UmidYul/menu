@@ -1,0 +1,18 @@
+<%
+// Ожидает: crumb, section, lang, currentPath, venueSlug (опционально)
+%>
+<header class="admin-top">
+  <div><span class="crumb"><%= crumb %> / </span><b><%= section %></b></div>
+  <div class="admin-top-actions">
+    <div class="lang">
+      <a href="/admin/lang?lang=ru&redirect=<%= encodeURIComponent(currentPath) %>" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+      <a href="/admin/lang?lang=uz&redirect=<%= encodeURIComponent(currentPath) %>" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+    </div>
+    <% if (typeof venueSlug !== 'undefined' && venueSlug) { %>
+      <a href="/menu/<%= venueSlug %>" target="_blank" rel="noopener" class="btn btn-outline">
+        <%- include('./icon', { name: 'eye', size: 15 }) %>
+        <%= t('nav.preview') %>
+      </a>
+    <% } %>
+  </div>
+</header>

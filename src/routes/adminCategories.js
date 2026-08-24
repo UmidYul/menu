@@ -10,14 +10,17 @@ const menuCache = require('../services/menuCache');
 
 router.use(requireAuth, requireRole(['venue_admin']));
 
-async function renderList(req, res, status, error, formValues) {
+async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
-  const categories = await categoryModel.listByVenue(venueId);
+  const categories = await categoryModel.listByVenueWithCounts(venueId);
   res.status(status || 200).render('admin/categories', {
     categories,
     error: error || null,
     formValues: formValues || { name_ru: '', name_uz: '' },
+    formTarget: formTarget || null,
     login: req.session.admin.login,
+    role: req.session.admin.role,
+    venueSlug: req.session.admin.venueSlug,
   });
 }
 
@@ -64,7 +67,7 @@ router.post('/', async (req, res, next) => {
       return renderList(req, res, 400, t(parsed.error.issues[0].message), {
         name_ru: typeof req.body.name_ru === 'string' ? req.body.name_ru : '',
         name_uz: typeof req.body.name_uz === 'string' ? req.body.name_uz : '',
-      });
+      }, 'add');
     }
 
     const venueId = req.session.admin.venueId;
@@ -97,7 +100,7 @@ router.patch('/:id', async (req, res, next) => {
 
     const parsed = categorySchema.safeParse(req.body);
     if (!parsed.success) {
-      return renderList(req, res, 400, t(parsed.error.issues[0].message));
+      return renderList(req, res, 400, t(parsed.error.issues[0].message), null, `edit-${category.id}`);
     }
 
     const before = { name_ru: category.name_ru, name_uz: category.name_uz };

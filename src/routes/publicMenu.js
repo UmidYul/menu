@@ -3,12 +3,13 @@ const express = require('express');
 const router = express.Router();
 const venueModel = require('../models/venueModel');
 const itemModel = require('../models/itemModel');
+const categoryModel = require('../models/categoryModel');
+const venuePageViewModel = require('../models/venuePageViewModel');
 const menuCache = require('../services/menuCache');
 const { t, SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
 const { SERVICE_NAME } = require('../config/constants');
 
 const LANG_COOKIE = 'menu_lang';
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 // Приоритет: явный выбор в query (?lang=) > cookie из прошлого визита > lang_default заведения.
 function resolveLang(req, venueLangDefault) {
@@ -28,50 +29,91 @@ function pickLang(row, baseField, lang) {
   return fallback || '';
 }
 
-function buildWorkingHours(workingHours, tt) {
-  if (!workingHours) return [];
-  return DAYS.filter((day) => workingHours[day] && String(workingHours[day]).trim()).map((day) => ({
-    label: tt(`days.${day}`),
-    hours: workingHours[day],
-  }));
+const MAP_BBOX_DELTA = 0.004;
+
+function buildMapEmbedUrl(latitude, longitude) {
+  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) return null;
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  const bbox = [lon - MAP_BBOX_DELTA, lat - MAP_BBOX_DELTA, lon + MAP_BBOX_DELTA, lat + MAP_BBOX_DELTA].join('%2C');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
 }
 
-function buildMenuViewModel(venue, items, lang) {
-  const tt = (key, params) => t(key, lang, params);
-
-  const groups = itemModel.groupByCategory(items).map((group) => ({
-    categoryId: group.categoryId,
-    categoryName: lang === 'ru' ? (group.categoryNameRu || group.categoryNameUz) : (group.categoryNameUz || group.categoryNameRu),
-    items: group.items.map((item) => ({
-      id: item.id,
-      name: pickLang(item, 'name', lang),
-      description: pickLang(item, 'description', lang),
-      price: item.price,
-      currency: item.currency,
-      photoThumbUrl: item.photo_thumb_url,
-      tags: item.tags.map((tag) => ({ key: tag, label: tt(`tags.${tag}`) })),
-      isAvailable: item.is_available,
-    })),
-  }));
-
+// Общие для всех страниц меню заведения поля (контакты, карта, wifi, футер) — не зависят
+// от того, какая категория сейчас открыта.
+function buildVenueInfo(venue) {
   return {
     venueName: venue.name,
     venueSlug: venue.slug,
-    groups,
-    lang,
-    t: tt,
     phone: venue.phone,
     address: venue.address,
     address2gisUrl: venue.address_2gis_url,
+    latitude: venue.latitude,
+    longitude: venue.longitude,
+    mapEmbedUrl: buildMapEmbedUrl(venue.latitude, venue.longitude),
+    wifiSsid: venue.wifi_ssid,
+    wifiPassword: venue.wifi_password,
     instagramUrl: venue.instagram_url,
     telegramUrl: venue.telegram_url,
-    workingHours: buildWorkingHours(venue.working_hours, tt),
     showPoweredBy: venue.show_powered_by,
     serviceName: SERVICE_NAME,
   };
 }
 
-router.get('/:slug', async (req, res, next) => {
+function buildItemViewModel(item, lang, tt) {
+  const description = pickLang(item, 'description', lang);
+  const composition = pickLang(item, 'composition', lang);
+  const extraTagCount = item.tags.filter((tag) => tag !== 'new').length;
+  return {
+    id: item.id,
+    name: pickLang(item, 'name', lang),
+    description,
+    composition,
+    calories: item.calories,
+    price: item.price,
+    oldPrice: item.old_price,
+    discountPercent: item.old_price ? Math.round((1 - item.price / item.old_price) * 100) : null,
+    currency: item.currency,
+    photoThumbUrl: item.photo_thumb_url,
+    tags: item.tags.map((tag) => ({ key: tag, label: tt(`tags.${tag}`) })),
+    isAvailable: item.is_available,
+    hasDetails: !!(composition || item.calories),
+    // Есть ли что показать в hover/tap-раскрытии карточки — если нет, карточка не должна
+    // реагировать на hover анимацией раскрытия (нечего раскрывать).
+    hasReveal: !!(description || composition || item.calories || extraTagCount > 0),
+  };
+}
+
+// Каждая категория — отдельная страница (/menu/:slug/:categoryId), а не секция на одной большой
+// странице. buildMenuViewModel собирает: лёгкий список всех категорий (для сайдбара) + позиции
+// только текущей открытой категории.
+function buildMenuViewModel(venue, categories, activeCategory, items, lang) {
+  const tt = (key, params) => t(key, lang, params);
+
+  const sidebarCategories = categories.map((category) => ({
+    id: category.id,
+    name: lang === 'ru' ? (category.name_ru || category.name_uz) : (category.name_uz || category.name_ru),
+  }));
+
+  const group = activeCategory
+    ? {
+        categoryId: activeCategory.id,
+        categoryName: lang === 'ru' ? (activeCategory.name_ru || activeCategory.name_uz) : (activeCategory.name_uz || activeCategory.name_ru),
+        items: items.map((item) => buildItemViewModel(item, lang, tt)),
+      }
+    : null;
+
+  return {
+    categories: sidebarCategories,
+    activeCategoryId: activeCategory ? activeCategory.id : null,
+    group,
+    lang,
+    t: tt,
+    ...buildVenueInfo(venue),
+  };
+}
+
+async function renderMenuPage(req, res, next, requestedCategoryId) {
   try {
     const { slug } = req.params;
 
@@ -94,24 +136,47 @@ router.get('/:slug', async (req, res, next) => {
       });
     }
 
-    const cached = menuCache.get(slug, lang);
+    const categories = await categoryModel.listByVenue(venue.id);
+
+    if (categories.length === 0) {
+      const viewModel = buildMenuViewModel(venue, [], null, [], lang);
+      return res.render('public/menu', viewModel);
+    }
+
+    const parsedCategoryId = requestedCategoryId ? Number(requestedCategoryId) : null;
+    const activeCategory = parsedCategoryId
+      ? categories.find((category) => category.id === parsedCategoryId)
+      : categories[0];
+
+    if (!activeCategory) {
+      return res.redirect(`/menu/${slug}/${categories[0].id}`);
+    }
+
+    venuePageViewModel.recordView(venue.id).catch((err) => {
+      console.error('Не удалось записать просмотр меню', err);
+    });
+
+    const cached = menuCache.get(slug, lang, activeCategory.id);
     if (cached) {
       res.set('Content-Type', 'text/html; charset=utf-8');
       return res.status(200).send(cached);
     }
 
-    const items = await itemModel.listByVenueGrouped(venue.id);
-    const viewModel = buildMenuViewModel(venue, items, lang);
+    const items = await itemModel.listByCategory(activeCategory.id);
+    const viewModel = buildMenuViewModel(venue, categories, activeCategory, items, lang);
 
     res.render('public/menu', viewModel, (err, html) => {
       if (err) return next(err);
-      menuCache.set(slug, lang, html);
+      menuCache.set(slug, lang, activeCategory.id, html);
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.status(200).send(html);
     });
   } catch (err) {
     next(err);
   }
-});
+}
+
+router.get('/:slug', (req, res, next) => renderMenuPage(req, res, next, null));
+router.get('/:slug/:categoryId', (req, res, next) => renderMenuPage(req, res, next, req.params.categoryId));
 
 module.exports = router;

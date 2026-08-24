@@ -8,6 +8,19 @@ async function listByVenue(venueId) {
   return result.rows;
 }
 
+async function listByVenueWithCounts(venueId) {
+  const result = await pool.query(
+    `SELECT c.id, c.venue_id, c.name_ru, c.name_uz, c.sort_order, COUNT(i.id)::int AS item_count
+     FROM categories c
+     LEFT JOIN items i ON i.category_id = c.id
+     WHERE c.venue_id = $1
+     GROUP BY c.id
+     ORDER BY c.sort_order, c.id`,
+    [venueId]
+  );
+  return result.rows;
+}
+
 async function findById(id) {
   const result = await pool.query('SELECT * FROM categories WHERE id = $1', [id]);
   return result.rows[0] || null;
@@ -51,4 +64,4 @@ async function swapOrder(client, categoryA, categoryB) {
   await client.query('UPDATE categories SET sort_order = $1 WHERE id = $2', [categoryA.sort_order, categoryB.id]);
 }
 
-module.exports = { listByVenue, findById, countItems, create, update, remove, swapOrder };
+module.exports = { listByVenue, listByVenueWithCounts, findById, countItems, create, update, remove, swapOrder };

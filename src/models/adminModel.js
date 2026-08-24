@@ -34,27 +34,4 @@ async function create(client, { venueId, login, passwordHash, role }) {
   return result.rows[0];
 }
 
-async function listStaffByVenue(venueId) {
-  const result = await pool.query(
-    `SELECT id, login, created_at FROM admins WHERE venue_id = $1 AND role = 'staff' AND is_active = true ORDER BY created_at`,
-    [venueId]
-  );
-  return result.rows;
-}
-
-async function findActiveStaffById(id) {
-  const result = await pool.query(
-    `SELECT id, login, role, venue_id FROM admins WHERE id = $1 AND role = 'staff' AND is_active = true`,
-    [id]
-  );
-  return result.rows[0] || null;
-}
-
-// Сотрудника нельзя удалить физически — на него могут ссылаться записи admin_action_logs
-// (ON DELETE RESTRICT, чтобы не терять историю аудита). Поэтому "удаление" — это
-// деактивация: логин перестаёт пускать в систему и пропадает из списка сотрудников заведения.
-async function deactivate(id) {
-  await pool.query('UPDATE admins SET is_active = false WHERE id = $1', [id]);
-}
-
-module.exports = { findByLogin, findById, create, listStaffByVenue, findActiveStaffById, deactivate };
+module.exports = { findByLogin, findById, create };

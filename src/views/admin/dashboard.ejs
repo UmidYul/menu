@@ -3,56 +3,132 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= venue.name %> — panel</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    h1 { font-size: 1.25rem; margin: 0; }
-    .role { color: #666; font-size: 0.85rem; }
-    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-    nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
-    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
-    .lang-switch a.active { background: #1a1a1a; color: #fff; }
-    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; }
-    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
-  </style>
+  <title><%= venue.name %> — <%= t('nav.dashboard') %></title>
+  <%- include('../partials/head-assets') %>
 </head>
 <body>
-  <header>
-    <div>
-      <h1><%= venue.name %></h1>
-      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.' + role) %>)</div>
-    </div>
-    <form method="POST" action="/admin/logout">
-      <button type="submit"><%= t('common.logout') %></button>
-    </form>
-  </header>
-  <% if (role === 'venue_admin') { %>
-    <nav>
-      <div>
-        <a href="/admin"><%= t('nav.dashboard') %></a>
-        <a href="/admin/categories"><%= t('nav.categories') %></a>
-        <a href="/admin/items"><%= t('nav.items') %></a>
-        <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
-      <a href="/admin/staff"><%= t('nav.staff') %></a>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'dashboard', venueSlug: venue.slug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.dashboard'), lang, currentPath: '/admin', venueSlug: venue.slug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.dashboard') %></h1>
+          </div>
+          <a href="/menu/<%= venue.slug %>" target="_blank" rel="noopener" class="btn btn-primary">
+            <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+            <%= t('nav.openMenu') %>
+          </a>
+        </div>
+
+        <% if (!venue.is_active) { %>
+          <div class="alert alert-error"><%= t('dashboard.venueDisabledNotice') %></div>
+        <% } %>
+
+        <div class="dashboard-grid">
+          <div class="dashboard-card qr-card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow"><%= t('dashboard.qrEyebrow') %></span>
+                <h3><%= venue.name %></h3>
+              </div>
+            </div>
+            <div class="qr-row">
+              <img class="qr-image" src="/admin/qr.png" alt="QR" width="120" height="120">
+              <div>
+                <p><%= t('dashboard.qrScanHintLine1') %><br><%= t('dashboard.qrScanHintLine2') %></p>
+                <button type="button" class="btn btn-outline" id="shareQrBtn" data-url="/menu/<%= venue.slug %>">
+                  <%- include('../partials/icon', { name: 'share', size: 15 }) %>
+                  <%= t('dashboard.shareButton') %>
+                </button>
+                <span id="qrCopiedNote" class="copied" style="display:none;"><%= t('dashboard.linkCopied') %></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow"><%= t('dashboard.viewsEyebrow') %></span>
+                <h3><%= t('dashboard.viewsTitle') %></h3>
+              </div>
+              <%- include('../partials/icon', { name: 'barchart', size: 21 }) %>
+            </div>
+            <div class="metric">
+              <%= stats.totalThisMonth %>
+              <% if (stats.trend !== null) { %>
+                <span><%= stats.trend >= 0 ? '+' : '' %><%= stats.trend %>%</span>
+              <% } %>
+            </div>
+            <div class="chart">
+              <% stats.daily.forEach((day) => { %>
+                <i style="height: <%= day.heightPercent %>%;" title="<%= day.label %>: <%= day.count %>"></i>
+              <% }) %>
+            </div>
+            <small>
+              <% stats.daily.forEach((day) => { %><span><%= day.label %></span><% }) %>
+            </small>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-heading">
+            <div>
+              <span class="eyebrow"><%= t('dashboard.recentItemsEyebrow') %></span>
+              <h3><%= t('dashboard.recentItemsTitle') %></h3>
+            </div>
+            <a href="/admin/items" class="btn btn-outline">
+              <%= t('dashboard.viewAllItems') %>
+              <%- include('../partials/icon', { name: 'arrowright', size: 15 }) %>
+            </a>
+          </div>
+          <% if (recentItems.length === 0) { %>
+            <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('dashboard.noItemsYet') %></div>
+          <% } %>
+          <% recentItems.forEach((item) => { %>
+            <div class="table-row" style="grid-template-columns: 38px 1.5fr 1.1fr .8fr 100px;">
+              <% if (item.photo_thumb_url) { %>
+                <span class="table-emoji"><img src="<%= item.photo_thumb_url %>" alt=""></span>
+              <% } else { %>
+                <span class="table-emoji"><%- include('../partials/icon', { name: 'utensils', size: 16 }) %></span>
+              <% } %>
+              <b><%= item.name_ru %></b>
+              <span class="category"><%= item.category_name_ru %></span>
+              <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
+              <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
+                <input type="hidden" name="redirect" value="/admin">
+                <button type="submit" class="btn <%= item.is_available ? 'btn-outline' : 'btn-danger' %>" style="font-size:10px; min-height:32px; padding:0 10px;">
+                  <%= item.is_available ? t('items.available') : t('items.unavailable') %>
+                </button>
+              </form>
+            </div>
+          <% }) %>
+        </div>
       </div>
-      <div class="lang-switch">
-        <a href="/admin/lang?lang=ru&redirect=/admin" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
-        <a href="/admin/lang?lang=uz&redirect=/admin" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
-      </div>
-    </nav>
-  <% } else { %>
-    <nav>
-      <a href="/admin/items"><%= t('nav.availability') %></a>
-      <div class="lang-switch">
-        <a href="/admin/lang?lang=ru&redirect=/admin" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
-        <a href="/admin/lang?lang=uz&redirect=/admin" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
-      </div>
-    </nav>
-  <% } %>
-  <div class="card">
-    <p><strong><%= t('dashboard.slugLabel') %>:</strong> <%= venue.slug %></p>
-    <p><strong><%= t('dashboard.statusLabel') %>:</strong> <%= venue.is_active ? t('dashboard.statusActive') : t('dashboard.statusInactive') %></p>
+    </section>
   </div>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('shareQrBtn');
+      var note = document.getElementById('qrCopiedNote');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var url = window.location.origin + btn.dataset.url;
+        if (navigator.share) {
+          navigator.share({ title: document.title, url: url }).catch(function () {});
+          return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(function () {
+            note.style.display = 'inline-flex';
+            setTimeout(function () { note.style.display = 'none'; }, 2000);
+          });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

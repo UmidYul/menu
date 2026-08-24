@@ -2,12 +2,12 @@ const TTL_MS = 5 * 60 * 1000; // 5 минут
 
 const store = new Map();
 
-function buildKey(slug, lang) {
-  return `${slug}:${lang}`;
+function buildKey(slug, lang, categoryId) {
+  return `${slug}:${lang}:${categoryId}`;
 }
 
-function get(slug, lang) {
-  const key = buildKey(slug, lang);
+function get(slug, lang, categoryId) {
+  const key = buildKey(slug, lang, categoryId);
   const entry = store.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
@@ -17,11 +17,11 @@ function get(slug, lang) {
   return entry.html;
 }
 
-function set(slug, lang, html) {
-  store.set(buildKey(slug, lang), { html, expiresAt: Date.now() + TTL_MS });
+function set(slug, lang, categoryId, html) {
+  store.set(buildKey(slug, lang, categoryId), { html, expiresAt: Date.now() + TTL_MS });
 }
 
-// Сбрасывает закэшированную страницу меню для этого заведения на всех языках —
+// Сбрасывает закэшированные страницы меню этого заведения на всех языках и категориях —
 // вызывается при любом сохранении категорий/позиций/настроек этого venue в админке.
 function invalidateVenue(slug) {
   if (!slug) return;

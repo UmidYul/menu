@@ -4,118 +4,130 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= t('categories.pageTitle') %></title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    nav { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-    nav a { color: #1a73e8; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
-    .lang-switch a { margin-right: 0.35rem; padding: 0.2rem 0.5rem; border-radius: 999px; background: #eee; color: #555; font-size: 0.75rem; }
-    .lang-switch a.active { background: #1a1a1a; color: #fff; }
-    h1 { font-size: 1.25rem; margin: 0; }
-    h2 { font-size: 1.05rem; margin: 0 0 1rem; }
-    .role { color: #666; font-size: 0.85rem; }
-    button { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-    button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-    button.primary:hover { background: #1558b0; }
-    button.danger { background: #fdecea; color: #b3261e; border-color: #f5c6c2; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 2rem; }
-    th, td { text-align: left; padding: 0.6rem 1rem; border-bottom: 1px solid #eee; vertical-align: middle; }
-    th { background: #fafafa; font-size: 0.85rem; color: #555; }
-    .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); max-width: 480px; }
-    label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: #333; }
-    input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem; }
-    .error { background: #fdecea; color: #b3261e; padding: 0.6rem 0.8rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-    form.inline { display: inline; }
-    .row-form { display: flex; gap: 0.4rem; align-items: center; }
-    .order-controls { display: flex; gap: 0.25rem; }
-    .order-controls button { padding: 0.3rem 0.5rem; }
-  </style>
+  <%- include('../partials/head-assets') %>
 </head>
 <body>
-  <header>
-    <div>
-      <h1><%= t('categories.heading') %></h1>
-      <div class="role"><%= t('common.loggedInAs') %> <%= login %> (<%= t('roles.venue_admin') %>)</div>
-    </div>
-    <form method="POST" action="/admin/logout">
-      <button type="submit"><%= t('common.logout') %></button>
-    </form>
-  </header>
-  <nav>
-    <div>
-      <a href="/admin"><%= t('nav.dashboard') %></a>
-      <a href="/admin/categories"><%= t('nav.categories') %></a>
-      <a href="/admin/items"><%= t('nav.items') %></a>
-      <a href="/admin/venue-settings"><%= t('nav.venueSettings') %></a>
-      <a href="/admin/staff"><%= t('nav.staff') %></a>
-    </div>
-    <div class="lang-switch">
-      <a href="/admin/lang?lang=ru&redirect=/admin/categories" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
-      <a href="/admin/lang?lang=uz&redirect=/admin/categories" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
-    </div>
-  </nav>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'categories', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('nav.dashboard'), section: t('categories.heading'), lang, currentPath: '/admin/categories', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div><span class="eyebrow"><%= t('categories.eyebrow') %></span><h1><%= t('categories.heading') %></h1></div>
+          <button type="button" class="btn btn-primary" onclick="document.getElementById('add-category-modal').showModal()">
+            <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('categories.addHeading') %>
+          </button>
+        </div>
 
-  <% if (error) { %>
-    <div class="error"><%= error %></div>
-  <% } %>
+        <div style="max-width:760px; margin-inline:auto;">
+          <% if (error && !formTarget) { %>
+            <div class="alert alert-error"><%= error %></div>
+          <% } %>
 
-  <table>
-    <thead>
-      <tr>
-        <th><%= t('categories.colOrder') %></th>
-        <th><%= t('categories.colNameRu') %></th>
-        <th><%= t('categories.colNameUz') %></th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (categories.length === 0) { %>
-        <tr><td colspan="4"><%= t('categories.empty') %></td></tr>
-      <% } %>
-      <% categories.forEach((category, index) => { %>
-        <tr>
-          <td>
-            <div class="order-controls">
-              <form class="inline" method="POST" action="/admin/categories/<%= category.id %>/move">
-                <input type="hidden" name="direction" value="up">
-                <button type="submit" <%= index === 0 ? 'disabled' : '' %>>▲</button>
-              </form>
-              <form class="inline" method="POST" action="/admin/categories/<%= category.id %>/move">
-                <input type="hidden" name="direction" value="down">
-                <button type="submit" <%= index === categories.length - 1 ? 'disabled' : '' %>>▼</button>
-              </form>
+          <% if (categories.length === 0) { %>
+            <p style="color:var(--muted); font-size:13px;"><%= t('categories.empty') %></p>
+          <% } %>
+
+          <% if (categories.length > 0) { %>
+            <div class="table-card">
+              <% categories.forEach((category, index) => { %>
+                <div class="table-row item-row" style="grid-template-columns: 1fr 40px;">
+                  <div class="item-row-info">
+                    <b><%= category.name_ru %></b>
+                    <span><%= t('categories.itemsCount', { count: category.item_count }) %></span>
+                  </div>
+                  <details class="item-menu">
+                    <summary aria-label="<%= t('common.actions') %>">
+                      <%- include('../partials/icon', { name: 'more', size: 18 }) %>
+                    </summary>
+                    <div class="item-menu-panel">
+                      <button type="button" onclick="this.closest('details').removeAttribute('open'); document.getElementById('edit-category-<%= category.id %>-modal').showModal()">
+                        <%- include('../partials/icon', { name: 'edit', size: 14 }) %> <%= t('common.edit') %>
+                      </button>
+                      <form method="POST" action="/admin/categories/<%= category.id %>/move">
+                        <input type="hidden" name="direction" value="up">
+                        <button type="submit" <%= index === 0 ? 'disabled' : '' %>>
+                          <%- include('../partials/icon', { name: 'arrowup', size: 14 }) %> <%= t('categories.moveUp') %>
+                        </button>
+                      </form>
+                      <form method="POST" action="/admin/categories/<%= category.id %>/move">
+                        <input type="hidden" name="direction" value="down">
+                        <button type="submit" <%= index === categories.length - 1 ? 'disabled' : '' %>>
+                          <%- include('../partials/icon', { name: 'arrowdown', size: 14 }) %> <%= t('categories.moveDown') %>
+                        </button>
+                      </form>
+                      <hr>
+                      <form method="POST" action="/admin/categories/<%= category.id %>?_method=DELETE"
+                            onsubmit="return confirm('<%= t('categories.confirmDelete', { name: category.name_ru }) %>');">
+                        <button type="submit" class="danger"><%- include('../partials/icon', { name: 'trash', size: 14 }) %> <%= t('common.delete') %></button>
+                      </form>
+                    </div>
+                  </details>
+                </div>
+              <% }) %>
             </div>
-          </td>
-          <td>
-            <form class="row-form" method="POST" action="/admin/categories/<%= category.id %>?_method=PATCH">
-              <input type="text" name="name_ru" value="<%= category.name_ru %>" required>
-              <input type="text" name="name_uz" value="<%= category.name_uz %>" required>
-              <button type="submit"><%= t('common.save') %></button>
+          <% } %>
+
+          <% categories.forEach((category) => { %>
+            <dialog id="edit-category-<%= category.id %>-modal" class="modal">
+              <div class="modal-head">
+                <h3><%= t('categories.editHeading') %></h3>
+                <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+                  <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+                </button>
+              </div>
+              <div class="modal-body">
+                <% if (formTarget === `edit-${category.id}`) { %>
+                  <div class="alert alert-error"><%= error %></div>
+                <% } %>
+                <form method="POST" action="/admin/categories/<%= category.id %>?_method=PATCH">
+                  <div class="field">
+                    <label><%= t('categories.nameRuLabel') %></label>
+                    <input type="text" name="name_ru" value="<%= category.name_ru %>" required>
+                  </div>
+                  <div class="field">
+                    <label><%= t('categories.nameUzLabel') %></label>
+                    <input type="text" name="name_uz" value="<%= category.name_uz %>" required>
+                  </div>
+                  <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('common.save') %></button>
+                </form>
+              </div>
+            </dialog>
+            <% if (formTarget === `edit-${category.id}`) { %>
+              <script>document.getElementById('edit-category-<%= category.id %>-modal').showModal();</script>
+            <% } %>
+          <% }) %>
+        </div>
+
+        <dialog id="add-category-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('categories.addHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (formTarget === 'add') { %>
+              <div class="alert alert-error"><%= error %></div>
+            <% } %>
+            <form method="POST" action="/admin/categories">
+              <div class="field">
+                <label for="name_ru"><%= t('categories.nameRuLabel') %></label>
+                <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required>
+              </div>
+              <div class="field">
+                <label for="name_uz"><%= t('categories.nameUzLabel') %></label>
+                <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %></button>
             </form>
-          </td>
-          <td></td>
-          <td>
-            <form class="inline" method="POST" action="/admin/categories/<%= category.id %>?_method=DELETE"
-                  onsubmit="return confirm('<%= t('categories.confirmDelete', { name: category.name_ru }) %>');">
-              <button type="submit" class="danger"><%= t('common.delete') %></button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-
-  <div class="card">
-    <h2><%= t('categories.addHeading') %></h2>
-    <form method="POST" action="/admin/categories">
-      <label for="name_ru"><%= t('categories.nameRuLabel') %></label>
-      <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required style="width:100%; margin-bottom: 1rem;">
-
-      <label for="name_uz"><%= t('categories.nameUzLabel') %></label>
-      <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required style="width:100%; margin-bottom: 1rem;">
-
-      <button type="submit" class="primary"><%= t('common.add') %></button>
-    </form>
+          </div>
+        </dialog>
+        <% if (formTarget === 'add') { %>
+          <script>document.getElementById('add-category-modal').showModal();</script>
+        <% } %>
+      </div>
+    </section>
   </div>
 </body>
 </html>

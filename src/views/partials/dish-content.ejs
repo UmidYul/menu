@@ -1,0 +1,53 @@
+<%
+// Ожидает: item (из publicMenu.js buildMenuViewModel), t
+const extraTags = item.tags.filter((tag) => tag.key !== 'new');
+const isNew = item.tags.some((tag) => tag.key === 'new');
+%>
+<div class="menu-card-media">
+  <div class="menu-card-image">
+    <% if (item.photoThumbUrl) { %>
+      <img src="<%= item.photoThumbUrl %>" alt="" loading="lazy">
+    <% } else { %>
+      <span class="menu-card-image-fallback">🍽️</span>
+    <% } %>
+  </div>
+  <% if (isNew) { %><span class="new-badge"><%= t('tags.new') %></span><% } %>
+  <% if (!item.isAvailable) { %><span class="unavailable-badge"><%= t('publicMenu.unavailableBadge') %></span><% } %>
+  <button type="button" class="favorite-btn" data-item-id="<%= item.id %>" aria-label="favorite">
+    <%- include('./icon', { name: 'heart', size: 16 }) %>
+  </button>
+  <% if (item.hasReveal) { %>
+    <div class="menu-card-reveal">
+      <div class="menu-card-reveal-inner">
+        <% if (item.description) { %><p><%= item.description %></p><% } %>
+        <% if (item.composition) { %><p class="menu-card-fact"><b><%= t('publicMenu.compositionLabel') %>:</b> <%= item.composition %></p><% } %>
+        <% if (item.calories) { %><p class="menu-card-fact"><b><%= t('publicMenu.caloriesLabel') %>:</b> <%= item.calories %> <%= t('publicMenu.caloriesUnit') %></p><% } %>
+        <% if (extraTags.length > 0) { %>
+          <div class="detail-tags">
+            <% extraTags.forEach((tag) => { %><span><%= tag.label %></span><% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+</div>
+<div class="menu-card-body">
+  <h3><%= item.name %></h3>
+  <div class="menu-card-footer">
+    <div class="dish-price">
+      <% if (item.oldPrice) { %><s class="dish-old-price"><%= Number(item.oldPrice).toLocaleString('ru-RU') %></s><% } %>
+      <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
+      <% if (item.discountPercent) { %><span class="discount-badge">−<%= item.discountPercent %>%</span><% } %>
+    </div>
+    <% if (item.isAvailable) { %>
+      <div class="cart-control" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-currency="<%= item.currency %>">
+        <button type="button" class="cart-add-btn"><%= t('publicMenu.addToCart') %></button>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn qty-minus" aria-label="−">−</button>
+          <span class="qty-value">0</span>
+          <button type="button" class="qty-btn qty-plus" aria-label="+">+</button>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>

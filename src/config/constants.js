@@ -1,3 +1,3 @@
 module.exports = {
-  SERVICE_NAME: 'QR-Меню',
+  SERVICE_NAME: 'qr.menu',
 };
