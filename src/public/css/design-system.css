@@ -122,13 +122,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .wifi-menu-panel h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 11px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
 .wifi-menu-panel .wifi-row { font-size: 12px; }
 .wifi-menu-panel .btn { min-height: 30px; padding: 0 10px; font-size: 10px; }
-.venue { padding-block: 62px 45px; text-align: center; }
+.venue { padding-block: 40px 20px; }
+.venue-hero-card {
+  position: relative;
+  padding: 46px 28px 36px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  text-align: center;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(circle at 50% -10%, #c65d4222 0%, transparent 55%),
+    radial-gradient(#00000012 1px, transparent 1.6px);
+  background-size: auto, 20px 20px;
+  background-position: center, center;
+}
+.venue-hero-card .venue-logo { box-shadow: 0 0 0 6px var(--paper), 0 16px 30px #6e62531f; }
 .venue-logo { width: 68px; height: 68px; font-size: 34px; }
-.venue h1 { margin: 14px 0 4px; font-family: var(--font-serif); font-size: 38px; font-weight: 500; }
+.venue h1 { margin: 16px 0 0; font-family: var(--font-serif); font-size: 38px; font-weight: 500; }
 .venue p { margin: 0; color: var(--muted); font-size: 12px; }
-.venue-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 17px; margin-top: 21px; color: var(--muted); font-size: 11px; }
-.venue-meta span, .venue-meta a { display: flex; align-items: center; gap: 5px; color: var(--muted); }
-.pin { color: var(--primary); font-size: 9px; }
+.venue-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin-top: 22px; }
+.venue-meta span, .venue-meta a, .venue-meta .venue-wifi-chip > summary { display: inline-flex; align-items: center; gap: 6px; width: auto; height: auto; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: default; list-style: none; }
+.venue-meta a, .venue-meta .venue-wifi-chip > summary { cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease; }
+.venue-meta a:hover, .venue-meta .venue-wifi-chip > summary:hover { border-color: #c9c5ba; background: #f3ede2; }
+.venue-meta svg { color: var(--primary); flex-shrink: 0; }
+.venue-wifi-chip > summary::-webkit-details-marker { display: none; }
+.venue-wifi-chip > summary::marker { display: none; }
+.venue-wifi-chip .item-menu-panel { right: auto; left: 50%; transform: translateX(-50%); top: calc(100% + 8px); }
 .copied { display: inline-flex; align-items: center; gap: 5px; margin-top: 15px; color: #62805d; font-size: 11px; }
 .menu-layout { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; padding-block: 30px 20px; }
 /* Никакого внутреннего скролла и ограничения по высоте — панель просто растягивается по
@@ -241,14 +260,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 }
 
-.info-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-block: 10px 30px; }
-.info-block { padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--paper); }
-.info-block h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--font-serif); font-size: 16px; font-weight: 500; }
-.map-embed { width: 100%; height: 180px; border: 0; border-radius: 10px; display: block; }
 .wifi-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-family: monospace; font-size: 13px; }
 .wifi-row:first-child { border-bottom: 1px solid var(--border); }
 .wifi-row .btn { min-height: 32px; font-size: 11px; }
-.wifi-block .copied { margin-top: 10px; }
 
 .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: center; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); pointer-events: none; }
 .cart-bar-btn { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 0 20px; min-height: 50px; border: 0; border-radius: 999px; background: var(--ink); color: white; font-size: 13px; font-weight: 700; box-shadow: 0 12px 30px #27251f40; }
@@ -264,8 +278,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .menu-footer b { display: block; color: var(--ink); }
 .menu-footer div span { display: block; margin-top: 4px; }
 .menu-footer a { color: inherit; }
-.menu-footer .social-links { display: flex; gap: 10px; }
-.back-proto { display: block; margin: 25px auto; border: 0; background: none; color: var(--primary); font-size: 11px; text-align: center; }
+.menu-footer .social-links { display: flex; gap: 8px; }
+.footer-social-link { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
+.footer-social-link:hover { background: #f3ede2; border-color: #c9c5ba; color: var(--ink); }
+.menu-footer .working-hours { white-space: pre-line; }
+.mini-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; border-top: 1px solid var(--border); }
+.mini-footer-brand.brand { flex-shrink: 0; font-size: 15px; }
+.mini-footer-tagline { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; }
+.mini-footer-cta { flex-shrink: 0; min-height: 36px; padding: 0 15px; font-size: 12px; }
 .empty-note { padding: 40px 0; text-align: center; color: var(--muted); }
 
 /* admin */
@@ -348,6 +368,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .status i { width: 6px; height: 6px; border-radius: 50%; background: #75a568; }
 .status.off { color: var(--muted); }
 .status.off i { background: #b8b3a9; }
+.status.warn { color: #ad7a2c; }
+.status.warn i { background: #d99f3f; }
 .unavailable-card { opacity: .55; }
 
 /* modals */
@@ -397,6 +419,13 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
 .checkbox-row label:has(input:checked) { background: var(--sage); border-color: #b9c9b0; color: #4c5e47; font-weight: 800; }
 .checkbox-row input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .checkbox-row label:has(input:focus-visible) { outline: 3px solid #d6a08f; outline-offset: 2px; }
+
+.radio-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.radio-row label { position: relative; display: flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--muted); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.radio-row label:has(input:checked) { background: #f3e4dc; border-color: #e2c3b4; color: var(--primary-dark); font-weight: 800; }
+.radio-row input[type="radio"] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.radio-row label:has(input:focus-visible) { outline: 3px solid #d6a08f; outline-offset: 2px; }
+
 .alert { padding: 12px 16px; border-radius: 10px; font-size: 12px; margin-bottom: 18px; }
 .alert-error { background: #f7e6e1; color: var(--primary-dark); }
 .alert-success { background: var(--sage); color: #4c5e47; }
@@ -446,7 +475,8 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .steps { grid-template-columns: 1fr; margin-top: 30px; }
   .pricing { grid-template-columns: 1fr; gap: 25px; padding-block: 70px; }
   .menu-footer { grid-template-columns: 1fr 1fr; }
-  .info-blocks { grid-template-columns: 1fr; }
+  .mini-footer { flex-wrap: wrap; }
+  .mini-footer-tagline { order: 1; width: 100%; }
   .menu-layout { grid-template-columns: 1fr; padding-top: 20px; }
   .menu-heading { font-size: 30px; margin-bottom: 18px; }
   .menu-sidebar { position: static; flex-direction: row; overflow-x: auto; overflow-y: visible; scrollbar-width: none; background: transparent; padding: 0; gap: 8px; margin-bottom: 18px; }
@@ -462,6 +492,20 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .hero-actions .btn { width: 100%; }
   .hero-card { transform: none; }
   .venue-meta { gap: 10px; }
+  .venue-meta span, .venue-meta a, .venue-meta .venue-wifi-chip > summary { max-width: 100%; white-space: normal; text-align: left; }
   .menu-grid { grid-template-columns: 1fr; }
   .footer span:last-child { width: 100%; }
+  /* На узких экранах позиционирование Wi-Fi панели "от иконки/чипа" (right:0 в шапке,
+     left:50% у чипа в hero) выталкивает её за край экрана в обе стороны в зависимости от того,
+     где на строке оказался триггер. Вместо расчёта отступов под конкретный триггер — единая
+     панель по центру экрана, не зависящая от того, кто её открыл. */
+  .item-menu-panel.wifi-menu-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 40px);
+    max-width: 300px;
+  }
 }

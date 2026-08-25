@@ -36,10 +36,11 @@
             <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('superadmin.empty') %></div>
           <% } %>
           <% venues.forEach((venue) => { %>
-            <div class="venue-row" style="grid-template-columns: 35px 1.1fr .9fr .9fr 1fr 90px 90px;">
+            <div class="venue-row" style="grid-template-columns: 35px .95fr .7fr .8fr .75fr .8fr 90px 90px 90px;">
               <span class="venue-mini"><%= venue.name.charAt(0).toUpperCase() %></span>
-              <b><%= venue.name %></b>
+              <a href="/superadmin/venues/<%= venue.id %>"><b><%= venue.name %></b></a>
               <span><%= venue.slug %></span>
+              <span><%= venue.subscription_until || t('superadmin.subscriptionNone') %></span>
               <span class="<%= venue.is_active ? 'status' : 'status off' %>"><i></i> <%= venue.is_active ? t('superadmin.statusActive') : t('superadmin.statusInactive') %></span>
               <span><%= venue.show_powered_by ? t('superadmin.poweredByShown') : t('superadmin.poweredByHidden') %></span>
               <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
@@ -48,6 +49,7 @@
               <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-powered-by">
                 <button type="submit" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= venue.show_powered_by ? t('superadmin.hidePoweredBy') : t('superadmin.showPoweredByAction') %></button>
               </form>
+              <a href="/superadmin/venues/<%= venue.id %>" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= t('superadmin.detailAction') %></a>
             </div>
           <% }) %>
         </div>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('superadmin.subscriptionHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+<%
+  const statusClass = subscriptionStatus === 'active' ? 'status' : (subscriptionStatus === 'expiring' ? 'status warn' : 'status off');
+  const statusLabel = subscriptionStatus === 'active'
+    ? t('superadmin.subscriptionStatusActive')
+    : (subscriptionStatus === 'expiring' ? t('superadmin.subscriptionStatusExpiring') : t('superadmin.subscriptionStatusOverdue'));
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'venues', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: venue.name, lang, currentPath: '/superadmin/venues', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.slug %></span>
+            <h1><%= venue.name %></h1>
+          </div>
+          <a href="/superadmin/venues" class="btn btn-outline"><%= t('superadmin.backToVenues') %></a>
+        </div>
+
+        <div class="form-card">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.subscriptionHeading') %></h3></div>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('extend-modal').showModal()">
+              <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('superadmin.extendButton') %>
+            </button>
+          </div>
+          <div class="super-stats" style="grid-template-columns: 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
+            <div>
+              <span><%= t('superadmin.subscriptionUntilLabel') %></span>
+              <b style="font-size:22px;"><%= venue.subscription_until || t('superadmin.subscriptionNone') %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.colStatus') %></span>
+              <b style="font-size:22px;"><span class="<%= statusClass %>" style="font-size:16px;"><i></i> <%= statusLabel %></span></b>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-heading">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.paymentsHeading') %></h3></div>
+          </div>
+          <% if (payments.length === 0) { %>
+            <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('superadmin.paymentsEmpty') %></div>
+          <% } %>
+          <% payments.forEach((payment) => { %>
+            <div class="table-row" style="grid-template-columns: 100px .8fr .7fr 1.4fr .9fr 100px;">
+              <span class="category"><%= payment.paid_at %></span>
+              <b style="font-weight:600;"><%= Number(payment.amount).toLocaleString('ru-RU') %> <%= payment.currency %></b>
+              <span><%= t('superadmin.method_' + payment.method) %></span>
+              <span class="category" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<%= payment.comment || '' %>"><%= payment.comment || '—' %></span>
+              <span><%= payment.created_by_login %></span>
+              <span class="category"><%= payment.extends_until %></span>
+            </div>
+          <% }) %>
+        </div>
+
+        <dialog id="extend-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('superadmin.extendHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (error) { %>
+              <div class="alert alert-error"><%= error %></div>
+            <% } %>
+            <form method="POST" action="/superadmin/venues/<%= venue.id %>/extend">
+              <div class="field-grid">
+                <div class="field">
+                  <label for="amount"><%= t('superadmin.amountLabel') %></label>
+                  <input type="number" id="amount" name="amount" value="<%= formValues.amount %>" min="1" step="0.01" required>
+                </div>
+                <div class="field">
+                  <label for="method"><%= t('superadmin.methodLabel') %></label>
+                  <select id="method" name="method">
+                    <option value="cash" <%= formValues.method === 'cash' ? 'selected' : '' %>><%= t('superadmin.method_cash') %></option>
+                    <option value="card" <%= formValues.method === 'card' ? 'selected' : '' %>><%= t('superadmin.method_card') %></option>
+                    <option value="click" <%= formValues.method === 'click' ? 'selected' : '' %>><%= t('superadmin.method_click') %></option>
+                    <option value="payme" <%= formValues.method === 'payme' ? 'selected' : '' %>><%= t('superadmin.method_payme') %></option>
+                    <option value="other" <%= formValues.method === 'other' ? 'selected' : '' %>><%= t('superadmin.method_other') %></option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="paid_at"><%= t('superadmin.paidAtLabel') %></label>
+                <input type="date" id="paid_at" name="paid_at" value="<%= formValues.paid_at %>" required>
+              </div>
+
+              <div class="field">
+                <label for="comment"><%= t('superadmin.commentLabel') %></label>
+                <textarea id="comment" name="comment" rows="2"><%= formValues.comment %></textarea>
+              </div>
+
+              <div class="field">
+                <label><%= t('superadmin.periodLabel') %></label>
+                <div class="radio-row">
+                  <label>
+                    <input type="radio" name="period_mode" value="preset" <%= formValues.period_mode === 'preset' ? 'checked' : '' %> onchange="document.getElementById('preset-period-field').style.display='block'; document.getElementById('manual-period-field').style.display='none';">
+                    <%= t('superadmin.periodPresetLabel') %>
+                  </label>
+                  <label>
+                    <input type="radio" name="period_mode" value="manual" <%= formValues.period_mode === 'manual' ? 'checked' : '' %> onchange="document.getElementById('preset-period-field').style.display='none'; document.getElementById('manual-period-field').style.display='block';">
+                    <%= t('superadmin.periodManualLabel') %>
+                  </label>
+                </div>
+              </div>
+
+              <div class="field" id="preset-period-field" style="<%= formValues.period_mode === 'manual' ? 'display:none;' : '' %>">
+                <div class="radio-row">
+                  <label><input type="radio" name="period_months" value="1" <%= formValues.period_months === '1' ? 'checked' : '' %>> <%= t('superadmin.period1') %></label>
+                  <label><input type="radio" name="period_months" value="3" <%= formValues.period_months === '3' ? 'checked' : '' %>> <%= t('superadmin.period3') %></label>
+                  <label><input type="radio" name="period_months" value="6" <%= formValues.period_months === '6' ? 'checked' : '' %>> <%= t('superadmin.period6') %></label>
+                </div>
+              </div>
+
+              <div class="field" id="manual-period-field" style="<%= formValues.period_mode === 'manual' ? '' : 'display:none;' %>">
+                <label for="manual_until"><%= t('superadmin.manualUntilLabel') %></label>
+                <input type="date" id="manual_until" name="manual_until" value="<%= formValues.manual_until %>">
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('superadmin.extendSubmit') %></button>
+            </form>
+          </div>
+        </dialog>
+        <% if (error) { %>
+          <script>document.getElementById('extend-modal').showModal();</script>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

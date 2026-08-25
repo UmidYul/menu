@@ -15,12 +15,11 @@ function toFormValues(venue) {
     phone: venue.phone || '',
     address: venue.address || '',
     address_2gis_url: venue.address_2gis_url || '',
-    latitude: venue.latitude === null || venue.latitude === undefined ? '' : venue.latitude,
-    longitude: venue.longitude === null || venue.longitude === undefined ? '' : venue.longitude,
     wifi_ssid: venue.wifi_ssid || '',
     wifi_password: venue.wifi_password || '',
     instagram_url: venue.instagram_url || '',
     telegram_url: venue.telegram_url || '',
+    working_hours: venue.working_hours || '',
   };
 }
 
@@ -54,12 +53,11 @@ router.post('/', async (req, res, next) => {
           phone: typeof req.body.phone === 'string' ? req.body.phone : '',
           address: typeof req.body.address === 'string' ? req.body.address : '',
           address_2gis_url: typeof req.body.address_2gis_url === 'string' ? req.body.address_2gis_url : '',
-          latitude: typeof req.body.latitude === 'string' ? req.body.latitude : '',
-          longitude: typeof req.body.longitude === 'string' ? req.body.longitude : '',
           wifi_ssid: typeof req.body.wifi_ssid === 'string' ? req.body.wifi_ssid : '',
           wifi_password: typeof req.body.wifi_password === 'string' ? req.body.wifi_password : '',
           instagram_url: typeof req.body.instagram_url === 'string' ? req.body.instagram_url : '',
           telegram_url: typeof req.body.telegram_url === 'string' ? req.body.telegram_url : '',
+          working_hours: typeof req.body.working_hours === 'string' ? req.body.working_hours : '',
         },
         error: t(parsed.error.issues[0].message),
         saved: false,
@@ -74,12 +72,11 @@ router.post('/', async (req, res, next) => {
       phone: parsed.data.phone,
       address: parsed.data.address,
       address2gisUrl: parsed.data.address_2gis_url,
-      latitude: parsed.data.latitude,
-      longitude: parsed.data.longitude,
       wifiSsid: parsed.data.wifi_ssid,
       wifiPassword: parsed.data.wifi_password,
       instagramUrl: parsed.data.instagram_url,
       telegramUrl: parsed.data.telegram_url,
+      workingHours: parsed.data.working_hours,
     });
 
     await logAction(pool, {
@@ -92,10 +89,9 @@ router.post('/', async (req, res, next) => {
         phone: parsed.data.phone,
         address: parsed.data.address,
         address_2gis_url: parsed.data.address_2gis_url,
-        latitude: parsed.data.latitude,
-        longitude: parsed.data.longitude,
         instagram_url: parsed.data.instagram_url,
         telegram_url: parsed.data.telegram_url,
+        working_hours: parsed.data.working_hours,
       },
     });
 

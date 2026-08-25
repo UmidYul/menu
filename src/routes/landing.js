@@ -17,10 +17,14 @@ router.get('/', (req, res) => {
     lang = DEFAULT_LANG;
   }
 
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
   res.render('public/landing', {
     lang,
     t: (key, params) => t(key, lang, params),
     serviceName: SERVICE_NAME,
+    baseUrl,
+    canonicalUrl: `${baseUrl}/`,
+    ogLocale: lang === 'uz' ? 'uz_UZ' : 'ru_RU',
   });
 });
 

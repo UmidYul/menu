@@ -10,6 +10,22 @@ const { t, SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
 const { SERVICE_NAME } = require('../config/constants');
 
 const LANG_COOKIE = 'menu_lang';
+const VIEW_COOKIE_PREFIX = 'mv_';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Уникальный просмотр — не более одного засчитанного просмотра с одного браузера в день на
+// заведение, независимо от того, сколько раз гость переключил категорию/язык или обновил
+// страницу. Метка "уже посчитан сегодня" живёт в cookie конкретного заведения (не в общей БД
+// визитов — для дневных счётчиков это не нужно), дата сравнивается по UTC, как и viewed_on в БД.
+function shouldCountView(req, slug) {
+  const today = new Date().toISOString().slice(0, 10);
+  return (req.cookies && req.cookies[`${VIEW_COOKIE_PREFIX}${slug}`]) !== today;
+}
+
+function markViewCounted(res, slug) {
+  const today = new Date().toISOString().slice(0, 10);
+  res.cookie(`${VIEW_COOKIE_PREFIX}${slug}`, today, { httpOnly: true, sameSite: 'lax', maxAge: DAY_MS });
+}
 
 // Приоритет: явный выбор в query (?lang=) > cookie из прошлого визита > lang_default заведения.
 function resolveLang(req, venueLangDefault) {
@@ -29,17 +45,7 @@ function pickLang(row, baseField, lang) {
   return fallback || '';
 }
 
-const MAP_BBOX_DELTA = 0.004;
-
-function buildMapEmbedUrl(latitude, longitude) {
-  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) return null;
-  const lat = Number(latitude);
-  const lon = Number(longitude);
-  const bbox = [lon - MAP_BBOX_DELTA, lat - MAP_BBOX_DELTA, lon + MAP_BBOX_DELTA, lat + MAP_BBOX_DELTA].join('%2C');
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
-}
-
-// Общие для всех страниц меню заведения поля (контакты, карта, wifi, футер) — не зависят
+// Общие для всех страниц меню заведения поля (контакты, wifi, футер) — не зависят
 // от того, какая категория сейчас открыта.
 function buildVenueInfo(venue) {
   return {
@@ -48,14 +54,64 @@ function buildVenueInfo(venue) {
     phone: venue.phone,
     address: venue.address,
     address2gisUrl: venue.address_2gis_url,
-    latitude: venue.latitude,
-    longitude: venue.longitude,
-    mapEmbedUrl: buildMapEmbedUrl(venue.latitude, venue.longitude),
     wifiSsid: venue.wifi_ssid,
     wifiPassword: venue.wifi_password,
     instagramUrl: venue.instagram_url,
     telegramUrl: venue.telegram_url,
+    workingHours: venue.working_hours,
     showPoweredBy: venue.show_powered_by,
+  };
+}
+
+function buildMetaDescription(venue, tt) {
+  const base = tt('publicMenu.metaDescription', { venueName: venue.name });
+  if (!venue.address) return base;
+  return `${base} ${tt('publicMenu.metaDescriptionAddressSuffix', { address: venue.address })}`;
+}
+
+// JSON-LD (schema.org/Restaurant) — только из реально заполненных полей заведения, без
+// придуманных данных (рейтинг, ценовая категория и т.п. мы не собираем и не добавляем).
+function buildRestaurantJsonLd(venue, baseUrl) {
+  const menuUrl = `${baseUrl}/menu/${venue.slug}`;
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: venue.name,
+    url: menuUrl,
+    hasMenu: menuUrl,
+    image: `${baseUrl}/og/${venue.slug}/image.png`,
+  };
+  if (venue.phone) data.telephone = venue.phone;
+  if (venue.address) {
+    data.address = { '@type': 'PostalAddress', streetAddress: venue.address };
+  }
+  const sameAs = [venue.instagram_url, venue.telegram_url].filter(Boolean);
+  if (sameAs.length) data.sameAs = sameAs;
+  return data;
+}
+
+// SEO/шеринг-метаданные. canonicalPath намеренно НЕ берётся из фактического пути запроса:
+// /menu/:slug и /menu/:slug/:firstCategoryId рендерят абсолютно одинаковый HTML (и делят один
+// ключ в menuCache — см. renderMenuPage), так что канонический URL обязан быть чистой функцией
+// от (slug, activeCategoryId), а не от того, какой из двух путей запросили — иначе для одной и
+// той же закэшированной страницы canonical "плавал" бы в зависимости от того, какой URL кэш
+// заполнил первым.
+function buildSeoInfo(venue, req, lang, tt, canonicalPath) {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const canonicalUrl = `${baseUrl}${canonicalPath}`;
+  const bareMenuUrl = `${baseUrl}/menu/${venue.slug}`;
+  return {
+    baseUrl,
+    canonicalUrl,
+    metaDescription: buildMetaDescription(venue, tt),
+    ogImageUrl: `${baseUrl}/og/${venue.slug}/image.png`,
+    ogLocale: lang === 'uz' ? 'uz_UZ' : 'ru_RU',
+    hreflangLinks: [
+      { lang: 'ru', href: `${bareMenuUrl}?lang=ru` },
+      { lang: 'uz', href: `${bareMenuUrl}?lang=uz` },
+      { lang: 'x-default', href: bareMenuUrl },
+    ],
+    restaurantJsonLd: buildRestaurantJsonLd(venue, baseUrl),
     serviceName: SERVICE_NAME,
   };
 }
@@ -87,7 +143,7 @@ function buildItemViewModel(item, lang, tt) {
 // Каждая категория — отдельная страница (/menu/:slug/:categoryId), а не секция на одной большой
 // странице. buildMenuViewModel собирает: лёгкий список всех категорий (для сайдбара) + позиции
 // только текущей открытой категории.
-function buildMenuViewModel(venue, categories, activeCategory, items, lang) {
+function buildMenuViewModel(venue, categories, activeCategory, items, lang, req) {
   const tt = (key, params) => t(key, lang, params);
 
   const sidebarCategories = categories.map((category) => ({
@@ -103,6 +159,11 @@ function buildMenuViewModel(venue, categories, activeCategory, items, lang) {
       }
     : null;
 
+  // /menu/:slug и /menu/:slug/:firstCategoryId рендерят один и тот же HTML — оба каноникализируются
+  // на голый URL заведения. Только у остальных категорий canonical указывает сам на себя.
+  const isDefaultCategory = !activeCategory || !categories[0] || activeCategory.id === categories[0].id;
+  const canonicalPath = isDefaultCategory ? `/menu/${venue.slug}` : `/menu/${venue.slug}/${activeCategory.id}`;
+
   return {
     categories: sidebarCategories,
     activeCategoryId: activeCategory ? activeCategory.id : null,
@@ -110,6 +171,7 @@ function buildMenuViewModel(venue, categories, activeCategory, items, lang) {
     lang,
     t: tt,
     ...buildVenueInfo(venue),
+    ...buildSeoInfo(venue, req, lang, tt, canonicalPath),
   };
 }
 
@@ -139,7 +201,7 @@ async function renderMenuPage(req, res, next, requestedCategoryId) {
     const categories = await categoryModel.listByVenue(venue.id);
 
     if (categories.length === 0) {
-      const viewModel = buildMenuViewModel(venue, [], null, [], lang);
+      const viewModel = buildMenuViewModel(venue, [], null, [], lang, req);
       return res.render('public/menu', viewModel);
     }
 
@@ -152,9 +214,12 @@ async function renderMenuPage(req, res, next, requestedCategoryId) {
       return res.redirect(`/menu/${slug}/${categories[0].id}`);
     }
 
-    venuePageViewModel.recordView(venue.id).catch((err) => {
-      console.error('Не удалось записать просмотр меню', err);
-    });
+    if (shouldCountView(req, slug)) {
+      markViewCounted(res, slug);
+      venuePageViewModel.recordView(venue.id).catch((err) => {
+        console.error('Не удалось записать просмотр меню', err);
+      });
+    }
 
     const cached = menuCache.get(slug, lang, activeCategory.id);
     if (cached) {
@@ -163,7 +228,7 @@ async function renderMenuPage(req, res, next, requestedCategoryId) {
     }
 
     const items = await itemModel.listByCategory(activeCategory.id);
-    const viewModel = buildMenuViewModel(venue, categories, activeCategory, items, lang);
+    const viewModel = buildMenuViewModel(venue, categories, activeCategory, items, lang, req);
 
     res.render('public/menu', viewModel, (err, html) => {
       if (err) return next(err);

@@ -17,11 +17,15 @@ const adminItemsRoutes = require('./routes/adminItems');
 const adminVenueSettingsRoutes = require('./routes/adminVenueSettings');
 const publicMenuRoutes = require('./routes/publicMenu');
 const landingRoutes = require('./routes/landing');
+const seoRoutes = require('./routes/seo');
 
 const app = express();
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+// За обратным прокси (nginx/certbot) req.protocol иначе всегда будет 'http' — это ломает
+// canonical/OG/sitemap URL в проде, где реальный трафик идёт по https.
+app.set('trust proxy', 1);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -50,6 +54,7 @@ app.use('/admin/items', adminLocale, adminItemsRoutes);
 app.use('/admin/venue-settings', adminLocale, adminVenueSettingsRoutes);
 app.use('/superadmin', adminLocale, superadminRoutes);
 app.use('/menu', publicMenuRoutes);
+app.use('/', seoRoutes);
 app.use('/', landingRoutes);
 
 app.use((req, res) => {

@@ -3,9 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= serviceName %> — цифровое меню для вашего бизнеса</title>
-  <meta name="description" content="Красивое меню по QR-коду за 5 минут. Без приложений и лишних забот.">
+  <title><%= t('landing.metaTitle', { serviceName }) %></title>
+  <meta name="description" content="<%= t('landing.metaDescription') %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="alternate" hreflang="ru" href="<%= baseUrl %>/?lang=ru">
+  <link rel="alternate" hreflang="uz" href="<%= baseUrl %>/?lang=uz">
+  <link rel="alternate" hreflang="x-default" href="<%= baseUrl %>/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="<%= serviceName %>">
+  <meta property="og:locale" content="<%= ogLocale %>">
+  <meta property="og:title" content="<%= t('landing.metaTitle', { serviceName }) %>">
+  <meta property="og:description" content="<%= t('landing.metaDescription') %>">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="<%= t('landing.metaTitle', { serviceName }) %>">
+  <meta name="twitter:description" content="<%= t('landing.metaDescription') %>">
   <%- include('../partials/head-assets') %>
+  <script type="application/ld+json">
+    <%- JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: serviceName,
+      url: baseUrl,
+    }) %>
+  </script>
 </head>
 <body>
   <main class="landing">

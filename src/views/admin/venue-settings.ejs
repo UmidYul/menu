@@ -42,18 +42,6 @@
 
             <div class="field-grid">
               <div class="field">
-                <label for="latitude"><%= t('venueSettings.latitudeLabel') %></label>
-                <input type="text" id="latitude" name="latitude" value="<%= formValues.latitude %>" placeholder="41.311081">
-              </div>
-              <div class="field">
-                <label for="longitude"><%= t('venueSettings.longitudeLabel') %></label>
-                <input type="text" id="longitude" name="longitude" value="<%= formValues.longitude %>" placeholder="69.240562">
-              </div>
-            </div>
-            <p class="hint" style="margin:-10px 0 18px;"><%= t('venueSettings.coordinatesHint') %></p>
-
-            <div class="field-grid">
-              <div class="field">
                 <label for="instagram_url"><%= t('venueSettings.instagramLabel') %></label>
                 <input type="text" id="instagram_url" name="instagram_url" value="<%= formValues.instagram_url %>" placeholder="https://instagram.com/...">
               </div>
@@ -63,8 +51,12 @@
               </div>
             </div>
 
+            <div class="field">
+              <label for="working_hours"><%= t('venueSettings.workingHoursLabel') %></label>
+              <textarea id="working_hours" name="working_hours" rows="3" placeholder="<%= t('venueSettings.workingHoursPlaceholder') %>"><%= formValues.working_hours %></textarea>
+            </div>
+
             <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('venueSettings.wifiLabel') %></h3>
-            <p class="hint" style="margin: 0 0 16px;"><%= t('venueSettings.wifiHint') %></p>
             <div class="field-grid">
               <div class="field">
                 <label for="wifi_ssid"><%= t('venueSettings.wifiSsidLabel') %></label>

@@ -12,6 +12,15 @@ async function findBySlug(slug) {
   return result.rows[0] || null;
 }
 
+// Заведения, которые должны попасть в sitemap.xml — только активные, чтобы поисковик не
+// индексировал страницы с "меню временно недоступно".
+async function listActiveSlugs() {
+  const result = await pool.query(
+    'SELECT slug, created_at FROM venues WHERE is_active = true ORDER BY created_at ASC'
+  );
+  return result.rows;
+}
+
 async function findById(id) {
   const result = await pool.query('SELECT * FROM venues WHERE id = $1', [id]);
   return result.rows[0] || null;
@@ -19,8 +28,8 @@ async function findById(id) {
 
 async function findPublicBySlug(slug) {
   const result = await pool.query(
-    `SELECT id, slug, name, phone, address, address_2gis_url, latitude, longitude,
-            wifi_ssid, wifi_password, instagram_url, telegram_url, lang_default, is_active, show_powered_by
+    `SELECT id, slug, name, phone, address, address_2gis_url,
+            wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default, is_active, show_powered_by
      FROM venues WHERE slug = $1`,
     [slug]
   );
@@ -53,14 +62,23 @@ async function toggleShowPoweredBy(id) {
   return result.rows[0] || null;
 }
 
-async function updateSettings(id, { phone, address, address2gisUrl, latitude, longitude, wifiSsid, wifiPassword, instagramUrl, telegramUrl }) {
+async function updateSubscriptionUntil(client, id, subscriptionUntil) {
+  const executor = client || pool;
+  const result = await executor.query(
+    'UPDATE venues SET subscription_until = $1 WHERE id = $2 RETURNING id, slug, name, subscription_until',
+    [subscriptionUntil, id]
+  );
+  return result.rows[0] || null;
+}
+
+async function updateSettings(id, { phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours }) {
   const result = await pool.query(
     `UPDATE venues
-     SET phone = $1, address = $2, address_2gis_url = $3, latitude = $4, longitude = $5,
-         wifi_ssid = $6, wifi_password = $7, instagram_url = $8, telegram_url = $9
-     WHERE id = $10
+     SET phone = $1, address = $2, address_2gis_url = $3,
+         wifi_ssid = $4, wifi_password = $5, instagram_url = $6, telegram_url = $7, working_hours = $8
+     WHERE id = $9
      RETURNING *`,
-    [phone, address, address2gisUrl, latitude, longitude, wifiSsid, wifiPassword, instagramUrl, telegramUrl, id]
+    [phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours, id]
   );
   return result.rows[0] || null;
 }
@@ -68,10 +86,12 @@ async function updateSettings(id, { phone, address, address2gisUrl, latitude, lo
 module.exports = {
   listAll,
   findBySlug,
+  listActiveSlugs,
   findById,
   findPublicBySlug,
   create,
   toggleActive,
   toggleShowPoweredBy,
   updateSettings,
+  updateSubscriptionUntil,
 };
