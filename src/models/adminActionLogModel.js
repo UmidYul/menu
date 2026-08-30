@@ -35,7 +35,7 @@ async function listRecent({ venueId, actionType, page }) {
               a.login AS admin_login, v.name AS venue_name, v.slug AS venue_slug
        FROM admin_action_logs l
        JOIN admins a ON a.id = l.admin_id
-       JOIN venues v ON v.id = l.venue_id
+       LEFT JOIN venues v ON v.id = l.venue_id
        ${where}
        ORDER BY l.created_at DESC
        LIMIT ${PAGE_SIZE} OFFSET $${values.length + 1}`,

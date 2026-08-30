@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('siteSettings.pageTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'siteSettings', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: t('siteSettings.heading'), lang, currentPath: '/superadmin/site-settings', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div><span class="eyebrow"><%= t('roles.superadmin') %></span><h1><%= t('siteSettings.heading') %></h1></div>
+        </div>
+
+        <% if (error) { %>
+          <div class="alert alert-error" style="max-width:560px; margin-inline:auto;"><%= error %></div>
+        <% } %>
+        <% if (saved) { %>
+          <div class="alert alert-success" style="max-width:560px; margin-inline:auto;"><%= t('siteSettings.saved') %></div>
+        <% } %>
+
+        <div class="form-card" style="max-width:560px; margin-inline:auto;">
+          <form method="POST" action="/superadmin/site-settings">
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 0 0 6px;"><%= t('siteSettings.sectionContactsHeading') %></h3>
+
+            <div class="field">
+              <label for="owner_name"><%= t('siteSettings.ownerNameLabel') %></label>
+              <input type="text" id="owner_name" name="owner_name" value="<%= formValues.owner_name %>">
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="phone"><%= t('siteSettings.phoneLabel') %></label>
+                <input type="text" id="phone" name="phone" value="<%= formValues.phone %>" placeholder="+998 90 123 45 67">
+              </div>
+              <div class="field">
+                <label for="phone_extra"><%= t('siteSettings.phoneExtraLabel') %></label>
+                <input type="text" id="phone_extra" name="phone_extra" value="<%= formValues.phone_extra %>">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="email"><%= t('siteSettings.emailLabel') %></label>
+              <input type="text" id="email" name="email" value="<%= formValues.email %>" placeholder="info@qr.menu">
+            </div>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionSocialHeading') %></h3>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="telegram_url"><%= t('siteSettings.telegramLabel') %></label>
+                <input type="text" id="telegram_url" name="telegram_url" value="<%= formValues.telegram_url %>" placeholder="https://t.me/...">
+              </div>
+              <div class="field">
+                <label for="instagram_url"><%= t('siteSettings.instagramLabel') %></label>
+                <input type="text" id="instagram_url" name="instagram_url" value="<%= formValues.instagram_url %>" placeholder="https://instagram.com/...">
+              </div>
+            </div>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionAddressHeading') %></h3>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="address_ru"><%= t('siteSettings.addressRuLabel') %></label>
+                <input type="text" id="address_ru" name="address_ru" value="<%= formValues.address_ru %>">
+              </div>
+              <div class="field">
+                <label for="address_uz"><%= t('siteSettings.addressUzLabel') %></label>
+                <input type="text" id="address_uz" name="address_uz" value="<%= formValues.address_uz %>">
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="working_hours_ru"><%= t('siteSettings.workingHoursRuLabel') %></label>
+                <textarea id="working_hours_ru" name="working_hours_ru" rows="3"><%= formValues.working_hours_ru %></textarea>
+              </div>
+              <div class="field">
+                <label for="working_hours_uz"><%= t('siteSettings.workingHoursUzLabel') %></label>
+                <textarea id="working_hours_uz" name="working_hours_uz" rows="3"><%= formValues.working_hours_uz %></textarea>
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="about_ru"><%= t('siteSettings.aboutRuLabel') %></label>
+                <textarea id="about_ru" name="about_ru" rows="3"><%= formValues.about_ru %></textarea>
+              </div>
+              <div class="field">
+                <label for="about_uz"><%= t('siteSettings.aboutUzLabel') %></label>
+                <textarea id="about_uz" name="about_uz" rows="3"><%= formValues.about_uz %></textarea>
+              </div>
+            </div>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionDocsHeading') %></h3>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="offer_url"><%= t('siteSettings.offerUrlLabel') %></label>
+                <input type="text" id="offer_url" name="offer_url" value="<%= formValues.offer_url %>" placeholder="https://...">
+              </div>
+              <div class="field">
+                <label for="privacy_url"><%= t('siteSettings.privacyUrlLabel') %></label>
+                <input type="text" id="privacy_url" name="privacy_url" value="<%= formValues.privacy_url %>" placeholder="https://...">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top:14px;"><%= t('siteSettings.submit') %></button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -7,10 +7,13 @@ const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const adminModel = require('../models/adminModel');
 const paymentModel = require('../models/paymentModel');
+const siteSettingsModel = require('../models/siteSettingsModel');
 const { logAction, listRecent } = require('../models/adminActionLogModel');
 const { createVenueSchema, venueRatingSchema } = require('../validators/venueValidators');
 const { extendSubscriptionSchema, PAYMENT_METHODS, PERIOD_MONTHS } = require('../validators/paymentValidators');
+const { siteSettingsSchema } = require('../validators/siteSettingsValidators');
 const menuCache = require('../services/menuCache');
+const siteSettingsCache = require('../services/siteSettingsCache');
 const {
   todayUTC,
   parseDateOnly,
@@ -448,6 +451,7 @@ const ENTITY_LABEL_KEYS = {
   venue: 'superadmin.entityVenue',
   admin: 'superadmin.entityAdmin',
   payment: 'superadmin.entityPayment',
+  site_settings: 'superadmin.entitySiteSettings',
 };
 
 router.get('/logs', async (req, res, next) => {
@@ -476,6 +480,108 @@ router.get('/logs', async (req, res, next) => {
       actionTypeOptions: LOG_ACTION_TYPES.map((type) => ({ value: type, label: t(ACTION_LABEL_KEYS[type]) })),
       filterVenueId: req.query.venue_id || '',
       filterActionType: actionType,
+      login: req.session.admin.login,
+      role: req.session.admin.role,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+function toSiteSettingsFormValues(settings) {
+  return {
+    owner_name: settings.owner_name || '',
+    phone: settings.phone || '',
+    phone_extra: settings.phone_extra || '',
+    email: settings.email || '',
+    telegram_url: settings.telegram_url || '',
+    instagram_url: settings.instagram_url || '',
+    address_ru: settings.address_ru || '',
+    address_uz: settings.address_uz || '',
+    working_hours_ru: settings.working_hours_ru || '',
+    working_hours_uz: settings.working_hours_uz || '',
+    about_ru: settings.about_ru || '',
+    about_uz: settings.about_uz || '',
+    offer_url: settings.offer_url || '',
+    privacy_url: settings.privacy_url || '',
+  };
+}
+
+function readRawSiteSettingsValues(body) {
+  const keys = [
+    'owner_name', 'phone', 'phone_extra', 'email', 'telegram_url', 'instagram_url',
+    'address_ru', 'address_uz', 'working_hours_ru', 'working_hours_uz',
+    'about_ru', 'about_uz', 'offer_url', 'privacy_url',
+  ];
+  const values = {};
+  keys.forEach((key) => {
+    values[key] = typeof body[key] === 'string' ? body[key] : '';
+  });
+  return values;
+}
+
+router.get('/site-settings', async (req, res, next) => {
+  try {
+    const settings = await siteSettingsModel.get();
+    res.render('superadmin/site-settings', {
+      formValues: toSiteSettingsFormValues(settings),
+      error: null,
+      saved: false,
+      login: req.session.admin.login,
+      role: req.session.admin.role,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/site-settings', async (req, res, next) => {
+  const { t } = res.locals;
+  try {
+    const parsed = siteSettingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).render('superadmin/site-settings', {
+        formValues: readRawSiteSettingsValues(req.body),
+        error: t(parsed.error.issues[0].message),
+        saved: false,
+        login: req.session.admin.login,
+        role: req.session.admin.role,
+      });
+    }
+
+    await siteSettingsModel.update({
+      ownerName: parsed.data.owner_name,
+      phone: parsed.data.phone,
+      phoneExtra: parsed.data.phone_extra,
+      email: parsed.data.email,
+      telegramUrl: parsed.data.telegram_url,
+      instagramUrl: parsed.data.instagram_url,
+      addressRu: parsed.data.address_ru,
+      addressUz: parsed.data.address_uz,
+      workingHoursRu: parsed.data.working_hours_ru,
+      workingHoursUz: parsed.data.working_hours_uz,
+      aboutRu: parsed.data.about_ru,
+      aboutUz: parsed.data.about_uz,
+      offerUrl: parsed.data.offer_url,
+      privacyUrl: parsed.data.privacy_url,
+    });
+
+    await logAction(pool, {
+      adminId: req.session.admin.id,
+      venueId: null,
+      actionType: 'update',
+      entityType: 'site_settings',
+      entityId: 1,
+      details: parsed.data,
+    });
+
+    siteSettingsCache.invalidate();
+
+    const settings = await siteSettingsModel.get();
+    res.render('superadmin/site-settings', {
+      formValues: toSiteSettingsFormValues(settings),
+      error: null,
+      saved: true,
       login: req.session.admin.login,
       role: req.session.admin.role,
     });

@@ -43,7 +43,7 @@
             <div class="table-row" style="grid-template-columns: 130px 110px 1fr 1fr 1.4fr;">
               <span class="category"><%= row.created_at.toISOString().slice(0, 16).replace('T', ' ') %></span>
               <b style="font-weight:600;"><%= row.admin_login %></b>
-              <span class="category"><%= row.venue_name %></span>
+              <span class="category"><%= row.venue_name || '—' %></span>
               <span><%= row.actionLabel %></span>
               <span class="category" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<%= row.details ? JSON.stringify(row.details) : '' %>">
                 <%= row.entityLabel %> #<%= row.entity_id %>

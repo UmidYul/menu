@@ -19,6 +19,15 @@
   <meta name="twitter:title" content="<%= t('landing.metaTitle', { serviceName }) %>">
   <meta name="twitter:description" content="<%= t('landing.metaDescription') %>">
   <%- include('../partials/head-assets') %>
+  <script src="/js/landing.js" defer></script>
+  <%
+    const faqIds = [1, 2, 3, 4, 5, 6, 7, 8];
+    const faqParams = { 1: { price: pricing.priceMonth } };
+    const faqItems = faqIds.map((n) => ({
+      q: t(`landing.faqQ${n}`),
+      a: t(`landing.faqA${n}`, faqParams[n]),
+    }));
+  %>
   <script type="application/ld+json">
     <%- JSON.stringify({
       '@context': 'https://schema.org',
@@ -27,14 +36,44 @@
       url: baseUrl,
     }) %>
   </script>
+  <script type="application/ld+json">
+    <%- JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: serviceName,
+      description: t('landing.metaDescription'),
+      offers: {
+        '@type': 'Offer',
+        price: pricing.priceMonthRaw,
+        priceCurrency: 'UZS',
+        url: canonicalUrl,
+      },
+    }) %>
+  </script>
+  <script type="application/ld+json">
+    <%- JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    }) %>
+  </script>
 </head>
 <body>
-  <main class="landing">
+  <header class="site-header">
     <nav class="nav container">
       <div class="brand"><%- include('../partials/brand') %></div>
-      <div class="nav-links">
+      <button type="button" class="mobile-menu" id="mobileMenuToggle" aria-expanded="false" aria-controls="navLinks" aria-label="<%= t('landing.navMenuAriaLabel') %>">
+        <%- include('../partials/icon', { name: 'list', size: 22 }) %>
+      </button>
+      <div class="nav-links" id="navLinks">
+        <a href="#features"><%= t('landing.navFeatures') %></a>
         <a href="#how"><%= t('landing.navHow') %></a>
         <a href="#prices"><%= t('landing.navPrices') %></a>
+        <a href="#faq"><%= t('landing.navFaq') %></a>
         <div class="lang">
           <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
           <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
@@ -42,7 +81,9 @@
         <a href="/admin/login" class="btn btn-outline"><%= t('landing.navLogin') %></a>
       </div>
     </nav>
+  </header>
 
+  <main class="landing">
     <section class="hero container">
       <div class="hero-copy">
         <div class="eyebrow"><span class="eyebrow-dot"></span> <%= t('landing.heroEyebrow') %></div>
@@ -54,36 +95,100 @@
           </a>
           <a href="/admin/login" class="btn btn-outline"><%= t('landing.ctaLogin') %></a>
         </div>
+        <p class="hero-free-note"><%= t('landing.heroFreeNote') %></p>
+        <div class="trust">
+          <span class="avatars"><span></span><span></span><span></span></span>
+          <span><%= t('landing.heroTrustText') %></span>
+        </div>
       </div>
       <div class="hero-visual">
         <div class="hero-card">
-          <div class="hero-card-top"><span class="live-dot"></span> ВАШЕ МЕНЮ <span class="hero-card-more">•••</span></div>
+          <div class="hero-card-top"><span class="live-dot"></span> <%= t('landing.heroCardBadge') %> <span class="hero-card-more">•••</span></div>
           <div class="menu-preview">
-            <div class="preview-logo">О</div>
-            <h3>Одесса MA</h3>
-            <p>Odesa cuisine · Dubai</p>
+            <div class="preview-logo"><%= t('landing.heroCardVenueName').charAt(0) %></div>
+            <h3><%= t('landing.heroCardVenueName') %></h3>
+            <p><%= t('landing.heroCardVenueTagline') %></p>
             <div class="preview-line"></div>
-            <div class="preview-food"><span>🥞</span><div><b>Блины «Одесская нежность»</b><small>С начинкой из семги</small></div><strong>37 AED</strong></div>
-            <div class="preview-food"><span>🥟</span><div><b>Пельмени с семгой</b><small>Подаются со сметаной</small></div><strong>60 AED</strong></div>
+            <div class="preview-food"><span>🥞</span><div><b><%= t('landing.heroDish1Name') %></b><small><%= t('landing.heroDish1Desc') %></small></div><strong><%= t('landing.heroDish1Price') %></strong></div>
+            <div class="preview-food"><span>🥟</span><div><b><%= t('landing.heroDish2Name') %></b><small><%= t('landing.heroDish2Desc') %></small></div><strong><%= t('landing.heroDish2Price') %></strong></div>
           </div>
         </div>
         <div class="float-note">
           <%- include('../partials/icon', { name: 'qrcode', size: 19 }) %>
-          <span><b>Наведите камеру</b><small>и откройте меню</small></span>
+          <span><b><%= t('landing.heroFloatNoteTitle') %></b><small><%= t('landing.heroFloatNoteDesc') %></small></span>
         </div>
       </div>
     </section>
 
     <section class="stats container">
-      <div><b><%= t('landing.statMinutesValue') %></b><span><%= t('landing.statMinutesLabel') %></span></div>
-      <div><b><%= t('landing.statPriceValue') %></b><span><%= t('landing.statPriceLabel') %></span></div>
+      <div><b><%= t('landing.statDaysValue') %></b><span><%= t('landing.statDaysLabel') %></span></div>
+      <div><b><%= t('landing.statPriceValue') %></b><span><%= t('landing.statPriceLabelFreeMonth') %></span></div>
       <div><b><%= t('landing.statAvailabilityValue') %></b><span><%= t('landing.statAvailabilityLabel') %></span></div>
+      <div><b><%= t('landing.statLangValue') %></b><span><%= t('landing.statLangLabel') %></span></div>
     </section>
 
-    <section class="section container" id="how">
+    <section class="section container" id="features" aria-labelledby="features-heading">
+      <div class="section-heading">
+        <span class="eyebrow"><%= t('landing.featuresEyebrow') %></span>
+        <h2 id="features-heading"><%= t('landing.featuresTitleLine1') %><br><em><%= t('landing.featuresTitleLine2') %></em></h2>
+      </div>
+      <%
+        const featureItems = [
+          { icon: 'globe', key: 'featureBilingual' },
+          { icon: 'image', key: 'featurePhotos' },
+          { icon: 'edit', key: 'featureCategories' },
+          { icon: 'sliders', key: 'featureStopList' },
+          { icon: 'arrowdown', key: 'featureDiscount' },
+          { icon: 'activity', key: 'featureComposition' },
+          { icon: 'cart', key: 'featureCart' },
+          { icon: 'qrcode', key: 'featureQr' },
+          { icon: 'store', key: 'featureVenueCard' },
+          { icon: 'wifi', key: 'featureContacts' },
+          { icon: 'share', key: 'featureSeo' },
+          { icon: 'eye', key: 'featureStats' },
+        ];
+      %>
+      <div class="features-grid">
+        <% featureItems.forEach((item) => { %>
+          <div class="feature-card">
+            <%- include('../partials/icon', { name: item.icon, size: 24 }) %>
+            <h3><%= t(`landing.${item.key}Title`) %></h3>
+            <p><%= t(`landing.${item.key}Desc`) %></p>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+
+    <section class="section container" id="for-whom" aria-labelledby="for-whom-heading">
+      <div class="section-heading">
+        <span class="eyebrow"><%= t('landing.forWhomEyebrow') %></span>
+        <h2 id="for-whom-heading"><%= t('landing.forWhomTitleLine1') %><br><em><%= t('landing.forWhomTitleLine2') %></em></h2>
+      </div>
+      <%
+        const forWhomItems = [
+          { icon: 'coffee', key: 'forWhomItem1' },
+          { icon: 'utensils', key: 'forWhomItem2' },
+          { icon: 'store', key: 'forWhomItem3' },
+          { icon: 'glass', key: 'forWhomItem4' },
+          { icon: 'cart', key: 'forWhomItem5' },
+          { icon: 'heart', key: 'forWhomItem6' },
+        ];
+      %>
+      <div class="for-whom-list">
+        <% forWhomItems.forEach((item) => { %>
+          <div class="for-whom-item">
+            <%- include('../partials/icon', { name: item.icon, size: 20 }) %>
+            <span><%= t(`landing.${item.key}`) %></span>
+          </div>
+        <% }) %>
+      </div>
+      <p class="for-whom-note"><%= t('landing.forWhomNote') %></p>
+    </section>
+
+    <section class="section container" id="how" aria-labelledby="how-heading">
       <div class="section-heading">
         <span class="eyebrow"><%= t('landing.howEyebrow') %></span>
-        <h2><%= t('landing.howTitleLine1') %><br><em><%= t('landing.howTitleLine2') %></em></h2>
+        <h2 id="how-heading"><%= t('landing.howTitleLine1') %><br><em><%= t('landing.howTitleLine2') %></em></h2>
       </div>
       <div class="steps">
         <div>
@@ -105,33 +210,160 @@
           <p><%= t('landing.step3Desc') %></p>
         </div>
       </div>
+      <p class="how-free-note"><%= t('landing.howFreeNote') %></p>
     </section>
 
-    <section class="pricing container" id="prices">
+    <section class="section container" id="why" aria-labelledby="why-heading">
+      <div class="section-heading">
+        <span class="eyebrow"><%= t('landing.whyEyebrow') %></span>
+        <h2 id="why-heading"><%= t('landing.whyTitleLine1') %><br><em><%= t('landing.whyTitleLine2') %></em></h2>
+      </div>
+      <div class="why-grid">
+        <div class="why-col why-col-old">
+          <h3><%= t('landing.whyColOldLabel') %></h3>
+          <% [1, 2, 3, 4, 5, 6].forEach((n) => { %>
+            <div class="why-row">
+              <%- include('../partials/icon', { name: 'x', size: 16 }) %>
+              <span><%= t(`landing.why${n}Old`) %></span>
+            </div>
+          <% }) %>
+        </div>
+        <div class="why-col why-col-new">
+          <h3><%= t('landing.whyColNewLabel') %></h3>
+          <% [1, 2, 3, 4, 5, 6].forEach((n) => { %>
+            <div class="why-row">
+              <%- include('../partials/icon', { name: 'check', size: 16 }) %>
+              <span><%= t(`landing.why${n}New`) %></span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing container" id="prices" aria-labelledby="prices-heading">
       <div>
         <span class="eyebrow"><%= t('landing.pricesEyebrow') %></span>
-        <h2><%= t('landing.pricesTitleLine1') %><br><em><%= t('landing.pricesTitleLine2') %></em></h2>
+        <h2 id="prices-heading"><%= t('landing.pricesTitleLine1') %><br><em><%= t('landing.pricesTitleLine2') %></em></h2>
       </div>
+      <% const planCtaUrl = siteSettings && siteSettings.telegram_url ? siteSettings.telegram_url : '/admin/login'; %>
       <div class="price-card">
         <div>
+          <span class="price-badge-discount"><%= t('landing.planBadgeDiscount', { percent: pricing.discountPercent }) %></span>
           <span class="plan-label"><%= t('landing.planLabel') %></span>
-          <h3><%= t('landing.planPrice') %> <small><%= t('landing.planPriceSuffix') %></small></h3>
-          <p><%= t('landing.planDesc') %></p>
+          <p class="price-free-line"><%= t('landing.planFreeLine') %></p>
+          <h3><span class="price-old"><%= pricing.priceMonthOld %></span> <%= pricing.priceMonth %> <small><%= t('landing.planPriceSuffix') %></small></h3>
+          <p class="price-sub"><%= t('landing.planSub') %></p>
         </div>
         <ul>
-          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature1') %></li>
-          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature2') %></li>
-          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.planFeature3') %></li>
+          <% [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((n) => { %>
+            <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t(`landing.planFeature${n}`) %></li>
+          <% }) %>
         </ul>
-        <a href="/admin/login" class="btn btn-primary"><%= t('landing.planCta') %></a>
+        <a href="<%= planCtaUrl %>" class="btn btn-primary"<% if (siteSettings && siteSettings.telegram_url) { %> target="_blank" rel="noopener"<% } %>><%= t('landing.planCta') %></a>
+        <p class="price-payment-methods"><%= t('landing.planPaymentMethods') %></p>
+        <% if (pricing.periods.length > 0) { %>
+          <p class="price-discount-note"><%= t('landing.planDiscountNote', {
+            price3: (pricing.periods.find((p) => p.months === '3') || {}).total,
+            price6: (pricing.periods.find((p) => p.months === '6') || {}).total,
+          }) %></p>
+        <% } %>
       </div>
     </section>
 
-    <footer class="footer container">
-      <div class="brand"><%- include('../partials/brand', { compact: true }) %></div>
-      <span><%= t('landing.footerTagline') %></span>
-      <span>© <%= new Date().getFullYear() %> <%= serviceName %></span>
-    </footer>
+    <section class="section faq container" id="faq" aria-labelledby="faq-heading">
+      <div class="section-heading">
+        <span class="eyebrow"><%= t('landing.faqEyebrow') %></span>
+        <h2 id="faq-heading"><%= t('landing.faqTitleLine1') %><br><em><%= t('landing.faqTitleLine2') %></em></h2>
+      </div>
+      <div class="faq-list">
+        <% faqItems.forEach((item) => { %>
+          <details class="faq-item">
+            <summary>
+              <span><%= item.q %></span>
+              <span class="faq-icon"><%- include('../partials/icon', { name: 'plus', size: 16 }) %></span>
+            </summary>
+            <p><%= item.a %></p>
+          </details>
+        <% }) %>
+      </div>
+    </section>
+
+    <section class="cta-final container" id="cta" aria-labelledby="cta-heading">
+      <span class="eyebrow"><%= t('landing.ctaFinalEyebrow') %></span>
+      <h2 id="cta-heading"><%= t('landing.ctaFinalTitle') %></h2>
+      <p><%= t('landing.ctaFinalText') %></p>
+      <div class="cta-final-actions">
+        <a href="/menu/demo" class="btn btn-primary">
+          <%- include('../partials/icon', { name: 'eye', size: 17 }) %> <%= t('landing.ctaDemo') %>
+        </a>
+        <% if (siteSettings && siteSettings.telegram_url) { %>
+          <a href="<%= siteSettings.telegram_url %>" class="btn btn-outline" target="_blank" rel="noopener">
+            <%- include('../partials/icon', { name: 'telegram', size: 17 }) %> <%= t('landing.ctaFinalTelegramBtn') %>
+          </a>
+        <% } %>
+      </div>
+    </section>
   </main>
+
+  <%
+    const hasContactsCol = !!(siteSettings && (siteSettings.phone || siteSettings.phone_extra || siteSettings.email || siteSettings.telegram_url || siteSettings.instagram_url));
+    const hasAddressCol = !!(siteSettings && ((lang === 'uz' ? siteSettings.address_uz : siteSettings.address_ru) || (lang === 'uz' ? siteSettings.working_hours_uz : siteSettings.working_hours_ru)));
+    const aboutText = siteSettings ? (lang === 'uz' ? siteSettings.about_uz : siteSettings.about_ru) : null;
+    const addressText = siteSettings ? (lang === 'uz' ? siteSettings.address_uz : siteSettings.address_ru) : null;
+    const workingHoursText = siteSettings ? (lang === 'uz' ? siteSettings.working_hours_uz : siteSettings.working_hours_ru) : null;
+  %>
+  <footer class="landing-footer">
+    <div class="container footer-grid">
+      <div class="footer-col">
+        <div class="brand"><%- include('../partials/brand', { compact: true }) %></div>
+        <% if (aboutText) { %><p><%= aboutText %></p><% } %>
+        <span class="footer-copyright">© <%= new Date().getFullYear() %> <%= serviceName %></span>
+      </div>
+
+      <div class="footer-col">
+        <h4><%= t('landing.footerColService') %></h4>
+        <ul>
+          <li><a href="#features"><%= t('landing.navFeatures') %></a></li>
+          <li><a href="#how"><%= t('landing.navHow') %></a></li>
+          <li><a href="#prices"><%= t('landing.navPrices') %></a></li>
+          <li><a href="/menu/demo"><%= t('landing.ctaDemo') %></a></li>
+          <li><a href="/admin/login"><%= t('landing.navLogin') %></a></li>
+        </ul>
+      </div>
+
+      <% if (hasContactsCol) { %>
+        <div class="footer-col">
+          <h4><%= t('landing.footerColContacts') %></h4>
+          <ul>
+            <% if (siteSettings.phone) { %><li><a href="tel:<%= siteSettings.phone.replace(/[^+\d]/g, '') %>" aria-label="<%= t('publicMenu.phoneLabel') %>"><%- include('../partials/icon', { name: 'phone', size: 14 }) %> <%= siteSettings.phone %></a></li><% } %>
+            <% if (siteSettings.phone_extra) { %><li><a href="tel:<%= siteSettings.phone_extra.replace(/[^+\d]/g, '') %>" aria-label="<%= t('publicMenu.phoneLabel') %>"><%- include('../partials/icon', { name: 'phone', size: 14 }) %> <%= siteSettings.phone_extra %></a></li><% } %>
+            <% if (siteSettings.email) { %><li><a href="mailto:<%= siteSettings.email %>" aria-label="<%= t('publicMenu.emailLabel') %>"><%- include('../partials/icon', { name: 'mail', size: 14 }) %> <%= siteSettings.email %></a></li><% } %>
+            <% if (siteSettings.telegram_url) { %><li><a href="<%= siteSettings.telegram_url %>" target="_blank" rel="noopener" aria-label="<%= t('publicMenu.telegramLabel') %>"><%- include('../partials/icon', { name: 'telegram', size: 14 }) %> <%= t('publicMenu.telegramLabel') %></a></li><% } %>
+            <% if (siteSettings.instagram_url) { %><li><a href="<%= siteSettings.instagram_url %>" target="_blank" rel="noopener" aria-label="<%= t('publicMenu.instagramLabel') %>"><%- include('../partials/icon', { name: 'instagram', size: 14 }) %> <%= t('publicMenu.instagramLabel') %></a></li><% } %>
+          </ul>
+        </div>
+      <% } %>
+
+      <% if (hasAddressCol) { %>
+        <div class="footer-col">
+          <h4><%= t('landing.footerColAddress') %></h4>
+          <ul>
+            <% if (addressText) { %><li><%- include('../partials/icon', { name: 'pin', size: 14 }) %> <%= addressText %></li><% } %>
+            <% if (workingHoursText) { %><li class="footer-working-hours"><%- include('../partials/icon', { name: 'clock', size: 14 }) %> <span><%= workingHoursText %></span></li><% } %>
+          </ul>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="container footer-bottom">
+      <span>© <%= new Date().getFullYear() %> <%= serviceName %></span>
+      <% if (siteSettings && siteSettings.offer_url) { %><a href="<%= siteSettings.offer_url %>" target="_blank" rel="noopener"><%= t('landing.footerOfferLink') %></a><% } %>
+      <% if (siteSettings && siteSettings.privacy_url) { %><a href="<%= siteSettings.privacy_url %>" target="_blank" rel="noopener"><%= t('landing.footerPrivacyLink') %></a><% } %>
+      <div class="lang">
+        <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+        <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

@@ -108,6 +108,22 @@
 - Внизу — блок контактов (телефон `tel:`, адрес со ссылкой на 2GIS, соцсети), кнопка "Поделиться" (Web Share API с фолбэком на копирование ссылки в буфер) и футер "сделано на QR-Меню", который показывается только если у заведения включён `show_powered_by` (переключает суперадмин на `/superadmin/venues` — тарифов пока нет, поэтому этим управляет только он, не сам venue_admin).
 - Контакты редактируются в `/admin/venue-settings` (только venue_admin), сохранение инвалидирует кэш этого заведения.
 
+## Лендинг (`/`)
+
+- `src/routes/landing.js` + `src/views/public/landing.ejs` — секции идут в порядке nav → hero → stats → «Возможности» (`#features`) → «Кому подходит» (`#for-whom`) → «Как это работает» (`#how`) → «Почему мы» (`#why`) → «Тарифы» (`#prices`) → FAQ (`#faq`) → финальный CTA (`#cta`) → футер.
+- Весь текст — через `t('landing.…')` в `src/i18n/ru.json`/`uz.json`, включая демо-данные превью меню в hero-карточке (никакого текста хардкодом в шаблоне).
+- Тариф: цены не хардкодятся в шаблоне — `PRICE_MONTH_UZS`, `PRICE_MONTH_OLD_UZS`, `FREE_TRIAL_MONTHS`, `DISCOUNT_PERCENT` в `src/config/constants.js`, форматирование (разряды через неразрывный пробел, суффикс `сум`/`so'm` по языку) — `formatPriceUZS()` в `src/utils/formatPrice.js`. Стоимость за 3 и 6 месяцев считается в роуте от тех же периодов подписки (`PERIOD_MONTHS` из `src/validators/paymentValidators.js`), отдельного списка периодов для лендинга нет.
+- В `<head>` — три JSON-LD блока: `Organization`, `Product`+`Offer` (цена/валюта берутся из тех же констант) и `FAQPage`, у которого `mainEntity` строится из того же массива вопросов/ответов, что и видимый аккордеон — текст не дублируется.
+- Бургер-меню на ширине до 900px — чистый JS без зависимостей, `src/public/js/landing.js`, подключается прямо в `landing.ejs` (не в общий `head-assets.ejs`, аналогично тому как `public-menu.js` подключается только в `menu.ejs`).
+- Футер — данные из `site_settings` (см. ниже), любое незаполненное поле или пустая колонка целиком просто не рендерится.
+
+## Настройки сайта (контакты владельца сервиса)
+
+- Таблица `site_settings` хранит ровно одну строку (`id` с `CHECK (id = 1)`, сидируется миграцией) — контакты и тексты владельца сервиса для футера лендинга: `owner_name`, `phone`/`phone_extra`, `email`, `telegram_url`, `instagram_url`, `address_ru`/`address_uz`, `working_hours_ru`/`working_hours_uz`, `about_ru`/`about_uz`, `offer_url`, `privacy_url`. Это не относится к заведениям (`venues`) — `venue_admin` доступа к этим данным не имеет.
+- `GET/POST /superadmin/site-settings` — доступно только `superadmin` (`src/routes/superadmin.js`, форма — `src/views/superadmin/site-settings.ejs`, валидация — `src/validators/siteSettingsValidators.js`). Сохранение пишется в лог действий (`entity_type = 'site_settings'`, без привязки к заведению — `admin_action_logs.venue_id` для таких записей `NULL`, `/superadmin/logs` показывает их через `LEFT JOIN`).
+- `src/models/siteSettingsModel.js` — прямой доступ к БД. Лендинг ходит не в модель напрямую, а через `src/services/siteSettingsCache.js` — простой in-memory кэш без TTL (значение читается один раз и живёт в памяти процесса), который инвалидируется сразу после сохранения формы в суперадминке — правки в футере видны на лендинге без перезапуска сервера и без ожидания.
+- Сразу после миграций таблица содержит пустую строку (все поля `NULL`) — лендинг с этим не падает, футер деградирует до минимального вида (логотип, ссылки на секции, копирайт), без пустых колонок и заглушек.
+
 ## Мультиязычность (RU/UZ)
 
 - Словари интерфейса: `src/i18n/ru.json`, `src/i18n/uz.json`, хелпер `t(key, lang, params)` в `src/i18n/index.js`.
