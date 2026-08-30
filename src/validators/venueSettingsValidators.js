@@ -15,6 +15,15 @@ const optionalUrl = z
     message: 'venueSettings.errorInvalidUrl',
   });
 
+const optionalEmail = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => v || null)
+  .refine((v) => v === null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+    message: 'venueSettings.errorInvalidEmail',
+  });
+
 const venueSettingsSchema = z
   .object({
     phone: optionalText,
@@ -25,6 +34,15 @@ const venueSettingsSchema = z
     instagram_url: optionalUrl,
     telegram_url: optionalUrl,
     working_hours: optionalText,
+    description_ru: optionalText,
+    description_uz: optionalText,
+    cuisine_ru: optionalText,
+    cuisine_uz: optionalText,
+    category_label_ru: optionalText,
+    category_label_uz: optionalText,
+    district_ru: optionalText,
+    district_uz: optionalText,
+    email: optionalEmail,
   })
   .refine((data) => (data.wifi_ssid === null) === (data.wifi_password === null), {
     message: 'venueSettings.errorWifiIncomplete',

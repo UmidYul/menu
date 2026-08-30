@@ -8,7 +8,7 @@ const venueModel = require('../models/venueModel');
 const adminModel = require('../models/adminModel');
 const paymentModel = require('../models/paymentModel');
 const { logAction, listRecent } = require('../models/adminActionLogModel');
-const { createVenueSchema } = require('../validators/venueValidators');
+const { createVenueSchema, venueRatingSchema } = require('../validators/venueValidators');
 const { extendSubscriptionSchema, PAYMENT_METHODS, PERIOD_MONTHS } = require('../validators/paymentValidators');
 const menuCache = require('../services/menuCache');
 const {
@@ -197,6 +197,13 @@ router.post('/venues/:id/toggle-powered-by', async (req, res, next) => {
   }
 });
 
+function buildRatingFormValues(venue) {
+  return {
+    rating: venue.rating === null || venue.rating === undefined ? '' : String(venue.rating),
+    review_count: venue.review_count === null || venue.review_count === undefined ? '' : String(venue.review_count),
+  };
+}
+
 function buildExtendFormValues(body) {
   return {
     amount: typeof body.amount === 'string' ? body.amount : '',
@@ -240,7 +247,70 @@ router.get('/venues/:id', async (req, res, next) => {
       role: req.session.admin.role,
       error: null,
       formValues: buildExtendFormValues({}),
+      ratingError: null,
+      ratingFormValues: buildRatingFormValues(venue),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/venues/:id/rating', async (req, res, next) => {
+  const { t } = res.locals;
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).render('errors/message', {
+        title: t('superadmin.notFoundInvalidId'),
+        message: t('superadmin.notFoundInvalidIdMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    const venue = await venueModel.findById(id);
+    if (!venue) {
+      return res.status(404).render('errors/message', {
+        title: t('superadmin.notFoundVenue'),
+        message: t('superadmin.notFoundVenueMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    const parsed = venueRatingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const payments = await paymentModel.listByVenue(id);
+      return res.status(400).render('superadmin/venue-detail', {
+        venue,
+        payments,
+        subscriptionStatus: computeSubscriptionStatus(venue.subscription_until),
+        login: req.session.admin.login,
+        role: req.session.admin.role,
+        error: null,
+        formValues: buildExtendFormValues({}),
+        ratingError: t(parsed.error.issues[0].message),
+        ratingFormValues: {
+          rating: typeof req.body.rating === 'string' ? req.body.rating : '',
+          review_count: typeof req.body.review_count === 'string' ? req.body.review_count : '',
+        },
+      });
+    }
+
+    const updated = await venueModel.updateRating(id, {
+      rating: parsed.data.rating,
+      reviewCount: parsed.data.review_count,
+    });
+
+    await logAction(pool, {
+      adminId: req.session.admin.id,
+      venueId: id,
+      actionType: 'update',
+      entityType: 'venue',
+      entityId: id,
+      details: { rating: updated.rating, review_count: updated.review_count },
+    });
+
+    menuCache.invalidateVenue(updated.slug);
+    res.redirect(`/superadmin/venues/${id}`);
   } catch (err) {
     next(err);
   }
@@ -278,6 +348,8 @@ router.post('/venues/:id/extend', async (req, res, next) => {
         role: req.session.admin.role,
         error,
         formValues: buildExtendFormValues(req.body),
+        ratingError: null,
+        ratingFormValues: buildRatingFormValues(venue),
       });
     };
 

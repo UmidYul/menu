@@ -1,0 +1,63 @@
+<%
+// Ожидает: item (из publicMenu.js buildItemViewModel), t, categoryName (название категории блюда)
+const isNew = item.tags.some((tag) => tag.key === 'new');
+const extraTags = item.tags.filter((tag) => tag.key !== 'new');
+const filterTags = extraTags.map((tag) => tag.key).join(',');
+const searchName = item.name.toLowerCase();
+const searchDescription = (item.description || '').toLowerCase();
+const plainFacts = [];
+if (typeof categoryName !== 'undefined' && categoryName) plainFacts.push(categoryName);
+if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesUnit'));
+%>
+<article class="dish-row <%= item.isAvailable ? '' : 'unavailable' %>"
+  data-dish-row
+  data-name="<%= searchName %>"
+  data-description="<%= searchDescription %>"
+  data-price="<%= item.price %>"
+  data-available="<%= item.isAvailable ? '1' : '0' %>"
+  data-tags="<%= filterTags %>">
+  <div class="dish-row-media">
+    <% if (item.photoThumbUrl) { %>
+      <img src="<%= item.photoThumbUrl %>" alt="<%= item.name %>" loading="lazy">
+    <% } else { %>
+      <span class="dish-row-media-fallback" aria-hidden="true">🍽️</span>
+    <% } %>
+  </div>
+  <div class="dish-row-body">
+    <h3 class="dish-row-name">
+      <%= item.name %>
+      <% if (isNew) { %><span class="new-badge"><%= t('tags.new') %></span><% } %>
+    </h3>
+    <% if (item.description) { %><p class="dish-row-description"><%= item.description %></p><% } %>
+    <% if (plainFacts.length > 0 || extraTags.length > 0) { %>
+      <div class="dish-row-facts">
+        <% if (plainFacts.length > 0) { %><span class="dish-row-fact-text"><%= plainFacts.join(' · ') %></span><% } %>
+        <% extraTags.forEach((tag) => { %><span class="dish-row-tag"><%= tag.label %></span><% }) %>
+      </div>
+    <% } %>
+    <% if (!item.isAvailable) { %><p class="dish-row-unavailable-note"><%= t('publicMenu.unavailableBadge') %></p><% } %>
+  </div>
+  <div class="dish-row-side">
+    <div class="dish-price">
+      <% if (item.oldPrice) { %><s class="dish-old-price"><%= Number(item.oldPrice).toLocaleString('ru-RU') %></s><% } %>
+      <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
+      <% if (item.discountPercent) { %><span class="discount-badge">−<%= item.discountPercent %>%</span><% } %>
+    </div>
+    <% if (item.isAvailable) { %>
+      <div class="cart-control" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-currency="<%= item.currency %>">
+        <button type="button" class="cart-add-btn" aria-label="<%= t('publicMenu.addAriaLabelPrefix') %> <%= item.name %>">
+          <%- include('./icon', { name: 'plus', size: 16 }) %>
+        </button>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn qty-minus" aria-label="<%= t('publicMenu.qtyDecreaseAriaLabel') %>">−</button>
+          <span class="qty-value">0</span>
+          <button type="button" class="qty-btn qty-plus" aria-label="<%= t('publicMenu.qtyIncreaseAriaLabel') %>">+</button>
+        </div>
+      </div>
+    <% } else { %>
+      <button type="button" class="cart-add-btn" disabled aria-label="<%= t('publicMenu.unavailableBadge') %>">
+        <%- include('./icon', { name: 'plus', size: 16 }) %>
+      </button>
+    <% } %>
+  </div>
+</article>

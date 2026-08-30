@@ -24,10 +24,80 @@
         <% } %>
 
         <div class="form-card" style="max-width:560px; margin-inline:auto;">
-          <form method="POST" action="/admin/venue-settings">
+          <form method="POST" action="/admin/venue-settings" enctype="multipart/form-data">
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 0 0 6px;"><%= t('venueSettings.profileHeading') %></h3>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="logo"><%= t('venueSettings.logoLabel') %></label>
+                <% if (formValues.logo_thumb_url) { %>
+                  <img src="<%= formValues.logo_thumb_url %>" alt="" width="48" height="48" style="display:block; margin-bottom:8px; border-radius:50%; object-fit:cover;">
+                <% } %>
+                <input type="file" id="logo" name="logo" accept="image/*">
+              </div>
+              <div class="field">
+                <label for="cover"><%= t('venueSettings.coverLabel') %></label>
+                <% if (formValues.cover_thumb_url) { %>
+                  <img src="<%= formValues.cover_thumb_url %>" alt="" width="120" height="48" style="display:block; margin-bottom:8px; border-radius:8px; object-fit:cover;">
+                <% } %>
+                <input type="file" id="cover" name="cover" accept="image/*">
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="description_ru"><%= t('venueSettings.descriptionRuLabel') %></label>
+                <textarea id="description_ru" name="description_ru" rows="3"><%= formValues.description_ru %></textarea>
+              </div>
+              <div class="field">
+                <label for="description_uz"><%= t('venueSettings.descriptionUzLabel') %></label>
+                <textarea id="description_uz" name="description_uz" rows="3"><%= formValues.description_uz %></textarea>
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="cuisine_ru"><%= t('venueSettings.cuisineRuLabel') %></label>
+                <input type="text" id="cuisine_ru" name="cuisine_ru" value="<%= formValues.cuisine_ru %>" placeholder="<%= t('venueSettings.cuisinePlaceholderRu') %>">
+              </div>
+              <div class="field">
+                <label for="cuisine_uz"><%= t('venueSettings.cuisineUzLabel') %></label>
+                <input type="text" id="cuisine_uz" name="cuisine_uz" value="<%= formValues.cuisine_uz %>" placeholder="<%= t('venueSettings.cuisinePlaceholderUz') %>">
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="category_label_ru"><%= t('venueSettings.categoryLabelRuLabel') %></label>
+                <input type="text" id="category_label_ru" name="category_label_ru" value="<%= formValues.category_label_ru %>" placeholder="<%= t('venueSettings.categoryLabelPlaceholderRu') %>">
+              </div>
+              <div class="field">
+                <label for="category_label_uz"><%= t('venueSettings.categoryLabelUzLabel') %></label>
+                <input type="text" id="category_label_uz" name="category_label_uz" value="<%= formValues.category_label_uz %>" placeholder="<%= t('venueSettings.categoryLabelPlaceholderUz') %>">
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="district_ru"><%= t('venueSettings.districtRuLabel') %></label>
+                <input type="text" id="district_ru" name="district_ru" value="<%= formValues.district_ru %>">
+              </div>
+              <div class="field">
+                <label for="district_uz"><%= t('venueSettings.districtUzLabel') %></label>
+                <input type="text" id="district_uz" name="district_uz" value="<%= formValues.district_uz %>">
+              </div>
+            </div>
+
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('venueSettings.contactsHeading') %></h3>
+
             <div class="field">
               <label for="phone"><%= t('venueSettings.phoneLabel') %></label>
               <input type="text" id="phone" name="phone" value="<%= formValues.phone %>" placeholder="<%= t('venueSettings.phonePlaceholder') %>">
+            </div>
+
+            <div class="field">
+              <label for="email"><%= t('venueSettings.emailLabel') %></label>
+              <input type="text" id="email" name="email" value="<%= formValues.email %>" placeholder="<%= t('venueSettings.emailPlaceholder') %>">
             </div>
 
             <div class="field">
@@ -54,6 +124,7 @@
             <div class="field">
               <label for="working_hours"><%= t('venueSettings.workingHoursLabel') %></label>
               <textarea id="working_hours" name="working_hours" rows="3" placeholder="<%= t('venueSettings.workingHoursPlaceholder') %>"><%= formValues.working_hours %></textarea>
+              <div class="hint"><%= t('venueSettings.workingHoursHint') %></div>
             </div>
 
             <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('venueSettings.wifiLabel') %></h3>

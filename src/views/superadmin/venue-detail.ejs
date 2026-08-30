@@ -45,6 +45,29 @@
           </div>
         </div>
 
+        <div class="form-card" style="margin-top:20px;">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.ratingHeading') %></h3></div>
+          </div>
+          <% if (ratingError) { %>
+            <div class="alert alert-error" style="margin-top:16px;"><%= ratingError %></div>
+          <% } %>
+          <form method="POST" action="/superadmin/venues/<%= venue.id %>/rating" style="margin-top:16px;">
+            <div class="field-grid">
+              <div class="field">
+                <label for="rating"><%= t('superadmin.ratingLabel') %></label>
+                <input type="text" inputmode="decimal" id="rating" name="rating" value="<%= ratingFormValues.rating %>" placeholder="4.8">
+              </div>
+              <div class="field">
+                <label for="review_count"><%= t('superadmin.reviewCountLabel') %></label>
+                <input type="text" inputmode="numeric" id="review_count" name="review_count" value="<%= ratingFormValues.review_count %>" placeholder="128">
+              </div>
+            </div>
+            <div class="hint" style="margin-bottom:16px;"><%= t('superadmin.ratingHint') %></div>
+            <button type="submit" class="btn btn-primary"><%= t('superadmin.ratingSubmit') %></button>
+          </form>
+        </div>
+
         <div class="table-card">
           <div class="table-heading">
             <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.paymentsHeading') %></h3></div>

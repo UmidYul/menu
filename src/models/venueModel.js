@@ -29,7 +29,11 @@ async function findById(id) {
 async function findPublicBySlug(slug) {
   const result = await pool.query(
     `SELECT id, slug, name, phone, address, address_2gis_url,
-            wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default, is_active, show_powered_by
+            wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default, is_active, show_powered_by,
+            logo_url, logo_thumb_url, cover_url, cover_thumb_url,
+            description_ru, description_uz, cuisine_ru, cuisine_uz,
+            category_label_ru, category_label_uz, district_ru, district_uz,
+            email, rating, review_count
      FROM venues WHERE slug = $1`,
     [slug]
   );
@@ -71,14 +75,44 @@ async function updateSubscriptionUntil(client, id, subscriptionUntil) {
   return result.rows[0] || null;
 }
 
-async function updateSettings(id, { phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours }) {
+// photo/logo/cover *Url передаются только когда загружен новый файл — если их нет (null),
+// уже сохранённое в БД изображение остаётся без изменений (COALESCE), как и для фото позиций.
+// rating/review_count сюда намеренно не входят — это не бренд-данные заведения, а модерируемое
+// сервисом поле доверия, его меняет только суперадмин через updateRating.
+async function updateSettings(id, {
+  phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours,
+  descriptionRu, descriptionUz, cuisineRu, cuisineUz, categoryLabelRu, categoryLabelUz,
+  districtRu, districtUz, email,
+  logoUrl, logoThumbUrl, coverUrl, coverThumbUrl,
+}) {
   const result = await pool.query(
     `UPDATE venues
      SET phone = $1, address = $2, address_2gis_url = $3,
-         wifi_ssid = $4, wifi_password = $5, instagram_url = $6, telegram_url = $7, working_hours = $8
-     WHERE id = $9
+         wifi_ssid = $4, wifi_password = $5, instagram_url = $6, telegram_url = $7, working_hours = $8,
+         description_ru = $9, description_uz = $10, cuisine_ru = $11, cuisine_uz = $12,
+         category_label_ru = $13, category_label_uz = $14, district_ru = $15, district_uz = $16,
+         email = $17,
+         logo_url = COALESCE($18, logo_url), logo_thumb_url = COALESCE($19, logo_thumb_url),
+         cover_url = COALESCE($20, cover_url), cover_thumb_url = COALESCE($21, cover_thumb_url)
+     WHERE id = $22
      RETURNING *`,
-    [phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours, id]
+    [
+      phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours,
+      descriptionRu, descriptionUz, cuisineRu, cuisineUz, categoryLabelRu, categoryLabelUz,
+      districtRu, districtUz, email,
+      logoUrl || null, logoThumbUrl || null, coverUrl || null, coverThumbUrl || null,
+      id,
+    ]
+  );
+  return result.rows[0] || null;
+}
+
+// Рейтинг и число отзывов заведения — правит только суперадмин (см. модерационную карточку
+// в /superadmin/venues/:id), сам ресторан не может накрутить себе звёзды через свои настройки.
+async function updateRating(id, { rating, reviewCount }) {
+  const result = await pool.query(
+    'UPDATE venues SET rating = $1, review_count = $2 WHERE id = $3 RETURNING id, slug, rating, review_count',
+    [rating, reviewCount, id]
   );
   return result.rows[0] || null;
 }
@@ -93,5 +127,6 @@ module.exports = {
   toggleActive,
   toggleShowPoweredBy,
   updateSettings,
+  updateRating,
   updateSubscriptionUntil,
 };

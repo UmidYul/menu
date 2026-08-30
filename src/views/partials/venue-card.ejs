@@ -1,0 +1,84 @@
+<%
+// Ожидает поля из publicMenu.js buildVenueInfo(): venueName, logoUrl, coverUrl, cuisine,
+// categoryLabel, district, rating, reviewCount, description, address, address2gisUrl,
+// workingHours, phone, email, а также t.
+// Каждый блок рендерится, только если соответствующее поле реально заполнено в БД —
+// пустых заглушек (нет фото/нет рейтинга и т.п.) быть не должно.
+const metaParts = [cuisine, categoryLabel, district].filter((part) => part && String(part).trim());
+const hasRating = rating !== null && rating !== undefined;
+const filledStars = hasRating ? Math.round(rating) : 0;
+const hoursFirstLine = workingHours ? workingHours.split('\n')[0].trim() : '';
+const hasContactRow = !!(address || hoursFirstLine || phone || email);
+%>
+<section class="venue-card">
+  <% if (coverUrl) { %>
+    <div class="venue-card-cover">
+      <img src="<%= coverUrl %>" alt="" loading="lazy">
+    </div>
+  <% } %>
+  <div class="venue-card-identity <%= coverUrl ? 'has-cover' : '' %>">
+    <% if (logoUrl) { %>
+      <img class="venue-card-logo" src="<%= logoUrl %>" alt="<%= t('publicMenu.logoAlt', { venueName }) %>">
+    <% } else { %>
+      <div class="venue-card-logo venue-card-logo-fallback" aria-hidden="true"><%= venueName.charAt(0).toUpperCase() %></div>
+    <% } %>
+  </div>
+  <div class="venue-card-body">
+    <h1 class="venue-card-name"><%= venueName %></h1>
+
+    <% if (metaParts.length > 0) { %>
+      <p class="venue-card-meta"><%= metaParts.join(' · ') %></p>
+    <% } %>
+
+    <% if (hasRating) { %>
+      <div class="venue-card-rating" role="img" aria-label="<%= reviewCount !== null ? t('publicMenu.ratingAriaLabel', { rating: rating.toFixed(1), count: reviewCount }) : t('publicMenu.ratingAriaLabelNoCount', { rating: rating.toFixed(1) }) %>">
+        <span class="venue-card-stars" aria-hidden="true">
+          <% for (let i = 1; i <= 5; i++) { %>
+            <span class="venue-card-star <%= i <= filledStars ? 'filled' : '' %>"><%- include('./icon', { name: 'star', size: 14 }) %></span>
+          <% } %>
+        </span>
+        <span class="venue-card-rating-value"><%= rating.toFixed(1) %></span>
+        <% if (reviewCount !== null) { %><span class="venue-card-rating-count">(<%= reviewCount %>)</span><% } %>
+      </div>
+    <% } %>
+
+    <% if (description) { %>
+      <p class="venue-card-description"><%= description %></p>
+    <% } %>
+
+    <% if (hasContactRow) { %>
+      <hr class="venue-card-divider">
+      <div class="venue-card-contacts">
+        <% if (address) { %>
+          <div class="venue-card-contact-row">
+            <%- include('./icon', { name: 'pin', size: 16 }) %>
+            <% if (address2gisUrl) { %>
+              <a href="<%= address2gisUrl %>" target="_blank" rel="noopener"><%= address %></a>
+            <% } else { %>
+              <span><%= address %></span>
+            <% } %>
+          </div>
+        <% } %>
+        <% if (hoursFirstLine) { %>
+          <div class="venue-card-contact-row" data-hours-row data-hours-raw="<%= hoursFirstLine %>">
+            <%- include('./icon', { name: 'clock', size: 16 }) %>
+            <span class="venue-card-hours-text"><%= hoursFirstLine %></span>
+            <span class="hours-status hours-status-open" hidden><%= t('publicMenu.hoursOpenNow') %></span>
+            <span class="hours-status hours-status-closed" hidden><%= t('publicMenu.hoursClosedNow') %></span>
+          </div>
+        <% } %>
+        <% if (phone) { %>
+          <div class="venue-card-contact-row">
+            <%- include('./icon', { name: 'phone', size: 16 }) %>
+            <a href="tel:<%= phone.replace(/[^+\d]/g, '') %>"><%= phone %></a>
+          </div>
+        <% } else if (email) { %>
+          <div class="venue-card-contact-row">
+            <%- include('./icon', { name: 'mail', size: 16 }) %>
+            <a href="mailto:<%= email %>"><%= email %></a>
+          </div>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</section>
