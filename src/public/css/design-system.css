@@ -156,7 +156,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .faq-item p { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
 /* финальный CTA */
-.cta-final { width: min(1160px, calc(100% - 48px)); margin: 0 auto 130px; padding: 60px 40px; border-radius: var(--radius); background: var(--sage); text-align: center; scroll-margin-top: 20px; }
+.cta-final { margin-bottom: 130px; padding: 60px 40px; border-radius: var(--radius); background: var(--sage); text-align: center; scroll-margin-top: 20px; }
 .cta-final h2 { margin: 12px 0 14px; font-family: var(--font-serif); font-size: 38px; font-weight: 500; }
 .cta-final p { max-width: 480px; margin: 0 auto; color: var(--muted); font-size: 14px; line-height: 1.6; }
 .cta-final-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; margin-top: 24px; }
