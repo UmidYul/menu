@@ -86,10 +86,10 @@
   <main class="landing">
     <section class="hero container">
       <div class="hero-copy">
-        <div class="eyebrow"><span class="eyebrow-dot"></span> <%= t('landing.heroEyebrow') %></div>
-        <h1><%= t('landing.heroTitleLine1') %><br><em><%= t('landing.heroTitleLine2') %></em></h1>
-        <p><%= t('landing.heroSubtitle') %></p>
-        <div class="hero-actions">
+        <div class="eyebrow" data-reveal><span class="eyebrow-dot"></span> <%= t('landing.heroEyebrow') %></div>
+        <h1 data-reveal><%= t('landing.heroTitleLine1') %><br><em><%= t('landing.heroTitleLine2') %></em></h1>
+        <p data-reveal data-reveal-delay="90"><%= t('landing.heroSubtitle') %></p>
+        <div class="hero-actions" data-reveal data-reveal-delay="180">
           <a href="/menu/demo" class="btn btn-primary">
             <%- include('../partials/icon', { name: 'eye', size: 17 }) %> <%= t('landing.ctaDemo') %>
           </a>
@@ -102,7 +102,7 @@
         </div>
       </div>
       <div class="hero-visual">
-        <div class="hero-card">
+        <div class="hero-card" data-reveal data-reveal-delay="250">
           <div class="hero-card-top"><span class="live-dot"></span> <%= t('landing.heroCardBadge') %> <span class="hero-card-more">•••</span></div>
           <div class="menu-preview">
             <div class="preview-logo"><%= t('landing.heroCardVenueName').charAt(0) %></div>
@@ -121,14 +121,14 @@
     </section>
 
     <section class="stats container">
-      <div><b><%= t('landing.statDaysValue') %></b><span><%= t('landing.statDaysLabel') %></span></div>
-      <div><b><%= t('landing.statPriceValue') %></b><span><%= t('landing.statPriceLabelFreeMonth') %></span></div>
+      <div><b data-count><%= t('landing.statDaysValue') %></b><span><%= t('landing.statDaysLabel') %></span></div>
+      <div><b data-count><%= t('landing.statPriceValue') %></b><span><%= t('landing.statPriceLabelFreeMonth') %></span></div>
       <div><b><%= t('landing.statAvailabilityValue') %></b><span><%= t('landing.statAvailabilityLabel') %></span></div>
       <div><b><%= t('landing.statLangValue') %></b><span><%= t('landing.statLangLabel') %></span></div>
     </section>
 
     <section class="section container" id="features" aria-labelledby="features-heading">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <span class="eyebrow"><%= t('landing.featuresEyebrow') %></span>
         <h2 id="features-heading"><%= t('landing.featuresTitleLine1') %><br><em><%= t('landing.featuresTitleLine2') %></em></h2>
       </div>
@@ -149,8 +149,8 @@
         ];
       %>
       <div class="features-grid">
-        <% featureItems.forEach((item) => { %>
-          <div class="feature-card">
+        <% featureItems.forEach((item, i) => { %>
+          <div class="feature-card" data-reveal data-reveal-delay="<%= Math.min(i * 70, 400) %>">
             <%- include('../partials/icon', { name: item.icon, size: 24 }) %>
             <h3><%= t(`landing.${item.key}Title`) %></h3>
             <p><%= t(`landing.${item.key}Desc`) %></p>
@@ -160,7 +160,7 @@
     </section>
 
     <section class="section container" id="for-whom" aria-labelledby="for-whom-heading">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <span class="eyebrow"><%= t('landing.forWhomEyebrow') %></span>
         <h2 id="for-whom-heading"><%= t('landing.forWhomTitleLine1') %><br><em><%= t('landing.forWhomTitleLine2') %></em></h2>
       </div>
@@ -175,8 +175,8 @@
         ];
       %>
       <div class="for-whom-list">
-        <% forWhomItems.forEach((item) => { %>
-          <div class="for-whom-item">
+        <% forWhomItems.forEach((item, i) => { %>
+          <div class="for-whom-item" data-reveal data-reveal-delay="<%= Math.min(i * 60, 400) %>">
             <%- include('../partials/icon', { name: item.icon, size: 20 }) %>
             <span><%= t(`landing.${item.key}`) %></span>
           </div>
@@ -186,24 +186,24 @@
     </section>
 
     <section class="section container" id="how" aria-labelledby="how-heading">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <span class="eyebrow"><%= t('landing.howEyebrow') %></span>
         <h2 id="how-heading"><%= t('landing.howTitleLine1') %><br><em><%= t('landing.howTitleLine2') %></em></h2>
       </div>
       <div class="steps">
-        <div>
+        <div data-reveal data-reveal-delay="0">
           <span>01</span>
           <%- include('../partials/icon', { name: 'externallink', size: 22 }) %>
           <h3><%= t('landing.step1Title') %></h3>
           <p><%= t('landing.step1Desc') %></p>
         </div>
-        <div>
+        <div data-reveal data-reveal-delay="80">
           <span>02</span>
           <%- include('../partials/icon', { name: 'qrcode', size: 22 }) %>
           <h3><%= t('landing.step2Title') %></h3>
           <p><%= t('landing.step2Desc') %></p>
         </div>
-        <div>
+        <div data-reveal data-reveal-delay="160">
           <span>03</span>
           <%- include('../partials/icon', { name: 'utensils', size: 22 }) %>
           <h3><%= t('landing.step3Title') %></h3>
@@ -214,7 +214,7 @@
     </section>
 
     <section class="section container" id="why" aria-labelledby="why-heading">
-      <div class="section-heading">
+      <div class="section-heading" data-reveal>
         <span class="eyebrow"><%= t('landing.whyEyebrow') %></span>
         <h2 id="why-heading"><%= t('landing.whyTitleLine1') %><br><em><%= t('landing.whyTitleLine2') %></em></h2>
       </div>
@@ -222,7 +222,7 @@
         <div class="why-col why-col-old">
           <h3><%= t('landing.whyColOldLabel') %></h3>
           <% [1, 2, 3, 4, 5, 6].forEach((n) => { %>
-            <div class="why-row">
+            <div class="why-row" data-reveal data-reveal-delay="<%= (n - 1) * 60 %>">
               <%- include('../partials/icon', { name: 'x', size: 16 }) %>
               <span><%= t(`landing.why${n}Old`) %></span>
             </div>
@@ -231,7 +231,7 @@
         <div class="why-col why-col-new">
           <h3><%= t('landing.whyColNewLabel') %></h3>
           <% [1, 2, 3, 4, 5, 6].forEach((n) => { %>
-            <div class="why-row">
+            <div class="why-row" data-reveal data-reveal-delay="<%= (n - 1) * 60 %>">
               <%- include('../partials/icon', { name: 'check', size: 16 }) %>
               <span><%= t(`landing.why${n}New`) %></span>
             </div>
@@ -241,12 +241,38 @@
     </section>
 
     <section class="pricing container" id="prices" aria-labelledby="prices-heading">
-      <div>
+      <div class="pricing-copy" data-reveal>
         <span class="eyebrow"><%= t('landing.pricesEyebrow') %></span>
         <h2 id="prices-heading"><%= t('landing.pricesTitleLine1') %><br><em><%= t('landing.pricesTitleLine2') %></em></h2>
+        <p class="pricing-intro"><%= t('landing.pricesIntro') %></p>
+
+        <div class="pricing-free-block">
+          <p class="pricing-free-heading"><%= t('landing.planFreeLine') %></p>
+          <p class="pricing-free-desc"><%= t('landing.pricesFreeMonthDesc') %></p>
+        </div>
+
+        <ul class="pricing-perks">
+          <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t('landing.pricesPerk1') %></li>
+          <li><%- include('../partials/icon', { name: 'clock', size: 16 }) %> <%= t('landing.pricesPerk2') %></li>
+          <li><%- include('../partials/icon', { name: 'users', size: 16 }) %> <%= t('landing.pricesPerk3') %></li>
+        </ul>
+
+        <div class="pricing-after-free">
+          <h4><%= t('landing.pricesAfterFreeHeading') %></h4>
+          <p><%= t('landing.pricesAfterFreeDesc', { price: pricing.priceMonth }) %></p>
+        </div>
+
+        <% if (siteSettings && siteSettings.telegram_url) { %>
+          <p class="pricing-contact">
+            <%= t('landing.pricesContactText') %>
+            <a href="<%= siteSettings.telegram_url %>" class="link-arrow" target="_blank" rel="noopener">
+              <%= t('landing.pricesContactLink') %> <%- include('../partials/icon', { name: 'arrowright', size: 14 }) %>
+            </a>
+          </p>
+        <% } %>
       </div>
       <% const planCtaUrl = siteSettings && siteSettings.telegram_url ? siteSettings.telegram_url : '/admin/login'; %>
-      <div class="price-card">
+      <div class="price-card" data-reveal data-reveal-delay="150">
         <div>
           <span class="price-badge-discount"><%= t('landing.planBadgeDiscount', { percent: pricing.discountPercent }) %></span>
           <span class="plan-label"><%= t('landing.planLabel') %></span>
@@ -255,10 +281,11 @@
           <p class="price-sub"><%= t('landing.planSub') %></p>
         </div>
         <ul>
-          <% [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((n) => { %>
+          <% [1, 2, 3, 4, 5].forEach((n) => { %>
             <li><%- include('../partials/icon', { name: 'check', size: 16 }) %> <%= t(`landing.planFeature${n}`) %></li>
           <% }) %>
         </ul>
+        <a href="#features" class="link-arrow price-all-features"><%= t('landing.planAllFeaturesLink') %> <%- include('../partials/icon', { name: 'arrowright', size: 14 }) %></a>
         <a href="<%= planCtaUrl %>" class="btn btn-primary"<% if (siteSettings && siteSettings.telegram_url) { %> target="_blank" rel="noopener"<% } %>><%= t('landing.planCta') %></a>
         <p class="price-payment-methods"><%= t('landing.planPaymentMethods') %></p>
         <% if (pricing.periods.length > 0) { %>
@@ -276,19 +303,19 @@
         <h2 id="faq-heading"><%= t('landing.faqTitleLine1') %><br><em><%= t('landing.faqTitleLine2') %></em></h2>
       </div>
       <div class="faq-list">
-        <% faqItems.forEach((item) => { %>
-          <details class="faq-item">
+        <% faqItems.forEach((item, i) => { %>
+          <details class="faq-item" data-reveal data-reveal-delay="<%= Math.min(i * 60, 400) %>">
             <summary>
               <span><%= item.q %></span>
-              <span class="faq-icon"><%- include('../partials/icon', { name: 'plus', size: 16 }) %></span>
+              <span class="faq-icon"><%- include('../partials/icon', { name: 'arrowdown', size: 16 }) %></span>
             </summary>
-            <p><%= item.a %></p>
+            <div class="faq-content"><div class="faq-content-inner"><p><%= item.a %></p></div></div>
           </details>
         <% }) %>
       </div>
     </section>
 
-    <section class="cta-final container" id="cta" aria-labelledby="cta-heading">
+    <section class="cta-final container" id="cta" aria-labelledby="cta-heading" data-reveal>
       <span class="eyebrow"><%= t('landing.ctaFinalEyebrow') %></span>
       <h2 id="cta-heading"><%= t('landing.ctaFinalTitle') %></h2>
       <p><%= t('landing.ctaFinalText') %></p>
@@ -297,7 +324,7 @@
           <%- include('../partials/icon', { name: 'eye', size: 17 }) %> <%= t('landing.ctaDemo') %>
         </a>
         <% if (siteSettings && siteSettings.telegram_url) { %>
-          <a href="<%= siteSettings.telegram_url %>" class="btn btn-outline" target="_blank" rel="noopener">
+          <a href="<%= siteSettings.telegram_url %>" class="btn btn-ghost" target="_blank" rel="noopener">
             <%- include('../partials/icon', { name: 'telegram', size: 17 }) %> <%= t('landing.ctaFinalTelegramBtn') %>
           </a>
         <% } %>

@@ -22,7 +22,7 @@
    не даёт. Это глобальное правило гарантирует, что hidden всегда означает "не показывать". */
 [hidden] { display: none !important; }
 html { background: var(--background); scroll-behavior: smooth; }
-body { margin: 0; background: var(--background); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; }
+body { margin: 0; background: var(--background); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; overflow-x: hidden; }
 button, a { font: inherit; }
 button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
@@ -36,17 +36,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .nav { height: 86px; display: flex; align-items: center; justify-content: space-between; }
 .nav-links { display: flex; align-items: center; gap: 26px; font-size: 14px; color: var(--muted); }
 .nav-links a:hover { color: var(--ink); }
+.nav-links > a:not(.btn) { position: relative; }
+.nav-links > a:not(.btn)::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px;
+  background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 200ms ease;
+}
+.nav-links > a:not(.btn):hover::after { transform: scaleX(1); }
 .mobile-menu { display: none; border: 0; background: none; color: var(--ink); }
 
-.btn { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 0 17px; border: 1px solid transparent; border-radius: 10px; font-weight: 700; font-size: 13px; transition: .2s; }
+.btn { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 0 17px; border: 1px solid transparent; border-radius: 10px; font-weight: 700; font-size: 13px; transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+.btn-primary:active { background: var(--primary-dark); transform: translateY(0); }
 .btn-outline { color: var(--ink); background: transparent; border-color: var(--border); }
 .btn-outline:hover { background: var(--paper); border-color: #c9c5ba; }
-.btn-ghost { color: var(--muted); background: transparent; padding-inline: 5px; }
+.btn-outline:active { background: #f3ede2; border-color: #c9c5ba; }
+.btn-ghost { color: var(--primary); background: transparent; border-color: transparent; }
+.btn-ghost:hover, .btn-ghost:focus-visible { background: #f3ede2; color: var(--primary-dark); }
+.btn-ghost:active { background: #ece5d8; color: var(--primary-dark); }
 .btn-danger { color: var(--primary-dark); background: #f7e6e1; border-color: #eecabf; }
 .btn-danger:hover { background: #f3d9ce; }
 .btn:disabled { opacity: .45; cursor: default; transform: none; }
+
+/* landing: появление элементов при скролле — видны всегда по умолчанию (без JS/до его
+   выполнения ничего не пропадает), скрытый старт включается только классом .js-reveal,
+   который landing.js ставит на <html> синхронно при загрузке. */
+html.js-reveal [data-reveal] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 500ms ease-out, transform 500ms ease-out;
+  transition-delay: 0ms;
+}
+html.js-reveal [data-reveal].is-revealed { opacity: 1; transform: translateY(0); }
+html.js-reveal .hero-card[data-reveal] { transform: rotate(2deg) scale(.97); }
+html.js-reveal .hero-card[data-reveal].is-revealed { transform: rotate(2deg) scale(1); }
+/* Позиции меню (страница /menu/:slug) появляются короче и резче, чем блоки лендинга —
+   гостя, открывшего меню за столом, не должно ощутимо тормозить декоративное движение. */
+html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); transition-duration: 350ms; }
 
 /* landing */
 .hero { min-height: 590px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 70px; padding-block: 62px 82px; }
@@ -67,7 +93,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hero-visual { position: relative; min-height: 420px; display: grid; place-items: center; }
 .hero-card { width: min(390px, 100%); min-height: 390px; overflow: hidden; border: 1px solid #e1ddd2; border-radius: 20px; background: var(--paper); box-shadow: 0 24px 55px #6e62531c; transform: rotate(2deg); }
 .hero-card-top { padding: 18px 21px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 10px; letter-spacing: .13em; }
-.live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #76a16d; }
+.live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #76a16d; animation: live-dot-pulse 2s ease-in-out infinite; }
+@keyframes live-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 .hero-card-more { float: right; letter-spacing: 3px; }
 .menu-preview { padding: 31px 33px; text-align: center; }
 .preview-logo, .venue-logo { display: grid; place-items: center; margin: auto; width: 48px; height: 48px; border-radius: 50%; background: var(--sage); color: #5a6a55; font-family: var(--font-serif); font-size: 24px; }
@@ -80,7 +107,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .preview-food b, .preview-food strong { display: block; font-size: 11px; }
 .preview-food small { color: var(--muted); font-size: 9px; }
 .preview-food strong { font-size: 10px; color: var(--primary); }
-.float-note { position: absolute; right: 0; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 13px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); box-shadow: 0 12px 30px #6e62531a; color: var(--primary); }
+.float-note { position: absolute; right: 0; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 13px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); box-shadow: 0 12px 30px #6e62531a; color: var(--primary); animation: float-note-bob 4.5s ease-in-out infinite; }
+@keyframes float-note-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 .float-note span { color: var(--ink); font-size: 11px; }
 .float-note b, .float-note small { display: block; }
 .float-note small { color: var(--muted); margin-top: 2px; }
@@ -96,7 +124,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* возможности */
 .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 49px; }
-.feature-card { padding: 26px; border: 1px solid var(--border); border-radius: 15px; background: var(--paper); }
+.feature-card { padding: 26px; border: 1px solid var(--border); border-radius: 15px; background: var(--paper); transition: transform 200ms ease, box-shadow 200ms ease; }
+.feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px #6e62531a; }
 .feature-card svg { color: var(--primary); margin-bottom: 20px; }
 .feature-card h3 { margin: 0 0 8px; font-family: var(--font-serif); font-size: 19px; font-weight: 500; }
 .feature-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -109,7 +138,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* как это работает */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 49px; }
-.steps > div { position: relative; padding: 28px; border: 1px solid var(--border); border-radius: 15px; background: var(--paper); }
+.steps > div { position: relative; padding: 28px; border: 1px solid var(--border); border-radius: 15px; background: var(--paper); transition: transform 200ms ease, box-shadow 200ms ease; }
+.steps > div:hover { transform: translateY(-3px); box-shadow: 0 12px 30px #6e62531a; }
 .steps > div > span { position: absolute; right: 23px; color: #b8b3a9; font-size: 11px; }
 .steps svg { color: var(--primary); margin-bottom: 30px; }
 .steps h3 { margin: 0 0 8px; font-family: var(--font-serif); font-size: 23px; font-weight: 500; }
@@ -129,7 +159,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .why-row svg { flex-shrink: 0; margin-top: 2px; }
 
 /* тарифы */
-.pricing { display: grid; grid-template-columns: 1fr 380px; gap: 100px; align-items: center; padding: 75px 0 120px; border-top: 1px solid var(--border); scroll-margin-top: 20px; }
+.pricing { display: grid; grid-template-columns: 1fr 380px; gap: 60px; align-items: start; padding: 60px 0 130px; border-top: 1px solid var(--border); scroll-margin-top: 20px; }
+.pricing-copy { max-width: 560px; }
+.pricing-intro { max-width: 480px; margin: 18px 0 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.pricing-free-block { margin-top: 28px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.pricing-free-heading { margin: 0; color: var(--primary-dark); font-family: var(--font-serif); font-size: 20px; font-weight: 500; }
+.pricing-free-desc { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.pricing-perks { display: grid; gap: 11px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.pricing-perks li { display: flex; align-items: center; gap: 9px; }
+.pricing-perks svg { color: var(--primary); flex-shrink: 0; }
+.pricing-after-free { margin-top: 24px; padding: 18px 20px; border-radius: 13px; background: var(--paper); border: 1px solid var(--border); }
+.pricing-after-free h4 { margin: 0 0 6px; font-size: 12px; font-weight: 800; color: var(--ink); }
+.pricing-after-free p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.pricing-contact { margin: 22px 0 0; color: var(--muted); font-size: 13px; }
+
+.link-arrow { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 13px; transition: color 180ms ease; }
+.link-arrow svg { transition: transform 180ms ease; }
+.link-arrow:hover, .link-arrow:focus-visible { color: var(--primary-dark); }
+.link-arrow:hover svg, .link-arrow:focus-visible svg { transform: translateX(3px); }
+.price-all-features { display: flex; margin: 4px 0 18px; }
+
 .price-card { position: relative; padding: 27px; border-radius: 16px; background: var(--sage); }
 .price-badge-discount { position: absolute; top: -12px; right: 20px; padding: 5px 12px; border-radius: 999px; background: var(--primary); color: white; font-size: 12px; font-weight: 800; }
 .plan-label { color: #657460; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
@@ -139,9 +188,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .price-old { color: var(--muted); font-family: var(--font-sans); font-size: 15px; font-weight: 500; text-decoration: line-through; }
 .price-card p { margin: 0; color: var(--muted); font-size: 12px; }
 .price-sub { line-height: 1.5; }
-.price-card ul { display: grid; gap: 10px; margin: 25px 0; padding: 0; list-style: none; color: #5d6858; font-size: 12px; }
+.price-card ul { display: grid; gap: 10px; margin: 25px 0 0; padding: 0; list-style: none; color: #5d6858; font-size: 12px; }
 .price-card li { display: flex; align-items: center; gap: 8px; }
 .price-card .btn { width: 100%; }
+.price-card .btn:hover { transform: none; }
 .price-payment-methods { margin-top: 12px !important; text-align: center; }
 .price-discount-note { margin-top: 8px !important; text-align: center; }
 
@@ -152,7 +202,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::marker { display: none; }
 .faq-icon { flex-shrink: 0; display: inline-flex; color: var(--primary); transition: transform 200ms ease; }
-.faq-item[open] .faq-icon { transform: rotate(45deg); }
+.faq-item.is-open .faq-icon { transform: rotate(180deg); }
+/* Раскрытие контента живёт на отдельной обёртке (не на [open]) — grid-template-rows
+   0fr→1fr нельзя анимировать из display:none, поэтому JS держит [open]=true весь
+   переход и снимает его только по transitionend (см. landing.js). Без JS <details>
+   переключается нативно и мгновенно — .faq-content всегда в потоке при открытии. */
+.faq-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 300ms ease; }
+.faq-content.is-expanded { grid-template-rows: 1fr; }
+.faq-content-inner { overflow: hidden; }
 .faq-item p { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
 /* финальный CTA */
@@ -167,16 +224,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .footer-col h4 { margin: 0 0 14px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .footer-col p { margin: 12px 0 0; max-width: 260px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .footer-col ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
-.footer-col ul a { color: var(--muted); }
+.footer-col ul a { position: relative; color: var(--muted); }
 .footer-col ul a:hover { color: var(--ink); }
+.footer-col ul a::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px;
+  background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 200ms ease;
+}
+.footer-col ul a:hover::after { transform: scaleX(1); }
 .footer-col ul li { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .footer-col ul li svg { flex-shrink: 0; color: var(--primary); }
 .footer-working-hours { align-items: flex-start !important; }
 .footer-working-hours span { white-space: pre-line; }
 .footer-copyright { display: block; margin-top: 18px; color: var(--muted); font-size: 11px; }
 .footer-bottom { display: flex; align-items: center; justify-content: center; gap: 20px; padding-block: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; flex-wrap: wrap; }
-.footer-bottom a { color: var(--muted); }
+.footer-bottom a { position: relative; color: var(--muted); }
 .footer-bottom a:hover { color: var(--ink); }
+.footer-bottom a::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px;
+  background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 200ms ease;
+}
+.footer-bottom a:hover::after { transform: scaleX(1); }
 
 /* public menu */
 /* Классический sticky-footer: .public-menu растягивается минимум на весь экран колонкой,
@@ -196,10 +263,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .venue-quick-links { display: flex; align-items: center; gap: 2px; }
 .header-icon-link { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); transition: background-color 150ms ease, color 150ms ease; }
 .header-icon-link:hover { background: #f3ede2; color: var(--ink); }
-.wifi-menu-panel { width: 220px; padding: 14px; }
-.wifi-menu-panel h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 11px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
-.wifi-menu-panel .wifi-row { font-size: 12px; }
-.wifi-menu-panel .btn { min-height: 30px; padding: 0 10px; font-size: 10px; }
+/* модалка Wi-Fi для гостей — обычный dialog.modal (см. ниже), а не мелкий popover: пароль
+   от сети должен быть легко читаем и его должно быть удобно скопировать одним тапом, а не
+   искать в тесной панели поверх остального контента. */
+.wifi-modal .modal-head h3 { display: flex; align-items: center; gap: 9px; }
+.wifi-field { margin-bottom: 16px; }
+.wifi-field:last-child { margin-bottom: 0; }
+.wifi-field-label { display: block; margin-bottom: 7px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.wifi-field-value { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 50px; padding: 0 8px 0 15px; border: 1px solid var(--border); border-radius: 11px; background: var(--background); font-size: 15px; color: var(--ink); }
+.wifi-field-value-password span { font-family: monospace; font-size: 17px; letter-spacing: .02em; }
+.wifi-copy-btn { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); transition: background-color 150ms ease, color 150ms ease; }
+.wifi-copy-btn:hover { background: var(--primary); color: white; }
+.wifi-copied-note { margin-top: 12px; }
 .venue-page { display: grid; grid-template-columns: minmax(0, 30%) minmax(0, 1fr); gap: 28px; align-items: start; padding-block: 28px 20px; flex: 1 0 auto; }
 .venue-page-aside { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 12px; align-self: start; }
 .venue-card { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper); }
@@ -260,7 +335,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .category-nav { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 4px; padding-block: 10px; background: var(--paper); border-bottom: 1px solid var(--border); }
 .category-nav-track { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; }
 .category-nav-track::-webkit-scrollbar { display: none; }
-.category-chip { flex: none; border: 0; padding: 10px 16px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 999px; background: #f3ede2; color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; scroll-margin-inline: 20px; transition: background-color 150ms ease, color 150ms ease; }
+.category-chip { flex: none; border: 0; padding: 10px 16px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 999px; background: #f3ede2; color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; scroll-margin-inline: 20px; transition: background-color 200ms ease, color 200ms ease; }
 .category-chip:hover { color: var(--ink); }
 .category-chip.active { background: var(--ink); color: #fff; }
 .category-nav-arrow { display: grid; place-items: center; width: 32px; height: 44px; flex-shrink: 0; border: 0; background: var(--paper); color: var(--muted); }
@@ -278,6 +353,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dish-row { display: flex; align-items: flex-start; gap: 14px; padding-block: 16px; border-bottom: 1px solid var(--border); }
 .dish-list .dish-row:last-child { border-bottom: 0; }
 .dish-row.unavailable { opacity: .55; }
+/* Поиск/фильтр: позиция, переставшая подходить, коротко гаснет вместо мгновенного исчезновения
+   (см. setRowState в public-menu.js); появление обратно — всегда мгновенное, без fade-in,
+   иначе список мельтешит на каждый введённый символ. */
+.dish-row.is-filtering-out { opacity: 0; transition: opacity 180ms ease; pointer-events: none; }
 .dish-row-media { position: relative; flex-shrink: 0; width: 76px; height: 76px; border-radius: 12px; overflow: hidden; background: #f3ede2; }
 .dish-row-media.loading { background: linear-gradient(100deg, #f3ede2 30%, var(--paper) 50%, #f3ede2 70%); background-size: 200% 100%; animation: media-shimmer 1.6s ease-in-out infinite; }
 .dish-row-media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 280ms ease; }
@@ -302,35 +381,61 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .qty-btn:hover { background: #f3ede2; }
 .qty-value { min-width: 18px; text-align: center; font-size: 13px; font-weight: 700; }
 .qty-stepper.has-qty .qty-value { color: var(--primary); }
-.cart-control { display: flex; align-items: center; flex-shrink: 0; }
-.cart-add-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--background); color: var(--ink); transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease; }
+.cart-control { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+.cart-add-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--background); color: var(--ink); transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, transform 200ms ease, opacity 200ms ease; }
 .cart-add-btn:not(:disabled):hover, .cart-add-btn:not(:disabled):focus-visible { background: var(--primary); border-color: var(--primary); color: white; }
 .cart-add-btn:disabled { opacity: .4; cursor: default; }
-.cart-control .qty-stepper { display: none; }
-.cart-control.has-qty .cart-add-btn { display: none; }
-.cart-control.has-qty .qty-stepper { display: flex; }
+.cart-control .qty-stepper { transition: transform 200ms ease, opacity 200ms ease; }
+/* "+" ↔ степпер переключаются кроссфейдом со scale, а не мгновенным display:none —
+   неактивный вариант снимается из потока (position:absolute), так что контейнер сразу
+   принимает размер активного, а не растягивается заранее под оба состояния. */
+.cart-control:not(.has-qty) .qty-stepper,
+.cart-control.has-qty .cart-add-btn {
+  position: absolute; inset: 0; opacity: 0; transform: scale(.9); pointer-events: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .category-nav-track { scroll-behavior: auto; }
   .cart-add-btn, .category-chip, .qty-btn,
   .dish-row-media img, .venue-card-cover img,
-  .faq-icon {
+  .faq-icon, .faq-content, .btn,
+  .feature-card, .steps > div,
+  [data-reveal], .hero-card,
+  .nav-links > a:not(.btn)::after, .footer-col ul a::after, .footer-bottom a::after,
+  .link-arrow, .link-arrow svg {
     transition: none !important;
+  }
+  .btn-primary:hover, .btn-primary:active,
+  .feature-card:hover, .steps > div:hover {
+    transform: none !important;
   }
   .cart-bar-btn, .cart-bar-btn.pulse,
   .section-fade-in, .item-menu[open] > .item-menu-panel,
-  .dish-row-media.loading, .venue-card-cover.loading {
+  .dish-row-media.loading, .venue-card-cover.loading,
+  .float-note, .live-dot,
+  dialog.modal[open], dialog.modal[open]::backdrop,
+  .cart-bar-badge.flash {
     animation: none !important;
+  }
+  .cart-control .cart-add-btn, .cart-control .qty-stepper,
+  .dish-row.is-filtering-out {
+    transition: none !important;
+  }
+  .dish-row.is-filtering-out {
+    opacity: 1 !important;
   }
   .dish-row-media.loading img, .venue-card-cover.loading img {
     opacity: 1;
   }
+  html.js-reveal [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  html.js-reveal .hero-card[data-reveal] {
+    transform: rotate(2deg) !important;
+  }
 }
-
-.wifi-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-family: monospace; font-size: 13px; }
-.wifi-row:first-child { border-bottom: 1px solid var(--border); }
-.wifi-row .btn { min-height: 32px; font-size: 11px; }
 
 .cart-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: center; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); pointer-events: none; }
 .cart-bar-btn {
@@ -344,6 +449,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes cart-bar-pulse { 0% { transform: scale(1); } 45% { transform: scale(1.04); } 100% { transform: scale(1); } }
 .cart-bar-icon { position: relative; display: inline-flex; flex-shrink: 0; }
 .cart-bar-badge { position: absolute; top: -7px; right: -9px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--primary); color: white; font-size: 10px; font-weight: 800; }
+.cart-bar-badge.flash { animation: badge-flash 220ms ease; }
+@keyframes badge-flash { 0% { opacity: 1; } 40% { opacity: .3; } 100% { opacity: 1; } }
 .cart-bar-items-label { flex: 1; text-align: left; }
 .cart-bar-total { color: #d8d3c8; }
 .cart-line { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -454,7 +561,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 dialog.modal { width: min(560px, calc(100% - 48px)); padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: 0 24px 55px #6e62531c; color: var(--ink); }
 dialog.modal[open] { animation: modal-in .22s cubic-bezier(.22,1,.36,1) both; }
 dialog.modal::backdrop { background: #27251f73; backdrop-filter: blur(2px); }
+dialog.modal[open]::backdrop { animation: backdrop-fade-in 220ms ease; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes backdrop-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 800px) {
+  /* На мобильном модалка ведёт себя как выезжающая снизу шторка — привычнее для тач-жестов,
+     чем лёгкий scale, который уместен на десктопе рядом с курсором. */
+  dialog.modal[open] { animation-name: modal-in-mobile; }
+  @keyframes modal-in-mobile { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+}
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .modal-head h3 { margin: 0; font-family: var(--font-serif); font-size: 20px; font-weight: 500; }
 .modal-close { border: 0; background: none; color: var(--muted); padding: 4px; border-radius: 6px; display: inline-flex; }
@@ -532,13 +647,36 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .welcome h1 { font-size: 34px; }
   .dashboard-grid, .super-stats, .field-grid { grid-template-columns: 1fr; }
   .table-row, .venue-row { grid-template-columns: 1fr !important; gap: 4px; padding: 14px 17px; }
+  /* В десктопной грид-раскладке .item-menu — узкая ячейка ровно под кнопку "···". В свёрнутой
+     на телефоне однoколоночной грид-раскладке ячейка по умолчанию растягивается на всю ширину
+     строки, а выпадающая панель (position:absolute; right:0) следует за этой растянутой
+     границей — визуально открывается в стороне от самой кнопки, а не под ней. Сжимаем ячейку
+     до кнопки и одновременно переключаем панель с right:0 на left:0 — иначе при узкой ячейке
+     у левого края экрана 170px-панель, открывающаяся "от правого края", уезжает за левый край
+     окна. */
+  .table-row .item-menu, .venue-row .item-menu { justify-self: start; }
+  .table-row .item-menu-panel, .venue-row .item-menu-panel { right: auto; left: 0; }
+}
+
+/* Тарифная секция складывается в одну колонку раньше (1000px), чем остальные секции
+   лендинга (800px), — у левой колонки теперь много текста (интро, акцентный блок,
+   мини-FAQ), и на планшете ей нужна полная ширина контейнера, а не половина рядом с
+   карточкой, иначе строки становятся неприлично узкими. */
+@media (max-width: 1000px) {
+  .pricing { grid-template-columns: 1fr; }
+  .pricing-copy { max-width: none; }
+  .price-card { max-width: 420px; margin-inline: auto; width: 100%; }
 }
 
 /* Бургер-меню лендинга — отдельный, более широкий порог (900px), чем остальная
    тайлетная адаптация (800px), потому что ссылок в .nav-links уже 4 штуки + язык + вход,
    и на планшетах они начинают конфликтовать с логотипом раньше, чем остальной контент. */
 @media (max-width: 900px) {
-  .nav-links { display: none; position: absolute; top: 70px; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 4px; padding: 16px; border-bottom: 1px solid var(--border); background: var(--paper); box-shadow: 0 12px 30px #6e62531a; z-index: 30; }
+  /* position:fixed, а не absolute — у .nav-links нет позиционированного предка, поэтому
+     absolute считал бы top:70px от начала ДОКУМЕНТА, а не от текущего окна. На длинном
+     лендинге открытие бургер-меню после прокрутки вниз уносило панель на сотни пикселей
+     выше экрана — невидимо, будто кнопка вообще не работает. */
+  .nav-links { display: none; position: fixed; top: 86px; left: 0; right: 0; max-height: calc(100vh - 86px); overflow-y: auto; flex-direction: column; align-items: stretch; gap: 4px; padding: 16px; border-bottom: 1px solid var(--border); background: var(--paper); box-shadow: 0 12px 30px #6e62531a; z-index: 30; }
   .nav-links.open { display: flex; }
   .nav-links a { padding: 10px 6px; }
   .nav-links .lang { justify-content: center; padding: 6px 0; }
@@ -552,6 +690,7 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .header-actions { gap: 10px; }
   .venue-quick-links { gap: 0; }
   .nav { height: 70px; }
+  .nav-links { top: 70px; max-height: calc(100vh - 70px); }
   .hero { grid-template-columns: 1fr; gap: 25px; padding-block: 52px 70px; }
   .hero-copy h1 { font-size: 56px; }
   .hero-visual { min-height: 375px; }
@@ -566,13 +705,16 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .features-grid { grid-template-columns: repeat(2, 1fr); margin-top: 30px; }
   .steps { grid-template-columns: 1fr; margin-top: 30px; }
   .why-grid { grid-template-columns: 1fr; margin-top: 30px; }
-  .pricing { grid-template-columns: 1fr; gap: 25px; padding-block: 70px; }
+  .pricing { gap: 40px; padding-block: 50px 70px; }
   .cta-final { padding: 44px 24px; margin-bottom: 80px; }
   .cta-final h2 { font-size: 30px; }
   .footer-grid { grid-template-columns: 1fr 1fr; padding-block: 40px 20px; }
   .menu-footer { grid-template-columns: 1fr 1fr; }
   .mini-footer { flex-wrap: wrap; }
-  .mini-footer-tagline { order: 1; width: 100%; }
+  /* flex-basis у .mini-footer-tagline — 0% (из сокращения flex:1), а не auto, поэтому width
+     здесь никогда не подействует — на новой строке главный (горизонтальный) размер элемента
+     считается от flex-basis, а не от width. Нужно перекрыть именно basis. */
+  .mini-footer-tagline { order: 1; flex-basis: 100%; }
 }
 
 /* Двухколоночная раскладка страницы меню — только от 1024px, ниже карточка заведения,
@@ -582,7 +724,11 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
 }
 
 @media (max-width: 1023px) {
-  .venue-page { grid-template-columns: 1fr; padding-top: 20px; }
+  /* minmax(0, 1fr), а не голый 1fr — иначе у грид-трека неявный min-width:auto по
+     содержимому: широкая обложка venue-card (её ширина зависит от aspect-ratio) не даёт
+     колонке сжаться и раздувает всю страницу вбок на телефонах, утаскивая цену/кнопку
+     "в корзину" каждой позиции за пределы экрана. */
+  .venue-page { grid-template-columns: minmax(0, 1fr); padding-top: 20px; }
   .venue-page-aside { position: static; }
   .category-nav { top: 0; }
 }
@@ -591,6 +737,8 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .hero-copy h1 { font-size: 49px; }
   .hero-actions .btn { width: 100%; }
   .hero-card { transform: none; }
+  html.js-reveal .hero-card[data-reveal] { transform: scale(.97); }
+  html.js-reveal .hero-card[data-reveal].is-revealed { transform: scale(1); }
   .stats { grid-template-columns: 1fr; }
   .stats div { border-right: 0 !important; border-bottom: 1px solid var(--border); }
   .stats div:last-child { border-bottom: 0; }
@@ -598,17 +746,27 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   .for-whom-list { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .footer-bottom { flex-direction: column; }
-  /* На узких экранах позиционирование Wi-Fi панели "от иконки/чипа" (right:0 в шапке,
-     left:50% у чипа в hero) выталкивает её за край экрана в обе стороны в зависимости от того,
-     где на строке оказался триггер. Вместо расчёта отступов под конкретный триггер — единая
-     панель по центру экрана, не зависящая от того, кто её открыл. */
-  .item-menu-panel.wifi-menu-panel {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    right: auto;
-    transform: translate(-50%, -50%);
-    width: calc(100vw - 40px);
-    max-width: 300px;
+  /* Бренд + иконки контактов + язык + шер не помещаются в одну строку на узких телефонах
+     (снизу ~360px и уже) — переносим header-actions на вторую строку целиком, а не сжимаем
+     тап-таргеты ещё сильнее. */
+  .menu-header { flex-wrap: wrap; row-gap: 10px; }
+  .header-actions { width: 100%; justify-content: space-between; }
+}
+
+/* На телефонах строке блюда не хватает ширины сразу под три колонки (фото 76px + название/
+   описание + цена со скидкой и степпером) — у позиций со старой ценой и бейджем скидки
+   колонка цены сама по себе шире, чем остаётся под название, из-за чего оно схлопывается
+   в узкую "лесенку" из одного-двух символов на строку. Переносим цену/корзину под фото и
+   текст отдельной полноширинной строкой — так у названия всегда вся ширина ряда. */
+@media (max-width: 480px) {
+  .dish-row { flex-wrap: wrap; }
+  .dish-row-side {
+    flex: 1 0 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-left: 90px;
   }
+  .dish-price { justify-content: flex-start; }
 }

@@ -1,9 +1,35 @@
+document.documentElement.classList.add('js-reveal');
+
 (function () {
   // Ничего здесь не предполагает, что меню/тулбар обязательно есть на странице — если у
   // заведения пока нет ни одной категории, соответствующие querySelectorAll просто вернут
   // пустые списки, а карточка заведения (с её обложкой) отрендерится и оживёт как обычно.
   function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  var reduced = prefersReducedMotion();
+
+  // --- появление позиций меню при скролле ----------------------------------------------
+  // Карточка заведения и первая категория рендерятся без [data-reveal] (см. menu.ejs) —
+  // видны сразу. Ниже первого экрана — тот же приём, что и на лендинге (общие CSS-правила
+  // [data-reveal]/.is-revealed в design-system.css), но короче и резче через data-reveal-menu.
+  var revealTargets = document.querySelectorAll('[data-reveal]');
+  if (revealTargets.length > 0) {
+    if (reduced || !('IntersectionObserver' in window)) {
+      revealTargets.forEach(function (el) { el.classList.add('is-revealed'); });
+    } else {
+      var revealObserver = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          obs.unobserve(entry.target);
+          var delay = entry.target.getAttribute('data-reveal-delay');
+          if (delay) entry.target.style.transitionDelay = delay + 'ms';
+          entry.target.classList.add('is-revealed');
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+      revealTargets.forEach(function (el) { revealObserver.observe(el); });
+    }
   }
 
   // --- сортировка внутри каждой категории -----------------------------------------------
@@ -80,6 +106,29 @@
     return true;
   }
 
+  // Строка, переставшая подходить под поиск/фильтр, коротко гаснет (opacity), а не пропадает
+  // мгновенно — но появление обратно всегда мгновенное (без fade-in), иначе список будет
+  // мельтешить при каждом введённом символе. Гонка (пользователь снова начал совпадать до
+  // истечения таймера скрытия) гасится проверкой класса перед тем, как реально спрятать строку.
+  function setRowState(row, visible) {
+    if (visible) {
+      row.classList.remove('is-filtering-out');
+      row.hidden = false;
+      return;
+    }
+    if (row.hidden) return;
+    if (reduced) {
+      row.hidden = true;
+      return;
+    }
+    row.classList.add('is-filtering-out');
+    window.setTimeout(function () {
+      if (!row.classList.contains('is-filtering-out')) return;
+      row.hidden = true;
+      row.classList.remove('is-filtering-out');
+    }, 180);
+  }
+
   // Видимость строки блюда решают два независимых слоя: какая вкладка категории выбрана
   // (или поиск, который временно показывает совпадения из всех категорий сразу) и
   // фильтр/поиск внутри неё. Секция скрывается целиком, если она не входит в текущую
@@ -95,7 +144,7 @@
       if (inScope) {
         section.querySelectorAll('.dish-row').forEach(function (row) {
           var visible = isRowVisible(row, state);
-          row.hidden = !visible;
+          setRowState(row, visible);
           if (visible) sectionHasVisible = true;
         });
       }
@@ -170,15 +219,25 @@
     });
   }
 
+  // Двигает только горизонтальную ленту чипсов (categoryTrack.scrollLeft), а не
+  // Element.scrollIntoView() — тот заодно прокручивает и саму страницу вертикально по всем
+  // скролл-предкам, а на телефоне с невысоким экраном лента категорий на первой загрузке
+  // обычно ещё не в кадре (карточка заведения выше), так что вкладка "Все" незаметно для
+  // пользователя утаскивала страницу вниз, пряча шапку.
+  function centerChipInTrack(chip) {
+    if (!categoryTrack) return;
+    var target = chip.offsetLeft - (categoryTrack.clientWidth - chip.offsetWidth) / 2;
+    target = Math.max(0, Math.min(target, categoryTrack.scrollWidth - categoryTrack.clientWidth));
+    categoryTrack.scrollTo({ left: target, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }
+
   function setActiveCategory(id) {
     currentCategoryId = id;
     document.querySelectorAll('.category-chip').forEach(function (chip) {
       chip.classList.toggle('active', chip.dataset.categoryChip === id);
     });
     var activeChip = document.querySelector('.category-chip[data-category-chip="' + id + '"]');
-    if (activeChip) {
-      activeChip.scrollIntoView({ block: 'nearest', inline: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-    }
+    if (activeChip) centerChipInTrack(activeChip);
     applyVisibility();
     playSectionEnterAnimation();
   }
@@ -244,5 +303,16 @@
     btn.classList.remove('pulse');
     void btn.offsetWidth;
     btn.classList.add('pulse');
+  };
+
+  // --- быстрая fade-смена числа на бейджике корзины при изменении count ---------------------
+
+  window.publicMenuFlashBadge = function () {
+    if (prefersReducedMotion()) return;
+    var badge = document.getElementById('cartBarCount');
+    if (!badge) return;
+    badge.classList.remove('flash');
+    void badge.offsetWidth;
+    badge.classList.add('flash');
   };
 })();

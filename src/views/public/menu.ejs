@@ -38,24 +38,9 @@
               </a>
             <% } %>
             <% if (wifiSsid && wifiPassword) { %>
-              <details class="item-menu">
-                <summary class="header-icon-link" aria-label="<%= t('publicMenu.wifiHeading') %>" title="<%= t('publicMenu.wifiHeading') %>">
-                  <%- include('../partials/icon', { name: 'wifi', size: 16 }) %>
-                </summary>
-                <div class="item-menu-panel wifi-menu-panel">
-                  <h4><%- include('../partials/icon', { name: 'wifi', size: 13 }) %> <%= t('publicMenu.wifiHeading') %></h4>
-                  <div class="wifi-row"><span><%= wifiSsid %></span></div>
-                  <div class="wifi-row wifi-password">
-                    <span id="headerWifiPasswordValue"><%= wifiPassword %></span>
-                    <button type="button" class="wifi-copy-btn btn btn-outline" data-target="headerWifiPasswordValue" data-note="headerWifiCopiedNote">
-                      <%- include('../partials/icon', { name: 'copy', size: 13 }) %> <%= t('publicMenu.wifiCopyButton') %>
-                    </button>
-                  </div>
-                  <span id="headerWifiCopiedNote" class="copied" style="display:none;">
-                    <%- include('../partials/icon', { name: 'copy', size: 12 }) %> <%= t('publicMenu.wifiCopied') %>
-                  </span>
-                </div>
-              </details>
+              <button type="button" class="header-icon-link" aria-label="<%= t('publicMenu.wifiHeading') %>" title="<%= t('publicMenu.wifiHeading') %>" onclick="document.getElementById('wifi-modal').showModal()">
+                <%- include('../partials/icon', { name: 'wifi', size: 16 }) %>
+              </button>
             <% } %>
             <% if (instagramUrl) { %>
               <a class="header-icon-link" href="<%= instagramUrl %>" target="_blank" rel="noopener" aria-label="<%= t('publicMenu.instagramLabel') %>" title="<%= t('publicMenu.instagramLabel') %>">
@@ -177,12 +162,16 @@
           <p class="empty-note" id="searchEmptyNote" hidden><%= t('publicMenu.searchEmpty') %></p>
 
           <div class="menu-sections" id="menuSections">
-            <% groups.forEach((group) => { %>
+            <% groups.forEach((group, groupIndex) => { %>
               <section class="menu-section" id="category-<%= group.categoryId %>" aria-labelledby="category-heading-<%= group.categoryId %>" data-category-section>
                 <h2 class="menu-section-heading" id="category-heading-<%= group.categoryId %>"><%= group.categoryName %></h2>
                 <div class="dish-list">
-                  <% group.items.forEach((item) => { %>
-                    <%- include('../partials/dish-row', { item, t, categoryName: group.categoryName }) %>
+                  <% group.items.forEach((item, itemIndex) => { %>
+                    <%- include('../partials/dish-row', {
+                      item, t, categoryName: group.categoryName,
+                      reveal: groupIndex > 0,
+                      revealDelay: Math.min(itemIndex * 40, 400),
+                    }) %>
                   <% }) %>
                 </div>
               </section>
@@ -256,6 +245,35 @@
       <button type="button" id="cartClearBtn" class="btn btn-outline" style="width:100%; margin-top:14px;"><%= t('publicMenu.cartClear') %></button>
     </div>
   </dialog>
+
+  <% if (wifiSsid && wifiPassword) { %>
+    <dialog id="wifi-modal" class="modal wifi-modal">
+      <div class="modal-head">
+        <h3><%- include('../partials/icon', { name: 'wifi', size: 18 }) %> <%= t('publicMenu.wifiHeading') %></h3>
+        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+          <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="wifi-field">
+          <span class="wifi-field-label"><%= t('venueSettings.wifiSsidLabel') %></span>
+          <div class="wifi-field-value"><span><%= wifiSsid %></span></div>
+        </div>
+        <div class="wifi-field">
+          <span class="wifi-field-label"><%= t('venueSettings.wifiPasswordLabel') %></span>
+          <div class="wifi-field-value wifi-field-value-password">
+            <span id="wifiPasswordValue"><%= wifiPassword %></span>
+            <button type="button" class="wifi-copy-btn" data-target="wifiPasswordValue" data-note="wifiCopiedNote" aria-label="<%= t('publicMenu.wifiCopyButton') %>" title="<%= t('publicMenu.wifiCopyButton') %>">
+              <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+            </button>
+          </div>
+        </div>
+        <span id="wifiCopiedNote" class="copied wifi-copied-note" style="display:none;">
+          <%- include('../partials/icon', { name: 'check', size: 13 }) %> <%= t('publicMenu.wifiCopied') %>
+        </span>
+      </div>
+    </dialog>
+  <% } %>
 
   <script src="/js/public-menu.js" defer></script>
 
@@ -364,6 +382,7 @@
         document.getElementById('cartBarItemsLabel').textContent = '<%= t("publicMenu.itemsCount", { count: "__COUNT__" }) %>'.replace('__COUNT__', count);
         document.getElementById('cartBarTotal').textContent = fmt(totalSum());
         if (changed && window.publicMenuPulseCart) window.publicMenuPulseCart();
+        if (changed && window.publicMenuFlashBadge) window.publicMenuFlashBadge();
       }
 
       function renderPanel() {

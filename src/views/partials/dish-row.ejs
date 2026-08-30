@@ -15,7 +15,8 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
   data-description="<%= searchDescription %>"
   data-price="<%= item.price %>"
   data-available="<%= item.isAvailable ? '1' : '0' %>"
-  data-tags="<%= filterTags %>">
+  data-tags="<%= filterTags %>"
+  <% if (typeof reveal !== 'undefined' && reveal) { %>data-reveal data-reveal-menu data-reveal-delay="<%= revealDelay %>"<% } %>>
   <div class="dish-row-media">
     <% if (item.photoThumbUrl) { %>
       <img src="<%= item.photoThumbUrl %>" alt="<%= item.name %>" loading="lazy">
