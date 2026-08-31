@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('apply.thanksTitle') %> — <%= serviceName %></title>
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <%- include('../partials/head-assets') %>
+  <script src="/js/landing.js" defer></script>
+</head>
+<body>
+  <%- include('../partials/site-nav', { lang, t, isLanding: false }) %>
+
+  <main class="apply-main container">
+    <div class="apply-card apply-thanks-card form-card">
+      <span class="apply-thanks-icon"><%- include('../partials/icon', { name: 'check', size: 26 }) %></span>
+      <h1><%= t('apply.thanksTitle') %></h1>
+      <p class="apply-subtitle"><%= t('apply.thanksText') %></p>
+      <div class="apply-thanks-actions">
+        <% if (siteSettings && siteSettings.telegram_url) { %>
+          <a href="<%= siteSettings.telegram_url %>" class="btn btn-primary" target="_blank" rel="noopener">
+            <%- include('../partials/icon', { name: 'telegram', size: 17 }) %> <%= t('apply.thanksBotCta') %>
+          </a>
+        <% } %>
+        <a href="/" class="btn btn-outline"><%= t('apply.thanksBackHome') %></a>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/site-footer', { lang, t, serviceName, siteSettings, isLanding: false }) %>
+</body>
+</html>

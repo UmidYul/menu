@@ -21,34 +21,49 @@ function get(slug, lang) {
   return entry.html;
 }
 
-function set(slug, lang, html) {
-  store.set(buildKey(slug, lang), { html, expiresAt: Date.now() + TTL_MS });
+// venueId хранится в значении (а не только в ключе через slug), потому что инвалидация приходит
+// по venue_id — из другого процесса (см. pgNotify.js) он единственное, что доступно, а slug к
+// этому моменту мог смениться.
+function set(venueId, slug, lang, html) {
+  store.set(buildKey(slug, lang), { html, venueId, expiresAt: Date.now() + TTL_MS });
 }
 
-function getOgImage(slug) {
-  const entry = ogImageStore.get(slug);
+// og:image теперь тоже разный по языку (подпись "ЦИФРОВОЕ МЕНЮ"/"DIGITAL MENU"/... рисуется
+// на языке страницы) — ключ строится так же, как для HTML.
+function getOgImage(slug, lang) {
+  const key = buildKey(slug, lang);
+  const entry = ogImageStore.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
-    ogImageStore.delete(slug);
+    ogImageStore.delete(key);
     return null;
   }
   return entry.buffer;
 }
 
-function setOgImage(slug, buffer) {
-  ogImageStore.set(slug, { buffer, expiresAt: Date.now() + TTL_MS });
+function setOgImage(venueId, slug, lang, buffer) {
+  ogImageStore.set(buildKey(slug, lang), { buffer, venueId, expiresAt: Date.now() + TTL_MS });
 }
 
-// Сбрасывает закэшированные страницы меню этого заведения на всех языках, а также
-// сгенерированную og:image-превьюшку — вызывается при любом сохранении категорий/позиций/
-// настроек этого venue в админке (название меняется — превью тоже должно).
-function invalidateVenue(slug) {
-  if (!slug) return;
-  const prefix = `${slug}:`;
-  for (const key of store.keys()) {
-    if (key.startsWith(prefix)) store.delete(key);
+// Сбрасывает закэшированные страницы меню этого заведения на всех языках, а также сгенерированную
+// og:image-превьюшку — по venue_id, а не по slug, чтобы переименование заведения не оставляло
+// "зависший" старый ключ. Вызывается и локально (сразу после сохранения в админке), и из
+// pgNotify.js при событии от другого процесса — двойной вызов безвреден (Map.delete идемпотентен).
+function invalidate(venueId) {
+  if (!venueId) return;
+  for (const [key, entry] of store) {
+    if (entry.venueId === venueId) store.delete(key);
   }
-  ogImageStore.delete(slug);
+  for (const [key, entry] of ogImageStore) {
+    if (entry.venueId === venueId) ogImageStore.delete(key);
+  }
 }
 
-module.exports = { get, set, getOgImage, setOgImage, invalidateVenue };
+// Полный сброс — используется при восстановлении LISTEN-соединения к Postgres: за время обрыва
+// события menu_changed могли потеряться, так что нельзя доверять ничему, что уже в кэше.
+function clear() {
+  store.clear();
+  ogImageStore.clear();
+}
+
+module.exports = { get, set, getOgImage, setOgImage, invalidate, clear };

@@ -94,8 +94,8 @@
               <% } else { %>
                 <span class="table-emoji"><%- include('../partials/icon', { name: 'utensils', size: 16 }) %></span>
               <% } %>
-              <b><%= item.name_ru %></b>
-              <span class="category"><%= item.category_name_ru %></span>
+              <b><%= pickLocalized(item, 'name', lang) %></b>
+              <span class="category"><%= pickLocalized(item, 'category_name', lang) %></span>
               <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
               <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">

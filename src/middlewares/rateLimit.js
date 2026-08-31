@@ -13,4 +13,17 @@ const loginLimiter = rateLimit({
   },
 });
 
-module.exports = { loginLimiter };
+// Редирект на GET вместо прямого рендера — apply.js сам решает, что показать (полная страница
+// с siteSettings/nav/footer через res.render там сложнее дублировать здесь без циклической
+// зависимости на роут). GET-обработчик проверяет ?rate_limited=1 и выводит apply.errorRateLimited.
+const applyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.redirect('/apply?rate_limited=1');
+  },
+});
+
+module.exports = { loginLimiter, applyLimiter };

@@ -54,10 +54,13 @@
             <% } %>
           </div>
         <% } %>
+        <% if (langSwitcherOptions.length > 1) { %>
         <div class="lang">
-          <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
-          <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+          <% langSwitcherOptions.forEach((opt) => { %>
+            <a href="?lang=<%= opt.code %>" class="<%= lang === opt.code ? 'active' : '' %>"><%= opt.label %></a>
+          <% }) %>
         </div>
+        <% } %>
         <button type="button" id="shareBtn" aria-label="<%= t('publicMenu.shareButton') %>">
           <%- include('../partials/icon', { name: 'share', size: 18 }) %>
         </button>

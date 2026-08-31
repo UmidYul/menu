@@ -1,0 +1,8 @@
+<%
+// payload: { venue_name, reason }, t, siteSettings, escapeHtml
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.leadRejectedLine1', { venueName: payload.venue_name }))}</p>
+  <p>${escapeHtml(t('bot.templates.leadRejectedLine2', { reason: payload.reason }))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.leadRejectedSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

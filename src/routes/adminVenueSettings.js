@@ -6,9 +6,8 @@ const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { venueSettingsSchema } = require('../validators/venueSettingsValidators');
-const { uploadVenueImages } = require('../middlewares/upload');
 const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
-const menuCache = require('../services/menuCache');
+const pgNotify = require('../services/pgNotify');
 
 router.use(requireAuth, requireRole(['venue_admin']));
 
@@ -24,13 +23,19 @@ function toFormValues(venue) {
     working_hours: venue.working_hours || '',
     description_ru: venue.description_ru || '',
     description_uz: venue.description_uz || '',
+    description_en: venue.description_en || '',
     cuisine_ru: venue.cuisine_ru || '',
     cuisine_uz: venue.cuisine_uz || '',
+    cuisine_en: venue.cuisine_en || '',
     category_label_ru: venue.category_label_ru || '',
     category_label_uz: venue.category_label_uz || '',
+    category_label_en: venue.category_label_en || '',
     district_ru: venue.district_ru || '',
     district_uz: venue.district_uz || '',
+    district_en: venue.district_en || '',
     email: venue.email || '',
+    enabled_langs: venue.enabled_langs || ['ru', 'uz'],
+    lang_default: venue.lang_default,
     logo_thumb_url: venue.logo_thumb_url || '',
     cover_thumb_url: venue.cover_thumb_url || '',
   };
@@ -39,13 +44,17 @@ function toFormValues(venue) {
 function readRawFormValues(body) {
   const keys = [
     'phone', 'address', 'address_2gis_url', 'wifi_ssid', 'wifi_password', 'instagram_url', 'telegram_url',
-    'working_hours', 'description_ru', 'description_uz', 'cuisine_ru', 'cuisine_uz',
-    'category_label_ru', 'category_label_uz', 'district_ru', 'district_uz', 'email',
+    'working_hours', 'description_ru', 'description_uz', 'description_en', 'cuisine_ru', 'cuisine_uz', 'cuisine_en',
+    'category_label_ru', 'category_label_uz', 'category_label_en',
+    'district_ru', 'district_uz', 'district_en', 'email',
   ];
   const values = {};
   keys.forEach((key) => {
     values[key] = typeof body[key] === 'string' ? body[key] : '';
   });
+  const rawLangs = body.enabled_langs;
+  values.enabled_langs = rawLangs === undefined ? [] : Array.isArray(rawLangs) ? rawLangs : [rawLangs];
+  values.lang_default = typeof body.lang_default === 'string' ? body.lang_default : '';
   values.logo_thumb_url = '';
   values.cover_thumb_url = '';
   return values;
@@ -71,7 +80,8 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', uploadVenueImages, async (req, res, next) => {
+// uploadVenueImages применяется уровнем выше, в app.js (до csrfProtection — см. комментарий там).
+router.post('/', async (req, res, next) => {
   const { t } = res.locals;
   try {
     if (req.uploadError) {
@@ -133,13 +143,19 @@ router.post('/', uploadVenueImages, async (req, res, next) => {
       workingHours: parsed.data.working_hours,
       descriptionRu: parsed.data.description_ru,
       descriptionUz: parsed.data.description_uz,
+      descriptionEn: parsed.data.description_en,
       cuisineRu: parsed.data.cuisine_ru,
       cuisineUz: parsed.data.cuisine_uz,
+      cuisineEn: parsed.data.cuisine_en,
       categoryLabelRu: parsed.data.category_label_ru,
       categoryLabelUz: parsed.data.category_label_uz,
+      categoryLabelEn: parsed.data.category_label_en,
       districtRu: parsed.data.district_ru,
       districtUz: parsed.data.district_uz,
+      districtEn: parsed.data.district_en,
       email: parsed.data.email,
+      enabledLangs: parsed.data.enabled_langs,
+      langDefault: parsed.data.lang_default,
       logoUrl: logo ? logo.photoUrl : null,
       logoThumbUrl: logo ? logo.photoThumbUrl : null,
       coverUrl: cover ? cover.photoUrl : null,
@@ -163,10 +179,12 @@ router.post('/', uploadVenueImages, async (req, res, next) => {
         telegram_url: parsed.data.telegram_url,
         working_hours: parsed.data.working_hours,
         email: parsed.data.email,
+        enabled_langs: parsed.data.enabled_langs,
+        lang_default: parsed.data.lang_default,
       },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(venueId);
     await renderForm(req, res, 200, null, true);
   } catch (err) {
     next(err);

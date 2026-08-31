@@ -93,6 +93,12 @@
                     <label><%= t('categories.nameUzLabel') %></label>
                     <input type="text" name="name_uz" value="<%= category.name_uz %>" required>
                   </div>
+                  <% if (enabledLangs.includes('en')) { %>
+                  <div class="field">
+                    <label><%= t('categories.nameEnLabel') %></label>
+                    <input type="text" name="name_en" value="<%= category.name_en || '' %>">
+                  </div>
+                  <% } %>
                   <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('common.save') %></button>
                 </form>
               </div>
@@ -124,6 +130,12 @@
                 <label for="name_uz"><%= t('categories.nameUzLabel') %></label>
                 <input type="text" id="name_uz" name="name_uz" value="<%= formValues.name_uz %>" required>
               </div>
+              <% if (enabledLangs.includes('en')) { %>
+              <div class="field">
+                <label for="name_en"><%= t('categories.nameEnLabel') %></label>
+                <input type="text" id="name_en" name="name_en" value="<%= formValues.name_en || '' %>">
+              </div>
+              <% } %>
               <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %></button>
             </form>
           </div>

@@ -12,6 +12,7 @@
       <div class="auth-lang lang">
         <a href="/admin/lang?lang=ru&redirect=/admin/login" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
         <a href="/admin/lang?lang=uz&redirect=/admin/login" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+        <a href="/admin/lang?lang=en&redirect=/admin/login" class="<%= lang === 'en' ? 'active' : '' %>">EN</a>
       </div>
       <div class="brand" style="margin-bottom:22px;"><%- include('../partials/brand', { compact: true }) %></div>
       <h1><%= t('login.heading') %></h1>

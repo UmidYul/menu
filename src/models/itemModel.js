@@ -2,10 +2,12 @@ const { pool } = require('../config/db');
 
 async function listByVenueGrouped(venueId) {
   const result = await pool.query(
-    `SELECT i.id, i.category_id, i.name_ru, i.name_uz, i.description_ru, i.description_uz,
-            i.composition_ru, i.composition_uz, i.calories,
+    `SELECT i.id, i.category_id, i.name_ru, i.name_uz, i.name_en,
+            i.description_ru, i.description_uz, i.description_en,
+            i.composition_ru, i.composition_uz, i.composition_en, i.calories,
             i.price, i.old_price, i.currency, i.photo_url, i.photo_thumb_url, i.tags, i.is_available, i.sort_order,
-            c.name_ru AS category_name_ru, c.name_uz AS category_name_uz, c.sort_order AS category_sort_order
+            c.name_ru AS category_name_ru, c.name_uz AS category_name_uz, c.name_en AS category_name_en,
+            c.sort_order AS category_sort_order
      FROM items i
      JOIN categories c ON c.id = i.category_id
      WHERE c.venue_id = $1
@@ -19,8 +21,8 @@ async function listByVenueGrouped(venueId) {
 // на отдельном URL, а не все категории сразу на одной странице.
 async function listByCategory(categoryId) {
   const result = await pool.query(
-    `SELECT id, category_id, name_ru, name_uz, description_ru, description_uz,
-            composition_ru, composition_uz, calories,
+    `SELECT id, category_id, name_ru, name_uz, name_en, description_ru, description_uz, description_en,
+            composition_ru, composition_uz, composition_en, calories,
             price, old_price, currency, photo_url, photo_thumb_url, tags, is_available, sort_order
      FROM items
      WHERE category_id = $1
@@ -34,8 +36,8 @@ async function listByCategory(categoryId) {
 // для карточки "Последние позиции" в кабинете.
 async function listRecentByVenue(venueId, limit) {
   const result = await pool.query(
-    `SELECT i.id, i.name_ru, i.name_uz, i.price, i.currency, i.photo_thumb_url, i.is_available,
-            c.name_ru AS category_name_ru, c.name_uz AS category_name_uz
+    `SELECT i.id, i.name_ru, i.name_uz, i.name_en, i.price, i.currency, i.photo_thumb_url, i.is_available,
+            c.name_ru AS category_name_ru, c.name_uz AS category_name_uz, c.name_en AS category_name_en
      FROM items i
      JOIN categories c ON c.id = i.category_id
      WHERE c.venue_id = $1
@@ -58,6 +60,7 @@ function groupByCategory(items) {
         categoryName: item.category_name_ru,
         categoryNameRu: item.category_name_ru,
         categoryNameUz: item.category_name_uz,
+        categoryNameEn: item.category_name_en,
         items: [],
       };
       byCategoryId.set(item.category_id, group);
@@ -88,10 +91,13 @@ async function create({
   categoryId,
   nameRu,
   nameUz,
+  nameEn,
   descriptionRu,
   descriptionUz,
+  descriptionEn,
   compositionRu,
   compositionUz,
+  compositionEn,
   calories,
   price,
   oldPrice,
@@ -107,26 +113,42 @@ async function create({
   const sortOrder = nextOrderResult.rows[0].next_order;
 
   const result = await pool.query(
-    `INSERT INTO items (category_id, name_ru, name_uz, description_ru, description_uz, composition_ru, composition_uz, calories, price, old_price, currency, tags, photo_url, photo_thumb_url, sort_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    `INSERT INTO items (category_id, name_ru, name_uz, name_en, description_ru, description_uz, description_en,
+                         composition_ru, composition_uz, composition_en, calories, price, old_price, currency, tags,
+                         photo_url, photo_thumb_url, sort_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      RETURNING *`,
-    [categoryId, nameRu, nameUz, descriptionRu, descriptionUz, compositionRu || null, compositionUz || null, calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags, photoUrl || null, photoThumbUrl || null, sortOrder]
+    [
+      categoryId, nameRu, nameUz, nameEn || null, descriptionRu, descriptionUz, descriptionEn || null,
+      compositionRu || null, compositionUz || null, compositionEn || null,
+      calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags,
+      photoUrl || null, photoThumbUrl || null, sortOrder,
+    ]
   );
   return result.rows[0];
 }
 
 // photoUrl/photoThumbUrl передаются только когда загружено новое фото — если их нет (null),
 // уже сохранённая в БД фотография остаётся без изменений (COALESCE).
-async function update(id, { categoryId, nameRu, nameUz, descriptionRu, descriptionUz, compositionRu, compositionUz, calories, price, oldPrice, currency, tags, photoUrl, photoThumbUrl }) {
+async function update(id, {
+  categoryId, nameRu, nameUz, nameEn, descriptionRu, descriptionUz, descriptionEn,
+  compositionRu, compositionUz, compositionEn, calories, price, oldPrice, currency, tags, photoUrl, photoThumbUrl,
+}) {
   const result = await pool.query(
     `UPDATE items
-     SET category_id = $1, name_ru = $2, name_uz = $3, description_ru = $4, description_uz = $5,
-         composition_ru = $6, composition_uz = $7, calories = $8,
-         price = $9, old_price = $10, currency = $11, tags = $12,
-         photo_url = COALESCE($13, photo_url), photo_thumb_url = COALESCE($14, photo_thumb_url)
-     WHERE id = $15
+     SET category_id = $1, name_ru = $2, name_uz = $3, name_en = $4,
+         description_ru = $5, description_uz = $6, description_en = $7,
+         composition_ru = $8, composition_uz = $9, composition_en = $10, calories = $11,
+         price = $12, old_price = $13, currency = $14, tags = $15,
+         photo_url = COALESCE($16, photo_url), photo_thumb_url = COALESCE($17, photo_thumb_url)
+     WHERE id = $18
      RETURNING *`,
-    [categoryId, nameRu, nameUz, descriptionRu, descriptionUz, compositionRu || null, compositionUz || null, calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags, photoUrl || null, photoThumbUrl || null, id]
+    [
+      categoryId, nameRu, nameUz, nameEn || null, descriptionRu, descriptionUz, descriptionEn || null,
+      compositionRu || null, compositionUz || null, compositionEn || null,
+      calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags,
+      photoUrl || null, photoThumbUrl || null, id,
+    ]
   );
   return result.rows[0] || null;
 }

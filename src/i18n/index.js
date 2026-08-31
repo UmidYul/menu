@@ -1,10 +1,19 @@
 const ru = require('./ru.json');
 const uz = require('./uz.json');
+const en = require('./en.json');
 
-const SUPPORTED_LANGS = ['ru', 'uz'];
+const SUPPORTED_LANGS = ['ru', 'uz', 'en'];
 const DEFAULT_LANG = 'ru';
 
-const dictionaries = { ru, uz };
+// Порядок фолбэка для pickLocalized (src/utils/localize.js): если поля на выбранном языке нет,
+// пробуем следующий по цепочке. Четвёртый язык в будущем — правка в одном месте.
+const LANG_FALLBACKS = {
+  ru: ['ru', 'uz', 'en'],
+  uz: ['uz', 'ru', 'en'],
+  en: ['en', 'ru', 'uz'],
+};
+
+const dictionaries = { ru, uz, en };
 
 function getNested(obj, dotPath) {
   return dotPath.split('.').reduce((acc, part) => (acc && typeof acc === 'object' ? acc[part] : undefined), obj);
@@ -31,4 +40,4 @@ function t(key, lang, params) {
   return interpolate(value, params);
 }
 
-module.exports = { t, SUPPORTED_LANGS, DEFAULT_LANG };
+module.exports = { t, SUPPORTED_LANGS, DEFAULT_LANG, LANG_FALLBACKS };

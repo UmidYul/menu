@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 
 async function listByVenue(venueId) {
   const result = await pool.query(
-    'SELECT id, venue_id, name_ru, name_uz, sort_order FROM categories WHERE venue_id = $1 ORDER BY sort_order, id',
+    'SELECT id, venue_id, name_ru, name_uz, name_en, sort_order FROM categories WHERE venue_id = $1 ORDER BY sort_order, id',
     [venueId]
   );
   return result.rows;
@@ -10,7 +10,7 @@ async function listByVenue(venueId) {
 
 async function listByVenueWithCounts(venueId) {
   const result = await pool.query(
-    `SELECT c.id, c.venue_id, c.name_ru, c.name_uz, c.sort_order, COUNT(i.id)::int AS item_count
+    `SELECT c.id, c.venue_id, c.name_ru, c.name_uz, c.name_en, c.sort_order, COUNT(i.id)::int AS item_count
      FROM categories c
      LEFT JOIN items i ON i.category_id = c.id
      WHERE c.venue_id = $1
@@ -31,26 +31,26 @@ async function countItems(categoryId) {
   return result.rows[0].count;
 }
 
-async function create(venueId, { nameRu, nameUz }) {
+async function create(venueId, { nameRu, nameUz, nameEn }) {
   const nextOrderResult = await pool.query(
     'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM categories WHERE venue_id = $1',
     [venueId]
   );
   const sortOrder = nextOrderResult.rows[0].next_order;
   const result = await pool.query(
-    `INSERT INTO categories (venue_id, name_ru, name_uz, sort_order)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, venue_id, name_ru, name_uz, sort_order`,
-    [venueId, nameRu, nameUz, sortOrder]
+    `INSERT INTO categories (venue_id, name_ru, name_uz, name_en, sort_order)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, venue_id, name_ru, name_uz, name_en, sort_order`,
+    [venueId, nameRu, nameUz, nameEn || null, sortOrder]
   );
   return result.rows[0];
 }
 
-async function update(id, { nameRu, nameUz }) {
+async function update(id, { nameRu, nameUz, nameEn }) {
   const result = await pool.query(
-    `UPDATE categories SET name_ru = $1, name_uz = $2 WHERE id = $3
-     RETURNING id, venue_id, name_ru, name_uz, sort_order`,
-    [nameRu, nameUz, id]
+    `UPDATE categories SET name_ru = $1, name_uz = $2, name_en = $3 WHERE id = $4
+     RETURNING id, venue_id, name_ru, name_uz, name_en, sort_order`,
+    [nameRu, nameUz, nameEn || null, id]
   );
   return result.rows[0] || null;
 }

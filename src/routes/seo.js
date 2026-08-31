@@ -5,19 +5,11 @@ const venueModel = require('../models/venueModel');
 const menuCache = require('../services/menuCache');
 const { renderVenueOgImage } = require('../services/ogImage');
 const { SERVICE_NAME } = require('../config/constants');
+const { SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
+const { escapeHtml: escapeXml } = require('../utils/escapeHtml');
 
 function baseUrlOf(req) {
   return `${req.protocol}://${req.get('host')}`;
-}
-
-function escapeXml(str) {
-  return String(str).replace(/[<>&'"]/g, (c) => ({
-    '<': '&lt;',
-    '>': '&gt;',
-    '&': '&amp;',
-    "'": '&apos;',
-    '"': '&quot;',
-  }[c]));
 }
 
 router.get('/robots.txt', (req, res) => {
@@ -35,29 +27,34 @@ router.get('/robots.txt', (req, res) => {
   );
 });
 
+// xhtml:link alternates внутри <url> — те же языковые версии, что заведение объявляет через
+// hreflang на самой странице меню (buildSeoInfo в publicMenu.js): по одному <url> на venue
+// (канонический голый адрес), а не отдельная запись на каждый язык.
+function buildAlternateLinks(loc, enabledLangs) {
+  const langs = SUPPORTED_LANGS.filter((l) => enabledLangs.includes(l));
+  const altTags = langs
+    .map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${escapeXml(`${loc}?lang=${l}`)}"/>`)
+    .join('\n');
+  return `${altTags}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(loc)}"/>`;
+}
+
 router.get('/sitemap.xml', async (req, res, next) => {
   try {
     const base = baseUrlOf(req);
     const venues = await venueModel.listActiveSlugs();
 
-    const urls = [
-      { loc: `${base}/`, changefreq: 'weekly', priority: '0.8' },
-      ...venues.map((venue) => ({
-        loc: `${base}/menu/${venue.slug}`,
-        lastmod: venue.created_at ? new Date(venue.created_at).toISOString() : null,
-        changefreq: 'daily',
-        priority: '0.9',
-      })),
-    ];
+    const homeUrl = `  <url>\n    <loc>${escapeXml(`${base}/`)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`;
 
-    const body = urls
-      .map((u) => {
-        const lastmodTag = u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : '';
-        return `  <url>\n    <loc>${escapeXml(u.loc)}</loc>${lastmodTag}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
-      })
-      .join('\n');
+    const venueUrls = venues.map((venue) => {
+      const loc = `${base}/menu/${venue.slug}`;
+      const lastmodTag = venue.created_at ? `\n    <lastmod>${new Date(venue.created_at).toISOString()}</lastmod>` : '';
+      const alternates = buildAlternateLinks(loc, venue.enabled_langs || ['ru', 'uz']);
+      return `  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmodTag}\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n${alternates}\n  </url>`;
+    });
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+    const body = [homeUrl, ...venueUrls].join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
 
     res.type('application/xml').send(xml);
   } catch (err) {
@@ -68,8 +65,13 @@ router.get('/sitemap.xml', async (req, res, next) => {
 router.get('/og/:slug/image.png', async (req, res, next) => {
   try {
     const { slug } = req.params;
+    // URL всегда приходит с ?lang= уже выставленным той страницей, что на неё ссылается
+    // (см. buildSeoInfo в publicMenu.js) — здесь просто подстраховка на случай прямого захода,
+    // без похода в БД за enabled_langs заведения (эта картинка не показывает контент меню,
+    // только имя заведения и подпись сервиса, так что не критично к проверке enabled_langs).
+    const lang = SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : DEFAULT_LANG;
 
-    const cached = menuCache.getOgImage(slug);
+    const cached = menuCache.getOgImage(slug, lang);
     if (cached) {
       res.set('Content-Type', 'image/png');
       res.set('Cache-Control', 'public, max-age=3600');
@@ -79,8 +81,8 @@ router.get('/og/:slug/image.png', async (req, res, next) => {
     const venue = await venueModel.findPublicBySlug(slug);
     if (!venue || !venue.is_active) return res.status(404).end();
 
-    const png = await renderVenueOgImage(venue.name, SERVICE_NAME);
-    menuCache.setOgImage(slug, png);
+    const png = await renderVenueOgImage(venue.name, SERVICE_NAME, lang);
+    menuCache.setOgImage(venue.id, slug, lang, png);
 
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'public, max-age=3600');

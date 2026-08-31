@@ -1,0 +1,14 @@
+<%
+// payload: { venue_name, amount, currency, extends_until }, t, siteSettings, escapeHtml
+// venue_name приходит из пользовательского ввода (заявка/суперадмин) — экранируем перед
+// вставкой в bodyHtml (layout.ejs подставляет bodyHtml как есть, без собственного экранирования).
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.paymentRecordedLine1', { venueName: payload.venue_name }))}</p>
+  <p>${escapeHtml(t('bot.templates.paymentRecordedLine2', {
+    amount: Number(payload.amount).toLocaleString('ru-RU'),
+    currency: payload.currency,
+    until: payload.extends_until,
+  }))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.paymentRecordedSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('apply.metaTitle', { serviceName }) %></title>
+  <meta name="description" content="<%= t('apply.metaDescription') %>">
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <link rel="alternate" hreflang="ru" href="<%= baseUrl %>/apply?lang=ru">
+  <link rel="alternate" hreflang="uz" href="<%= baseUrl %>/apply?lang=uz">
+  <link rel="alternate" hreflang="x-default" href="<%= baseUrl %>/apply">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="<%= serviceName %>">
+  <meta property="og:locale" content="<%= ogLocale %>">
+  <meta property="og:title" content="<%= t('apply.metaTitle', { serviceName }) %>">
+  <meta property="og:description" content="<%= t('apply.metaDescription') %>">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <%- include('../partials/head-assets') %>
+  <script src="/js/landing.js" defer></script>
+</head>
+<body>
+  <%- include('../partials/site-nav', { lang, t, isLanding: false }) %>
+
+  <main class="apply-main container">
+    <div class="apply-card form-card">
+      <a href="/" class="apply-back-link"><%- include('../partials/icon', { name: 'chevronleft', size: 15 }) %> <%= t('apply.backToHome') %></a>
+
+      <span class="eyebrow"><span class="eyebrow-dot"></span> <%= t('apply.heroEyebrow') %></span>
+      <h1><%= t('apply.heroTitle') %></h1>
+      <p class="apply-subtitle"><%= t('apply.heroSubtitle') %></p>
+
+      <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+      <form method="POST" action="/apply" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="form_rendered_at" value="<%= formRenderedAt %>">
+        <div class="apply-honeypot" aria-hidden="true">
+          <label for="website">Website</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="venue_name"><%= t('apply.labelVenueName') %></label>
+            <input type="text" id="venue_name" name="venue_name" required minlength="2" maxlength="100" value="<%= values.venue_name || '' %>">
+          </div>
+          <div class="field">
+            <label for="city"><%= t('apply.labelCity') %> <span class="hint-inline">(<%= t('apply.cityOptionalHint') %>)</span></label>
+            <input type="text" id="city" name="city" maxlength="100" value="<%= values.city || '' %>">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="venue_type"><%= t('apply.labelVenueType') %></label>
+          <select id="venue_type" name="venue_type" required>
+            <option value="" disabled <%= !values.venue_type ? 'selected' : '' %>><%= t('apply.venueTypePlaceholder') %></option>
+            <% venueTypes.forEach((vt) => { %>
+              <option value="<%= vt %>" <%= values.venue_type === vt ? 'selected' : '' %>><%= t(`bot.apply.venueType.${vt}`) %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="contact_name"><%= t('apply.labelContactName') %></label>
+            <input type="text" id="contact_name" name="contact_name" required minlength="2" maxlength="100" value="<%= values.contact_name || '' %>">
+          </div>
+          <div class="field">
+            <label for="phone"><%= t('apply.labelPhone') %></label>
+            <input type="tel" id="phone" name="phone" required placeholder="+998 90 123 45 67" value="<%= values.phone || '' %>">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email"><%= t('apply.labelEmail') %> <span class="hint-inline">(<%= t('apply.emailOptionalHint') %>)</span></label>
+          <input type="email" id="email" name="email" maxlength="200" value="<%= values.email || '' %>">
+        </div>
+
+        <div class="field">
+          <label for="comment"><%= t('apply.labelComment') %> <span class="hint-inline">(<%= t('apply.commentOptionalHint') %>)</span></label>
+          <textarea id="comment" name="comment" rows="3" maxlength="1000"><%= values.comment || '' %></textarea>
+        </div>
+
+        <div class="field apply-consent-row">
+          <label>
+            <input type="checkbox" name="consent" required <%= values.consent === 'on' ? 'checked' : '' %>>
+            <span><%= t('apply.consentLabel') %></span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary apply-submit-btn"><%= t('apply.submitBtn') %></button>
+      </form>
+    </div>
+  </main>
+
+  <%- include('../partials/site-footer', { lang, t, serviceName, siteSettings, isLanding: false }) %>
+</body>
+</html>

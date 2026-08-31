@@ -7,12 +7,13 @@ const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const adminModel = require('../models/adminModel');
 const paymentModel = require('../models/paymentModel');
+const notificationModel = require('../models/notificationModel');
 const siteSettingsModel = require('../models/siteSettingsModel');
 const { logAction, listRecent } = require('../models/adminActionLogModel');
 const { createVenueSchema, venueRatingSchema } = require('../validators/venueValidators');
 const { extendSubscriptionSchema, PAYMENT_METHODS, PERIOD_MONTHS } = require('../validators/paymentValidators');
 const { siteSettingsSchema } = require('../validators/siteSettingsValidators');
-const menuCache = require('../services/menuCache');
+const pgNotify = require('../services/pgNotify');
 const siteSettingsCache = require('../services/siteSettingsCache');
 const {
   todayUTC,
@@ -22,16 +23,7 @@ const {
   addMonthsUTC,
   diffDaysUTC,
 } = require('../utils/dateOnly');
-
-const SUBSCRIPTION_EXPIRING_SOON_DAYS = 7;
-
-function computeSubscriptionStatus(subscriptionUntil) {
-  if (!subscriptionUntil) return 'overdue';
-  const daysLeft = diffDaysUTC(parseDateOnly(subscriptionUntil), todayUTC());
-  if (daysLeft < 0) return 'overdue';
-  if (daysLeft <= SUBSCRIPTION_EXPIRING_SOON_DAYS) return 'expiring';
-  return 'active';
-}
+const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
 router.use(requireAuth, requireRole(['superadmin']));
 
@@ -193,7 +185,7 @@ router.post('/venues/:id/toggle-powered-by', async (req, res, next) => {
       details: { show_powered_by: venue.show_powered_by },
     });
 
-    menuCache.invalidateVenue(venue.slug);
+    await pgNotify.publishMenuChange(venue.id);
     res.redirect('/superadmin/venues');
   } catch (err) {
     next(err);
@@ -312,7 +304,7 @@ router.post('/venues/:id/rating', async (req, res, next) => {
       details: { rating: updated.rating, review_count: updated.review_count },
     });
 
-    menuCache.invalidateVenue(updated.slug);
+    await pgNotify.publishMenuChange(id);
     res.redirect(`/superadmin/venues/${id}`);
   } catch (err) {
     next(err);
@@ -424,6 +416,24 @@ router.post('/venues/:id/extend', async (req, res, next) => {
         },
       });
 
+      // Письмо необязательное поле у заведения — пока его нет, уведомлять некуда, enqueue
+      // без адресата смысла не имеет. Реально отправлять пока некому: воркер очереди — промт 1.1,
+      // здесь запись просто ложится в notifications со статусом 'pending'.
+      if (venue.email) {
+        await notificationModel.enqueue(client, {
+          channel: 'email',
+          recipient: venue.email,
+          template: 'payment_recorded',
+          payload: {
+            venue_name: venue.name,
+            amount: payment.amount,
+            currency: payment.currency,
+            extends_until: extendsUntilStr,
+          },
+          lang: venue.lang_default,
+        });
+      }
+
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -452,6 +462,7 @@ const ENTITY_LABEL_KEYS = {
   admin: 'superadmin.entityAdmin',
   payment: 'superadmin.entityPayment',
   site_settings: 'superadmin.entitySiteSettings',
+  lead: 'superadmin.entityLead',
 };
 
 router.get('/logs', async (req, res, next) => {

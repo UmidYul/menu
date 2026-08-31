@@ -16,6 +16,12 @@ const itemSchema = z.object({
   category_id: z.coerce.number({ invalid_type_error: 'items.errorCategoryRequired' }).int().positive('items.errorCategoryRequired'),
   name_ru: z.string().trim().min(1, 'items.errorNameRuRequired').max(200, 'items.errorTooLong'),
   name_uz: z.string().trim().min(1, 'items.errorNameUzRequired').max(200, 'items.errorTooLong'),
+  name_en: z
+    .string()
+    .trim()
+    .max(200, 'items.errorTooLong')
+    .optional()
+    .transform((v) => v || null),
   description_ru: z
     .string()
     .trim()
@@ -28,6 +34,12 @@ const itemSchema = z.object({
     .max(2000, 'items.errorTooLong')
     .optional()
     .transform((v) => v || null),
+  description_en: z
+    .string()
+    .trim()
+    .max(2000, 'items.errorTooLong')
+    .optional()
+    .transform((v) => v || null),
   composition_ru: z
     .string()
     .trim()
@@ -35,6 +47,12 @@ const itemSchema = z.object({
     .optional()
     .transform((v) => v || null),
   composition_uz: z
+    .string()
+    .trim()
+    .max(2000, 'items.errorTooLong')
+    .optional()
+    .transform((v) => v || null),
+  composition_en: z
     .string()
     .trim()
     .max(2000, 'items.errorTooLong')

@@ -5,22 +5,29 @@ const express = require('express');
 const helmet = require('helmet');
 const methodOverride = require('method-override');
 const cookieParser = require('cookie-parser');
+const env = require('./config/env');
 const { pool } = require('./config/db');
+const pgNotify = require('./services/pgNotify');
 const sessionMiddleware = require('./config/session');
 const defaultLocale = require('./middlewares/locale');
 const { adminLocale } = require('./middlewares/adminLocale');
 const { csrfProtection } = require('./middlewares/csrf');
+const { leadsBadge } = require('./middlewares/leadsBadge');
+const { uploadItemPhoto, uploadVenueImages } = require('./middlewares/upload');
 const adminAuthRoutes = require('./routes/adminAuth');
 const adminLocaleRoutes = require('./routes/adminLocale');
 const adminDashboardRoutes = require('./routes/adminDashboard');
 const superadminRoutes = require('./routes/superadmin');
+const superadminLeadsRoutes = require('./routes/superadminLeads');
 const adminCategoriesRoutes = require('./routes/adminCategories');
 const adminItemsRoutes = require('./routes/adminItems');
 const adminVenueSettingsRoutes = require('./routes/adminVenueSettings');
 const publicMenuRoutes = require('./routes/publicMenu');
 const landingRoutes = require('./routes/landing');
+const applyRoutes = require('./routes/apply');
 const seoRoutes = require('./routes/seo');
 const { toSafeJsonLd } = require('./utils/safeJsonLd');
+const { pickLocalized } = require('./utils/localize');
 
 const app = express();
 
@@ -28,6 +35,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 // Доступен во всех EJS-шаблонах как toSafeJsonLd(...) — см. src/utils/safeJsonLd.js.
 app.locals.toSafeJsonLd = toSafeJsonLd;
+// Доступен во всех EJS-шаблонах как pickLocalized(row, field, lang) — см. src/utils/localize.js.
+app.locals.pickLocalized = pickLocalized;
 // За обратным прокси (nginx/certbot) req.protocol иначе всегда будет 'http' — это ломает
 // canonical/OG/sitemap URL в проде, где реальный трафик идёт по https.
 app.set('trust proxy', 1);
@@ -86,14 +95,33 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// /admin/items и /admin/venue-settings ОБЯЗАНЫ быть смонтированы раньше более общих
+// app.use('/admin', ...) ниже. Express прогоняет middleware по префиксу пути в порядке
+// регистрации независимо от того, найдётся ли внутри роута совпадение — если бы общие
+// '/admin'-маунты (auth/locale/dashboard) шли первыми, их csrfProtection перехватывал бы
+// ЛЮБОЙ запрос к /admin/items и /admin/venue-settings ещё до того, как multer ниже успел бы
+// разобрать multipart-тело, и CSRF-проверка всегда видела бы пустой req.body.
+//
+// uploadItemPhoto/uploadVenueImages здесь же идут ДО csrfProtection по той же причине: тело
+// multipart/form-data парсит только multer (express.urlencoded/json его не трогают), а
+// csrfProtection читает req.body._csrf — если он окажется первым, req.body ещё пуст и любая
+// форма с файлом (создание/правка позиции, настройки заведения) всегда получит 403. На
+// не-multipart запросах (GET, DELETE, /toggle) multer видит несовпадающий Content-Type
+// и молча пропускает дальше.
+app.use('/admin/items', adminLocale, uploadItemPhoto, csrfProtection, adminItemsRoutes);
+app.use('/admin/venue-settings', adminLocale, uploadVenueImages, csrfProtection, adminVenueSettingsRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminAuthRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminLocaleRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminDashboardRoutes);
 app.use('/admin/categories', adminLocale, csrfProtection, adminCategoriesRoutes);
-app.use('/admin/items', adminLocale, csrfProtection, adminItemsRoutes);
-app.use('/admin/venue-settings', adminLocale, csrfProtection, adminVenueSettingsRoutes);
-app.use('/superadmin', adminLocale, csrfProtection, superadminRoutes);
+// /superadmin/leads должен идти раньше общего '/superadmin' ниже — та же причина, что и у
+// /admin/items и /admin/venue-settings выше (см. комментарий над ними): более специфичный
+// префикс обязан быть зарегистрирован первым, иначе не имеет значения, что superadmin.js
+// не содержит маршрутов /leads — порядок регистрации решает, какая цепочка обработает запрос.
+app.use('/superadmin/leads', adminLocale, csrfProtection, leadsBadge, superadminLeadsRoutes);
+app.use('/superadmin', adminLocale, csrfProtection, leadsBadge, superadminRoutes);
 app.use('/menu', publicMenuRoutes);
+app.use('/apply', csrfProtection, applyRoutes);
 app.use('/', seoRoutes);
 app.use('/', landingRoutes);
 
@@ -106,10 +134,15 @@ app.use((err, req, res, next) => {
   res.status(500).render('errors/500');
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = env.PORT;
 
 app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
 });
+
+// Отдельное LISTEN-соединение для инвалидации кэша меню между процессами (веб + бот) —
+// см. src/services/pgNotify.js. Не блокирует старт сервера и не роняет процесс, если
+// в этот момент БД недоступна.
+pgNotify.start();
 
 module.exports = app;

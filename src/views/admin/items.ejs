@@ -24,6 +24,15 @@
             <div class="alert alert-error"><%= error %></div>
           <% } %>
 
+          <% if (enBadgeEnabled) { %>
+            <div class="alert" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <span><%= t('items.bannerEnEnabled', { translated: translatedCount, total: totalCount }) %></span>
+              <a href="/admin/items<%= showOnlyUntranslated ? '' : '?untranslated=en' %>">
+                <%= showOnlyUntranslated ? t('items.filterUntranslatedClear') : t('items.filterUntranslatedShow') %>
+              </a>
+            </div>
+          <% } %>
+
           <% if (groups.length === 0) { %>
             <p style="color:var(--muted); font-size:13px;"><%= t('items.empty') %></p>
           <% } %>
@@ -39,7 +48,12 @@
                     <span class="table-emoji item-thumb"><%- include('../partials/icon', { name: 'utensils', size: 20 }) %></span>
                   <% } %>
                   <div class="item-row-info">
-                    <b><%= item.name_ru %></b>
+                    <b>
+                      <%= item.name_ru %>
+                      <% if (enBadgeEnabled && isUntranslatedToEn(item)) { %>
+                        <span class="badge-muted" title="<%= t('items.untranslatedEnBadgeTitle') %>">EN</span>
+                      <% } %>
+                    </b>
                     <% if (item.description_ru) { %><span><%= item.description_ru %></span><% } %>
                   </div>
                   <strong class="price"><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
@@ -85,10 +99,13 @@
                       const editValues = {
                         name_ru: item.name_ru,
                         name_uz: item.name_uz,
+                        name_en: item.name_en || '',
                         description_ru: item.description_ru || '',
                         description_uz: item.description_uz || '',
+                        description_en: item.description_en || '',
                         composition_ru: item.composition_ru || '',
                         composition_uz: item.composition_uz || '',
+                        composition_en: item.composition_en || '',
                         calories: (item.calories === null || item.calories === undefined) ? '' : item.calories,
                         price: item.price,
                         old_price: (item.old_price === null || item.old_price === undefined) ? '' : item.old_price,
@@ -96,7 +113,7 @@
                         tags: item.tags,
                       };
                     %>
-                    <%- include('../partials/item-form-fields', { v: editValues, t, allowedTags, photoLabel: t('items.photoLabel') }) %>
+                    <%- include('../partials/item-form-fields', { v: editValues, t, allowedTags, photoLabel: t('items.photoLabel'), enabledLangs }) %>
                     <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('common.save') %></button>
                   </form>
                 </div>
@@ -132,7 +149,7 @@
                   <% }) %>
                 </select>
               </div>
-              <%- include('../partials/item-form-fields', { v: formValues, t, allowedTags, photoLabel: t('items.photoOptionalLabel') }) %>
+              <%- include('../partials/item-form-fields', { v: formValues, t, allowedTags, photoLabel: t('items.photoOptionalLabel'), enabledLangs }) %>
               <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %></button>
             </form>
           </div>

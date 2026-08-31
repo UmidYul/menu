@@ -1,0 +1,11 @@
+<%
+// payload — строка leads (RETURNING *), t (уже привязан к lang), siteSettings, escapeHtml.
+// Значения из заявки — пользовательский ввод, экранируем перед вставкой в bodyHtml
+// (layout.ejs подставляет bodyHtml как есть, без собственного экранирования).
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.leadCreatedLine1', { venueName: payload.venue_name }))}</p>
+  <p>${escapeHtml(t('bot.templates.leadCreatedLine2', { contactName: payload.contact_name, phone: payload.phone }))}</p>
+  ${payload.comment ? `<p>${escapeHtml(t('bot.templates.leadCreatedComment', { comment: payload.comment }))}</p>` : ''}
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.leadCreatedSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

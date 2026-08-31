@@ -13,10 +13,11 @@ async function findBySlug(slug) {
 }
 
 // Заведения, которые должны попасть в sitemap.xml — только активные, чтобы поисковик не
-// индексировал страницы с "меню временно недоступно".
+// индексировал страницы с "меню временно недоступно". enabled_langs/lang_default нужны, чтобы
+// проставить в sitemap только реально включённые языковые альтернативы.
 async function listActiveSlugs() {
   const result = await pool.query(
-    'SELECT slug, created_at FROM venues WHERE is_active = true ORDER BY created_at ASC'
+    'SELECT slug, created_at, enabled_langs, lang_default FROM venues WHERE is_active = true ORDER BY created_at ASC'
   );
   return result.rows;
 }
@@ -26,13 +27,22 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
+// Лёгкий запрос без остального профиля — нужен там, где известен только venueId и требуется
+// решить, показывать ли поля _en в форме (adminItems/adminCategories).
+async function getLangSettings(venueId) {
+  const result = await pool.query('SELECT lang_default, enabled_langs FROM venues WHERE id = $1', [venueId]);
+  return result.rows[0] || null;
+}
+
 async function findPublicBySlug(slug) {
   const result = await pool.query(
     `SELECT id, slug, name, phone, address, address_2gis_url,
-            wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default, is_active, show_powered_by,
+            wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default,
+            enabled_langs, is_active, show_powered_by,
             logo_url, logo_thumb_url, cover_url, cover_thumb_url,
-            description_ru, description_uz, cuisine_ru, cuisine_uz,
-            category_label_ru, category_label_uz, district_ru, district_uz,
+            description_ru, description_uz, description_en, cuisine_ru, cuisine_uz, cuisine_en,
+            category_label_ru, category_label_uz, category_label_en,
+            district_ru, district_uz, district_en,
             email, rating, review_count
      FROM venues WHERE slug = $1`,
     [slug]
@@ -40,12 +50,16 @@ async function findPublicBySlug(slug) {
   return result.rows[0] || null;
 }
 
-async function create(client, { slug, name, langDefault }) {
+// status/isActive опциональны и по умолчанию сохраняют прежнее поведение (создание заведения
+// суперадмином вручную — сразу 'active' и на виду). Заявка на подключение (leadModel/через бота
+// или суперадминку) передаёт status:'draft', isActive:false явно — до 1.3 у нас нет отдельной
+// страницы-заглушки для draft, is_active:false отдаёт уже существующую "меню недоступно".
+async function create(client, { slug, name, langDefault, status, isActive }) {
   const result = await client.query(
-    `INSERT INTO venues (slug, name, lang_default, is_active, show_powered_by)
-     VALUES ($1, $2, $3, true, true)
-     RETURNING id, slug, name, is_active, subscription_until`,
-    [slug, name, langDefault]
+    `INSERT INTO venues (slug, name, lang_default, status, is_active, show_powered_by)
+     VALUES ($1, $2, $3, $4, $5, true)
+     RETURNING id, slug, name, status, is_active, subscription_until`,
+    [slug, name, langDefault, status || 'active', isActive === undefined ? true : isActive]
   );
   return result.rows[0];
 }
@@ -81,25 +95,29 @@ async function updateSubscriptionUntil(client, id, subscriptionUntil) {
 // сервисом поле доверия, его меняет только суперадмин через updateRating.
 async function updateSettings(id, {
   phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours,
-  descriptionRu, descriptionUz, cuisineRu, cuisineUz, categoryLabelRu, categoryLabelUz,
-  districtRu, districtUz, email,
+  descriptionRu, descriptionUz, descriptionEn, cuisineRu, cuisineUz, cuisineEn,
+  categoryLabelRu, categoryLabelUz, categoryLabelEn, districtRu, districtUz, districtEn, email,
+  enabledLangs, langDefault,
   logoUrl, logoThumbUrl, coverUrl, coverThumbUrl,
 }) {
   const result = await pool.query(
     `UPDATE venues
      SET phone = $1, address = $2, address_2gis_url = $3,
          wifi_ssid = $4, wifi_password = $5, instagram_url = $6, telegram_url = $7, working_hours = $8,
-         description_ru = $9, description_uz = $10, cuisine_ru = $11, cuisine_uz = $12,
-         category_label_ru = $13, category_label_uz = $14, district_ru = $15, district_uz = $16,
-         email = $17,
-         logo_url = COALESCE($18, logo_url), logo_thumb_url = COALESCE($19, logo_thumb_url),
-         cover_url = COALESCE($20, cover_url), cover_thumb_url = COALESCE($21, cover_thumb_url)
-     WHERE id = $22
+         description_ru = $9, description_uz = $10, description_en = $11,
+         cuisine_ru = $12, cuisine_uz = $13, cuisine_en = $14,
+         category_label_ru = $15, category_label_uz = $16, category_label_en = $17,
+         district_ru = $18, district_uz = $19, district_en = $20,
+         email = $21, enabled_langs = $22, lang_default = $23,
+         logo_url = COALESCE($24, logo_url), logo_thumb_url = COALESCE($25, logo_thumb_url),
+         cover_url = COALESCE($26, cover_url), cover_thumb_url = COALESCE($27, cover_thumb_url)
+     WHERE id = $28
      RETURNING *`,
     [
       phone, address, address2gisUrl, wifiSsid, wifiPassword, instagramUrl, telegramUrl, workingHours,
-      descriptionRu, descriptionUz, cuisineRu, cuisineUz, categoryLabelRu, categoryLabelUz,
-      districtRu, districtUz, email,
+      descriptionRu, descriptionUz, descriptionEn, cuisineRu, cuisineUz, cuisineEn,
+      categoryLabelRu, categoryLabelUz, categoryLabelEn, districtRu, districtUz, districtEn,
+      email, enabledLangs, langDefault,
       logoUrl || null, logoThumbUrl || null, coverUrl || null, coverThumbUrl || null,
       id,
     ]
@@ -122,6 +140,7 @@ module.exports = {
   findBySlug,
   listActiveSlugs,
   findById,
+  getLangSettings,
   findPublicBySlug,
   create,
   toggleActive,

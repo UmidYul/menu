@@ -11,6 +11,7 @@ if (role === 'venue_admin') {
 } else if (role === 'superadmin') {
   _navItems = [
     { key: 'venues', href: '/superadmin/venues', icon: 'store', label: t('nav.venues') },
+    { key: 'leads', href: '/superadmin/leads', icon: 'mail', label: t('nav.leads'), badge: typeof leadsNewCount !== 'undefined' ? leadsNewCount : 0 },
     { key: 'logs', href: '/superadmin/logs', icon: 'activity', label: t('nav.logs') },
     { key: 'siteSettings', href: '/superadmin/site-settings', icon: 'sliders', label: t('nav.siteSettings') },
   ];
@@ -24,6 +25,7 @@ const _initials = (login || '?').slice(0, 2).toUpperCase();
     <a href="<%= item.href %>" class="<%= active === item.key ? 'selected' : '' %>">
       <%- include('./icon', { name: item.icon, size: 17 }) %>
       <%= item.label %>
+      <% if (item.badge) { %><span class="nav-badge"><%= item.badge %></span><% } %>
     </a>
   <% }) %>
   <div class="side-bottom">

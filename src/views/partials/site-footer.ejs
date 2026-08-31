@@ -1,0 +1,63 @@
+<%
+// Подвал сайта — общий для лендинга и других публичных страниц. Ожидает: lang, t, serviceName,
+// siteSettings, isLanding (см. site-nav.ejs — та же причина для sectionPrefix).
+const sectionPrefix = isLanding ? '' : '/';
+const hasContactsCol = !!(siteSettings && (siteSettings.phone || siteSettings.phone_extra || siteSettings.email || siteSettings.telegram_url || siteSettings.instagram_url));
+const hasAddressCol = !!(siteSettings && ((lang === 'uz' ? siteSettings.address_uz : siteSettings.address_ru) || (lang === 'uz' ? siteSettings.working_hours_uz : siteSettings.working_hours_ru)));
+const aboutText = siteSettings ? (lang === 'uz' ? siteSettings.about_uz : siteSettings.about_ru) : null;
+const addressText = siteSettings ? (lang === 'uz' ? siteSettings.address_uz : siteSettings.address_ru) : null;
+const workingHoursText = siteSettings ? (lang === 'uz' ? siteSettings.working_hours_uz : siteSettings.working_hours_ru) : null;
+%>
+<footer class="landing-footer">
+  <div class="container footer-grid">
+    <div class="footer-col">
+      <div class="brand"><%- include('./brand', { compact: true }) %></div>
+      <% if (aboutText) { %><p><%= aboutText %></p><% } %>
+      <span class="footer-copyright">© <%= new Date().getFullYear() %> <%= serviceName %></span>
+    </div>
+
+    <div class="footer-col">
+      <h4><%= t('landing.footerColService') %></h4>
+      <ul>
+        <li><a href="<%= sectionPrefix %>#features"><%= t('landing.navFeatures') %></a></li>
+        <li><a href="<%= sectionPrefix %>#how"><%= t('landing.navHow') %></a></li>
+        <li><a href="<%= sectionPrefix %>#prices"><%= t('landing.navPrices') %></a></li>
+        <li><a href="/menu/demo"><%= t('landing.ctaDemo') %></a></li>
+        <li><a href="/admin/login"><%= t('landing.navLogin') %></a></li>
+      </ul>
+    </div>
+
+    <% if (hasContactsCol) { %>
+      <div class="footer-col">
+        <h4><%= t('landing.footerColContacts') %></h4>
+        <ul>
+          <% if (siteSettings.phone) { %><li><a href="tel:<%= siteSettings.phone.replace(/[^+\d]/g, '') %>" aria-label="<%= t('publicMenu.phoneLabel') %>"><%- include('./icon', { name: 'phone', size: 14 }) %> <%= siteSettings.phone %></a></li><% } %>
+          <% if (siteSettings.phone_extra) { %><li><a href="tel:<%= siteSettings.phone_extra.replace(/[^+\d]/g, '') %>" aria-label="<%= t('publicMenu.phoneLabel') %>"><%- include('./icon', { name: 'phone', size: 14 }) %> <%= siteSettings.phone_extra %></a></li><% } %>
+          <% if (siteSettings.email) { %><li><a href="mailto:<%= siteSettings.email %>" aria-label="<%= t('publicMenu.emailLabel') %>"><%- include('./icon', { name: 'mail', size: 14 }) %> <%= siteSettings.email %></a></li><% } %>
+          <% if (siteSettings.telegram_url) { %><li><a href="<%= siteSettings.telegram_url %>" target="_blank" rel="noopener" aria-label="<%= t('publicMenu.telegramLabel') %>"><%- include('./icon', { name: 'telegram', size: 14 }) %> <%= t('publicMenu.telegramLabel') %></a></li><% } %>
+          <% if (siteSettings.instagram_url) { %><li><a href="<%= siteSettings.instagram_url %>" target="_blank" rel="noopener" aria-label="<%= t('publicMenu.instagramLabel') %>"><%- include('./icon', { name: 'instagram', size: 14 }) %> <%= t('publicMenu.instagramLabel') %></a></li><% } %>
+        </ul>
+      </div>
+    <% } %>
+
+    <% if (hasAddressCol) { %>
+      <div class="footer-col">
+        <h4><%= t('landing.footerColAddress') %></h4>
+        <ul>
+          <% if (addressText) { %><li><%- include('./icon', { name: 'pin', size: 14 }) %> <%= addressText %></li><% } %>
+          <% if (workingHoursText) { %><li class="footer-working-hours"><%- include('./icon', { name: 'clock', size: 14 }) %> <span><%= workingHoursText %></span></li><% } %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="container footer-bottom">
+    <span>© <%= new Date().getFullYear() %> <%= serviceName %></span>
+    <% if (siteSettings && siteSettings.offer_url) { %><a href="<%= siteSettings.offer_url %>" target="_blank" rel="noopener"><%= t('landing.footerOfferLink') %></a><% } %>
+    <% if (siteSettings && siteSettings.privacy_url) { %><a href="<%= siteSettings.privacy_url %>" target="_blank" rel="noopener"><%= t('landing.footerPrivacyLink') %></a><% } %>
+    <div class="lang">
+      <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+      <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+    </div>
+  </div>
+</footer>

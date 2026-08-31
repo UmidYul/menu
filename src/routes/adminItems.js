@@ -5,30 +5,64 @@ const { requireAuth, requireRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
 const categoryModel = require('../models/categoryModel');
+const venueModel = require('../models/venueModel');
+const { pickLocalized } = require('../utils/localize');
 const { logAction } = require('../models/adminActionLogModel');
 const { itemSchema, ALLOWED_TAGS } = require('../validators/itemValidators');
-const { uploadItemPhoto } = require('../middlewares/upload');
 const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
-const menuCache = require('../services/menuCache');
+const pgNotify = require('../services/pgNotify');
 
 router.use(requireAuth);
 
 const { groupByCategory } = itemModel;
 
+// Список позиций без перевода на EN — считается по уже загруженным данным, без отдельного
+// SQL-запроса (name_en пусто/NULL = не переведено).
+function isUntranslatedToEn(item) {
+  return !item.name_en || !String(item.name_en).trim();
+}
+
 async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
   const role = req.session.admin.role;
 
-  const [items, categories] = await Promise.all([
+  const [items, categories, langSettings] = await Promise.all([
     itemModel.listByVenueGrouped(venueId),
     categoryModel.listByVenue(venueId),
+    venueModel.getLangSettings(venueId),
   ]);
+
+  const enabledLangs = (langSettings && langSettings.enabled_langs) || ['ru', 'uz'];
+  const enBadgeEnabled = enabledLangs.includes('en');
+  const totalCount = items.length;
+  const translatedCount = items.filter((item) => !isUntranslatedToEn(item)).length;
+
+  const showOnlyUntranslated = enBadgeEnabled && req.query.untranslated === 'en';
+  const visibleItems = showOnlyUntranslated ? items.filter(isUntranslatedToEn) : items;
+
+  // Заголовок категории — на языке интерфейса самой админки (res.locals.lang), а не заведения:
+  // group.categoryNameRu/Uz/En приходят как есть из groupByCategory, здесь только выбор нужного.
+  const groups = groupByCategory(visibleItems).map((group) => ({
+    ...group,
+    categoryName: pickLocalized(
+      { name_ru: group.categoryNameRu, name_uz: group.categoryNameUz, name_en: group.categoryNameEn },
+      'name',
+      res.locals.lang
+    ),
+  }));
+
   res.status(status || 200).render('admin/items', {
-    groups: groupByCategory(items),
+    groups,
     categories,
     allowedTags: ALLOWED_TAGS,
+    enabledLangs,
+    enBadgeEnabled,
+    totalCount,
+    translatedCount,
+    showOnlyUntranslated,
+    isUntranslatedToEn,
     error: error || null,
-    formValues: formValues || { category_id: '', name_ru: '', name_uz: '', description_ru: '', description_uz: '', composition_ru: '', composition_uz: '', calories: '', price: '', old_price: '', currency: 'UZS', tags: [] },
+    formValues: formValues || { category_id: '', name_ru: '', name_uz: '', name_en: '', description_ru: '', description_uz: '', description_en: '', composition_ru: '', composition_uz: '', composition_en: '', calories: '', price: '', old_price: '', currency: 'UZS', tags: [] },
     formTarget: formTarget || null,
     login: req.session.admin.login,
     role,
@@ -42,10 +76,13 @@ function readFormValues(body) {
     category_id: typeof body.category_id === 'string' ? body.category_id : '',
     name_ru: typeof body.name_ru === 'string' ? body.name_ru : '',
     name_uz: typeof body.name_uz === 'string' ? body.name_uz : '',
+    name_en: typeof body.name_en === 'string' ? body.name_en : '',
     description_ru: typeof body.description_ru === 'string' ? body.description_ru : '',
     description_uz: typeof body.description_uz === 'string' ? body.description_uz : '',
+    description_en: typeof body.description_en === 'string' ? body.description_en : '',
     composition_ru: typeof body.composition_ru === 'string' ? body.composition_ru : '',
     composition_uz: typeof body.composition_uz === 'string' ? body.composition_uz : '',
+    composition_en: typeof body.composition_en === 'string' ? body.composition_en : '',
     calories: typeof body.calories === 'string' ? body.calories : '',
     price: typeof body.price === 'string' ? body.price : '',
     old_price: typeof body.old_price === 'string' ? body.old_price : '',
@@ -89,7 +126,8 @@ router.get('/', requireRole(['venue_admin']), async (req, res, next) => {
   }
 });
 
-router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res, next) => {
+// uploadItemPhoto применяется уровнем выше, в app.js (до csrfProtection — см. комментарий там).
+router.post('/', requireRole(['venue_admin']), async (req, res, next) => {
   const { t } = res.locals;
   try {
     if (req.uploadError) {
@@ -123,10 +161,13 @@ router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res,
       categoryId: parsed.data.category_id,
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
+      nameEn: parsed.data.name_en,
       descriptionRu: parsed.data.description_ru,
       descriptionUz: parsed.data.description_uz,
+      descriptionEn: parsed.data.description_en,
       compositionRu: parsed.data.composition_ru,
       compositionUz: parsed.data.composition_uz,
+      compositionEn: parsed.data.composition_en,
       calories: parsed.data.calories,
       price: parsed.data.price,
       oldPrice: parsed.data.old_price,
@@ -145,14 +186,14 @@ router.post('/', requireRole(['venue_admin']), uploadItemPhoto, async (req, res,
       details: { name_ru: item.name_ru, name_uz: item.name_uz, price: item.price, category_id: item.category_id },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(venueId);
     res.redirect('/admin/items');
   } catch (err) {
     next(err);
   }
 });
 
-router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, res, next) => {
+router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
   const { t } = res.locals;
   try {
     const item = await loadOwnItemOr404(req, res);
@@ -194,10 +235,13 @@ router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, 
       categoryId: parsed.data.category_id,
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
+      nameEn: parsed.data.name_en,
       descriptionRu: parsed.data.description_ru,
       descriptionUz: parsed.data.description_uz,
+      descriptionEn: parsed.data.description_en,
       compositionRu: parsed.data.composition_ru,
       compositionUz: parsed.data.composition_uz,
+      compositionEn: parsed.data.composition_en,
       calories: parsed.data.calories,
       price: parsed.data.price,
       oldPrice: parsed.data.old_price,
@@ -223,7 +267,7 @@ router.patch('/:id', requireRole(['venue_admin']), uploadItemPhoto, async (req, 
       },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(venueId);
     res.redirect('/admin/items');
   } catch (err) {
     next(err);
@@ -247,7 +291,7 @@ router.delete('/:id', requireRole(['venue_admin']), async (req, res, next) => {
       details: { name_ru: item.name_ru, name_uz: item.name_uz },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(req.session.admin.venueId);
     res.redirect('/admin/items');
   } catch (err) {
     next(err);
@@ -270,7 +314,7 @@ router.post('/:id/toggle', requireRole(['venue_admin']), async (req, res, next) 
       details: { name_ru: updated.name_ru, is_available: updated.is_available },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(req.session.admin.venueId);
     const redirectTo = req.body.redirect === '/admin' ? '/admin' : '/admin/items';
     res.redirect(redirectTo);
   } catch (err) {

@@ -1,6 +1,8 @@
 <%
-// Ожидает: v (name_ru, name_uz, description_ru, description_uz, composition_ru, composition_uz,
-// calories, price, currency, tags — все строки/массив, готовые к рендеру), t, allowedTags, photoLabel
+// Ожидает: v (name_ru, name_uz, name_en, description_ru, description_uz, description_en,
+// composition_ru, composition_uz, composition_en, calories, price, currency, tags — все
+// строки/массив, готовые к рендеру), t, allowedTags, photoLabel, enabledLangs (заведения)
+const _showEn = enabledLangs && enabledLangs.includes('en');
 %>
 <div class="field">
   <label><%= photoLabel %></label>
@@ -17,6 +19,12 @@
     <input type="text" name="name_uz" value="<%= v.name_uz %>" required>
   </div>
 </div>
+<% if (_showEn) { %>
+<div class="field">
+  <label><%= t('items.nameEnLabelFull') %></label>
+  <input type="text" name="name_en" value="<%= v.name_en %>">
+</div>
+<% } %>
 
 <div class="field-grid">
   <div class="field">
@@ -28,6 +36,12 @@
     <textarea name="description_uz" rows="2"><%= v.description_uz %></textarea>
   </div>
 </div>
+<% if (_showEn) { %>
+<div class="field">
+  <label><%= t('items.descriptionEnLabel') %></label>
+  <textarea name="description_en" rows="2"><%= v.description_en %></textarea>
+</div>
+<% } %>
 
 <div class="field-grid">
   <div class="field">
@@ -39,6 +53,12 @@
     <textarea name="composition_uz" rows="2"><%= v.composition_uz %></textarea>
   </div>
 </div>
+<% if (_showEn) { %>
+<div class="field">
+  <label><%= t('items.compositionEnLabel') %></label>
+  <textarea name="composition_en" rows="2"><%= v.composition_en %></textarea>
+</div>
+<% } %>
 
 <div class="field">
   <label><%= t('items.caloriesLabel') %></label>

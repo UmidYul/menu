@@ -1,17 +1,9 @@
 const sharp = require('sharp');
+const { t } = require('../i18n');
+const { escapeHtml: escapeXml } = require('../utils/escapeHtml');
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-
-function escapeXml(str) {
-  return String(str).replace(/[<>&'"]/g, (c) => ({
-    '<': '&lt;',
-    '>': '&gt;',
-    '&': '&amp;',
-    "'": '&apos;',
-    '"': '&quot;',
-  }[c]));
-}
 
 // Длинные названия заведения не должны вылезать за пределы превью — чем длиннее имя,
 // тем мельче кегль.
@@ -23,12 +15,14 @@ function nameFontSize(name) {
 
 // Генерирует og:image для страницы меню заведения "на лету": инициал заведения на медальоне
 // + название + бренд сервиса. Рендерится в SVG и растеризуется через sharp — не зависит от
-// того, загружено ли у заведения хоть одно фото блюда.
-async function renderVenueOgImage(venueName, serviceName) {
+// того, загружено ли у заведения хоть одно фото блюда. lang — язык страницы, с которой шарят
+// ссылку: подпись под названием ("ЦИФРОВОЕ МЕНЮ"/"DIGITAL MENU"/...) должна ему соответствовать.
+async function renderVenueOgImage(venueName, serviceName, lang) {
   const initial = escapeXml(venueName.trim().charAt(0).toUpperCase() || '?');
   const name = escapeXml(venueName);
   const fontSize = nameFontSize(venueName);
   const brand = escapeXml(serviceName);
+  const caption = escapeXml(t('publicMenu.ogCaption', lang));
 
   const svg = `
     <svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -37,7 +31,7 @@ async function renderVenueOgImage(venueName, serviceName) {
       <circle cx="${WIDTH / 2}" cy="228" r="86" fill="#dce5d6"/>
       <text x="${WIDTH / 2}" y="258" font-family="Georgia, 'Playfair Display', serif" font-size="76" fill="#5a6a55" text-anchor="middle">${initial}</text>
       <text x="${WIDTH / 2}" y="392" font-family="Georgia, 'Playfair Display', serif" font-size="${fontSize}" fill="#27251f" text-anchor="middle">${name}</text>
-      <text x="${WIDTH / 2}" y="440" font-family="Arial, sans-serif" font-size="24" letter-spacing="3" fill="#77756d" text-anchor="middle">ЦИФРОВОЕ МЕНЮ</text>
+      <text x="${WIDTH / 2}" y="440" font-family="Arial, sans-serif" font-size="24" letter-spacing="3" fill="#77756d" text-anchor="middle">${caption}</text>
       <rect x="${WIDTH / 2 - 140}" y="478" width="280" height="1" fill="#e4e1d8"/>
       <text x="${WIDTH / 2}" y="524" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#c65d42" text-anchor="middle">${brand}</text>
     </svg>

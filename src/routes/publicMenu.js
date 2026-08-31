@@ -6,7 +6,10 @@ const itemModel = require('../models/itemModel');
 const venuePageViewModel = require('../models/venuePageViewModel');
 const menuCache = require('../services/menuCache');
 const { t, SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
+const { pickLocalized } = require('../utils/localize');
 const { SERVICE_NAME } = require('../config/constants');
+
+const LANG_LABELS = { ru: 'RU', uz: 'UZ', en: 'EN' };
 
 const LANG_COOKIE = 'menu_lang';
 const VIEW_COOKIE_PREFIX = 'mv_';
@@ -26,22 +29,41 @@ function markViewCounted(res, slug) {
   res.cookie(`${VIEW_COOKIE_PREFIX}${slug}`, today, { httpOnly: true, sameSite: 'lax', maxAge: DAY_MS });
 }
 
-// Приоритет: явный выбор в query (?lang=) > cookie из прошлого визита > lang_default заведения.
-function resolveLang(req, venueLangDefault) {
-  if (SUPPORTED_LANGS.includes(req.query.lang)) return req.query.lang;
-  const cookieLang = req.cookies && req.cookies[LANG_COOKIE];
-  if (SUPPORTED_LANGS.includes(cookieLang)) return cookieLang;
-  return venueLangDefault === 'uz' ? 'uz' : DEFAULT_LANG;
+// 'en-GB,en;q=0.9,ru;q=0.8' → ['en', 'ru'] — берём только первичный подтег до дефиса,
+// без учёта q-веса (порядок в заголовке уже отражает приоритет браузера).
+function parseAcceptLanguage(header) {
+  if (!header) return [];
+  return header
+    .split(',')
+    .map((part) => part.split(';')[0].trim().split('-')[0].toLowerCase())
+    .filter(Boolean);
 }
 
-// Выбирает нужное языковое поле у строки (например name_ru/name_uz), с фолбэком
-// на другой язык, если конкретное поле пустое.
-function pickLang(row, baseField, lang) {
-  const otherLang = lang === 'ru' ? 'uz' : 'ru';
-  const primary = row[`${baseField}_${lang}`];
-  if (primary && String(primary).trim()) return primary;
-  const fallback = row[`${baseField}_${otherLang}`];
-  return fallback || '';
+// Приоритет: явный выбор в query (?lang=) > cookie из прошлого визита > Accept-Language
+// (пересечение с enabled_langs заведения) > lang_default. Язык, не включённый у заведения,
+// пропускается на каждом шаге — гость молча получает следующий по приоритету, без ошибки.
+function resolveLang(req, venue) {
+  const enabledLangs = venue.enabled_langs || ['ru', 'uz'];
+  const isUsable = (lang) => SUPPORTED_LANGS.includes(lang) && enabledLangs.includes(lang);
+
+  if (isUsable(req.query.lang)) return req.query.lang;
+
+  const cookieLang = req.cookies && req.cookies[LANG_COOKIE];
+  if (isUsable(cookieLang)) return cookieLang;
+
+  const acceptLang = parseAcceptLanguage(req.headers['accept-language']).find(isUsable);
+  if (acceptLang) return acceptLang;
+
+  return isUsable(venue.lang_default) ? venue.lang_default : enabledLangs[0];
+}
+
+// Языки переключателя на странице меню — только включённые у заведения, в фиксированном
+// порядке RU/UZ/EN. Пусто, если включён только один (переключатель тогда не рендерится).
+function buildLangSwitcherOptions(enabledLangs) {
+  return SUPPORTED_LANGS.filter((lang) => enabledLangs.includes(lang)).map((lang) => ({
+    code: lang,
+    label: LANG_LABELS[lang],
+  }));
 }
 
 // Общие для всей страницы меню заведения поля (профиль, контакты, wifi, футер).
@@ -61,10 +83,10 @@ function buildVenueInfo(venue, lang) {
     showPoweredBy: venue.show_powered_by,
     logoUrl: venue.logo_thumb_url || null,
     coverUrl: venue.cover_url || null,
-    description: pickLang(venue, 'description', lang),
-    cuisine: pickLang(venue, 'cuisine', lang),
-    categoryLabel: pickLang(venue, 'category_label', lang),
-    district: pickLang(venue, 'district', lang),
+    description: pickLocalized(venue, 'description', lang),
+    cuisine: pickLocalized(venue, 'cuisine', lang),
+    categoryLabel: pickLocalized(venue, 'category_label', lang),
+    district: pickLocalized(venue, 'district', lang),
     rating: venue.rating === null || venue.rating === undefined ? null : Number(venue.rating),
     reviewCount: venue.review_count === null || venue.review_count === undefined ? null : Number(venue.review_count),
   };
@@ -93,7 +115,7 @@ function buildRestaurantJsonLd(venue, baseUrl, lang) {
   if (venue.address) {
     data.address = { '@type': 'PostalAddress', streetAddress: venue.address };
   }
-  const cuisine = pickLang(venue, 'cuisine', lang);
+  const cuisine = pickLocalized(venue, 'cuisine', lang);
   if (cuisine) data.servesCuisine = cuisine;
   if (venue.rating !== null && venue.rating !== undefined) {
     data.aggregateRating = { '@type': 'AggregateRating', ratingValue: Number(venue.rating) };
@@ -109,18 +131,20 @@ function buildRestaurantJsonLd(venue, baseUrl, lang) {
 // SEO/шеринг-метаданные. Меню теперь всегда одна страница со всеми категориями (категория в URL
 // — только якорь для начального скролла на клиенте), так что канонический URL всегда голый URL
 // заведения, независимо от того, какой из /menu/:slug или /menu/:slug/:categoryId запросили.
+const OG_LOCALES = { ru: 'ru_RU', uz: 'uz_UZ', en: 'en_US' };
+
 function buildSeoInfo(venue, req, lang, tt) {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   const bareMenuUrl = `${baseUrl}/menu/${venue.slug}`;
+  const enabledLangs = venue.enabled_langs || ['ru', 'uz'];
   return {
     baseUrl,
     canonicalUrl: bareMenuUrl,
     metaDescription: buildMetaDescription(venue, tt),
-    ogImageUrl: `${baseUrl}/og/${venue.slug}/image.png`,
-    ogLocale: lang === 'uz' ? 'uz_UZ' : 'ru_RU',
+    ogImageUrl: `${baseUrl}/og/${venue.slug}/image.png?lang=${lang}`,
+    ogLocale: OG_LOCALES[lang] || OG_LOCALES.ru,
     hreflangLinks: [
-      { lang: 'ru', href: `${bareMenuUrl}?lang=ru` },
-      { lang: 'uz', href: `${bareMenuUrl}?lang=uz` },
+      ...SUPPORTED_LANGS.filter((l) => enabledLangs.includes(l)).map((l) => ({ lang: l, href: `${bareMenuUrl}?lang=${l}` })),
       { lang: 'x-default', href: bareMenuUrl },
     ],
     restaurantJsonLd: buildRestaurantJsonLd(venue, baseUrl, lang),
@@ -129,12 +153,12 @@ function buildSeoInfo(venue, req, lang, tt) {
 }
 
 function buildItemViewModel(item, lang, tt) {
-  const description = pickLang(item, 'description', lang);
-  const composition = pickLang(item, 'composition', lang);
+  const description = pickLocalized(item, 'description', lang);
+  const composition = pickLocalized(item, 'composition', lang);
   const extraTagCount = item.tags.filter((tag) => tag !== 'new').length;
   return {
     id: item.id,
-    name: pickLang(item, 'name', lang),
+    name: pickLocalized(item, 'name', lang),
     description,
     composition,
     calories: item.calories,
@@ -160,7 +184,11 @@ function buildMenuViewModel(venue, groupedRows, lang, req) {
 
   const groups = itemModel.groupByCategory(groupedRows).map((group) => ({
     categoryId: group.categoryId,
-    categoryName: lang === 'ru' ? (group.categoryNameRu || group.categoryNameUz) : (group.categoryNameUz || group.categoryNameRu),
+    categoryName: pickLocalized(
+      { name_ru: group.categoryNameRu, name_uz: group.categoryNameUz, name_en: group.categoryNameEn },
+      'name',
+      lang
+    ),
     items: group.items.map((item) => buildItemViewModel(item, lang, tt)),
   }));
 
@@ -176,6 +204,7 @@ function buildMenuViewModel(venue, groupedRows, lang, req) {
     groups,
     availableTags,
     lang,
+    langSwitcherOptions: buildLangSwitcherOptions(venue.enabled_langs || ['ru', 'uz']),
     t: tt,
     ...buildVenueInfo(venue, lang),
     ...buildSeoInfo(venue, req, lang, tt),
@@ -192,7 +221,7 @@ async function renderMenuPage(req, res, next) {
       return res.status(404).render('public/menu-not-found', { lang, t: (key, params) => t(key, lang, params) });
     }
 
-    const lang = resolveLang(req, venue.lang_default);
+    const lang = resolveLang(req, venue);
     if (SUPPORTED_LANGS.includes(req.query.lang)) {
       res.cookie(LANG_COOKIE, lang, { httpOnly: false, sameSite: 'lax' });
     }
@@ -223,7 +252,7 @@ async function renderMenuPage(req, res, next) {
 
     res.render('public/menu', viewModel, (err, html) => {
       if (err) return next(err);
-      menuCache.set(slug, lang, html);
+      menuCache.set(venue.id, slug, lang, html);
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.status(200).send(html);
     });

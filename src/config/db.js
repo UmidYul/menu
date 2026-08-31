@@ -1,4 +1,5 @@
 const { Pool, types } = require('pg');
+const env = require('./env');
 
 // DATE-колонки (OID 1082) node-postgres по умолчанию парсит в JS Date по местному времени
 // процесса — при серверном времени, отличном от UTC (сессия БД работает в UTC), это сдвигает
@@ -6,7 +7,7 @@ const { Pool, types } = require('pg');
 types.setTypeParser(1082, (value) => value);
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: env.DATABASE_URL,
 });
 
 pool.on('error', (err) => {

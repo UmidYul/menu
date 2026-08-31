@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= lead.venue_name %> — <%= t('superadmin.leadsHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+<%
+  const STATUS_BADGE_CLASS = { new: 'status warn', contacted: 'status warn', approved: 'status', rejected: 'status off', spam: 'status off' };
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'leads', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: lead.venue_name, lang, currentPath: '/superadmin/leads', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><span class="<%= STATUS_BADGE_CLASS[lead.status] %>"><i></i> <%= t(`superadmin.leadStatus.${lead.status}`) %></span></span>
+            <h1><%= lead.venue_name %></h1>
+          </div>
+          <a href="/superadmin/leads" class="btn btn-outline"><%= t('superadmin.leadBackToList') %></a>
+        </div>
+
+        <% if (similarLeads.length > 0) { %>
+          <div class="alert alert-error">
+            <%= t('superadmin.leadSimilarWarning') %>
+            <% similarLeads.forEach((other) => { %>
+              — <a href="/superadmin/leads/<%= other.id %>"><%= other.venue_name %> (#<%= other.id %>)</a>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <div class="form-card">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.leadVenueNameLabel') %></h3></div>
+          </div>
+          <div class="super-stats" style="grid-template-columns: 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
+            <div>
+              <span><%= t('superadmin.leadContactLabel') %></span>
+              <b style="font-size:18px;"><%= lead.contact_name %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.leadPhoneLabel') %></span>
+              <b style="font-size:18px;"><a href="tel:<%= lead.phone %>"><%= lead.phone %></a></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.leadCityLabel') %></span>
+              <b style="font-size:18px;"><%= lead.city || '—' %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.leadTypeLabel') %></span>
+              <b style="font-size:18px;"><%= lead.venue_type ? t(`bot.apply.venueType.${lead.venue_type}`) : '—' %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.leadEmailLabel') %></span>
+              <b style="font-size:18px;"><% if (lead.email) { %><a href="mailto:<%= lead.email %>"><%= lead.email %></a><% } else { %>—<% } %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.leadSourceLabel') %></span>
+              <b style="font-size:18px;"><%= t(`bot.lead.source.${lead.source}`) %></b>
+            </div>
+          </div>
+          <div style="margin-top:18px;">
+            <span style="display:block; color:var(--muted); font-size:11px; margin-bottom:4px;"><%= t('superadmin.leadCommentLabel') %></span>
+            <p style="margin:0; font-size:13px;"><%= lead.comment || '—' %></p>
+          </div>
+          <div style="margin-top:14px; color:var(--muted); font-size:11px;">
+            <%= t('superadmin.leadCreatedLabel') %>: <%= lead.created_at.toISOString().slice(0, 16).replace('T', ' ') %>
+            <% if (lead.processed_at) { %>
+              &nbsp;·&nbsp;<%= t('superadmin.leadProcessedAtLabel') %>: <%= lead.processed_at.toISOString().slice(0, 16).replace('T', ' ') %>
+            <% } %>
+          </div>
+          <% if (lead.status === 'rejected' && lead.reject_reason) { %>
+            <div class="alert alert-error" style="margin-top:14px;">
+              <b><%= t('superadmin.leadRejectReasonShown') %>:</b> <%= lead.reject_reason %>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (isActionable) { %>
+          <div class="card-header" style="margin-top:24px; margin-bottom:16px;">
+            <div><span class="eyebrow">&nbsp;</span><h3>&nbsp;</h3></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <% if (lead.status === 'new') { %>
+                <form method="POST" action="/superadmin/leads/<%= lead.id %>/contact">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-outline"><%= t('superadmin.leadBtnContact') %></button>
+                </form>
+              <% } %>
+              <button type="button" class="btn btn-outline" onclick="document.getElementById('reject-modal').showModal()"><%= t('superadmin.leadBtnReject') %></button>
+              <form method="POST" action="/superadmin/leads/<%= lead.id %>/spam" onsubmit="return confirm('<%= t('superadmin.leadBtnSpam') %>?');">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-outline"><%= t('superadmin.leadBtnSpam') %></button>
+              </form>
+              <button type="button" class="btn btn-primary" onclick="document.getElementById('approve-modal').showModal()">
+                <%- include('../partials/icon', { name: 'check', size: 15 }) %> <%= t('superadmin.leadBtnApprove') %>
+              </button>
+            </div>
+          </div>
+        <% } %>
+
+        <dialog id="approve-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('superadmin.leadApproveHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (approveError) { %>
+              <div class="alert alert-error"><%= approveError %></div>
+            <% } %>
+            <% if (approveFormValues) { %>
+              <form method="POST" action="/superadmin/leads/<%= lead.id %>/approve">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <div class="field">
+                  <label for="slug"><%= t('superadmin.slugLabel') %></label>
+                  <input type="text" id="slug" name="slug" value="<%= approveFormValues.slug %>" required>
+                  <div class="hint"><%= t('superadmin.slugHint') %></div>
+                </div>
+                <div class="field">
+                  <label for="name"><%= t('superadmin.nameLabel') %></label>
+                  <input type="text" id="name" name="name" value="<%= approveFormValues.name %>" required>
+                </div>
+                <div class="field">
+                  <label for="lang_default"><%= t('superadmin.langDefaultLabel') %></label>
+                  <select id="lang_default" name="lang_default">
+                    <option value="ru" <%= approveFormValues.lang_default === 'ru' ? 'selected' : '' %>>Русский</option>
+                    <option value="uz" <%= approveFormValues.lang_default === 'uz' ? 'selected' : '' %>>Oʻzbekcha</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="admin_login"><%= t('superadmin.adminLoginLabel') %></label>
+                  <input type="text" id="admin_login" name="admin_login" value="<%= approveFormValues.admin_login %>" required>
+                </div>
+                <div class="field">
+                  <label for="admin_password"><%= t('superadmin.adminPasswordLabel') %></label>
+                  <input type="text" id="admin_password" name="admin_password" value="<%= approveFormValues.admin_password %>" required minlength="10">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('superadmin.leadApproveSubmit') %></button>
+              </form>
+            <% } %>
+          </div>
+        </dialog>
+        <% if (approveError) { %>
+          <script>document.getElementById('approve-modal').showModal();</script>
+        <% } %>
+
+        <dialog id="reject-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('superadmin.leadRejectHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (rejectError) { %>
+              <div class="alert alert-error"><%= rejectError %></div>
+            <% } %>
+            <form method="POST" action="/superadmin/leads/<%= lead.id %>/reject">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="field">
+                <label for="reason"><%= t('superadmin.leadRejectReasonLabel') %></label>
+                <textarea id="reason" name="reason" rows="3" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('superadmin.leadRejectSubmit') %></button>
+            </form>
+          </div>
+        </dialog>
+        <% if (rejectError) { %>
+          <script>document.getElementById('reject-modal').showModal();</script>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

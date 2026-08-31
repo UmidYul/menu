@@ -1,0 +1,62 @@
+<%
+/*
+  Базовый layout для писем сервиса. Локали:
+    - title      (строка, обязательна) — заголовок письма, идёт и в <title>, и в шапку.
+    - bodyHtml   (строка, обязательна) — HTML тела письма. Подставляется как есть, без
+                  экранирования, так что вызывающий шаблон отвечает за экранирование любых
+                  пользовательских данных внутри него ещё до передачи сюда.
+    - siteSettings (объект, опционален) — результат siteSettingsModel.get(). Любое пустое поле
+                  просто не рендерится в футере, как и в футере лендинга.
+
+  Конкретный email (например, восстановление пароля) обычно выглядит так: строит переменную
+  bodyHtml (HTML-строку тела письма) обычным JS-присваиванием в скриптлете, а затем одной
+  строкой инклюдит этот layout, передавая title, bodyHtml и siteSettings — см. любой файл рядом,
+  например payment-recorded.ejs, как готовый пример.
+  ВАЖНО: не пиши здесь примеры с настоящими EJS-тегами открытия/закрытия — этот комментарий сам
+  часть .ejs-файла, и парсер EJS ищет такие последовательности по всему тексту файла, а не
+  только вне комментариев, — они сломают именно этот шаблон, а не пример.
+
+  Цвета — значениями, не CSS-переменными: почтовые клиенты custom properties не читают.
+  Шрифты — только safe-стеки, без подключений: внешние @font-face в письмах массово режутся.
+*/
+const ss = siteSettings || {};
+%>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %></title>
+</head>
+<body style="margin:0; padding:0; background-color:#f8f7f3;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f7f3; padding:24px 0;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px; max-width:100%; background-color:#fffdf8; border:1px solid #e4e1d8; border-radius:12px; overflow:hidden;">
+        <tr>
+          <td style="padding:28px 32px; border-bottom:1px solid #e4e1d8;">
+            <span style="font-family:Georgia, 'Times New Roman', serif; font-size:22px; color:#c65d42; font-weight:700;">qr.menu</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.6; color:#27251f;">
+            <% if (title) { %>
+            <h1 style="margin:0 0 16px; font-family:Georgia, 'Times New Roman', serif; font-size:20px; color:#27251f;"><%= title %></h1>
+            <% } %>
+            <%- bodyHtml %>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px; background-color:#f8f7f3; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.6; color:#77756d;">
+            <% if (ss.owner_name) { %><div><%= ss.owner_name %></div><% } %>
+            <% if (ss.phone) { %><div><%= ss.phone %><% if (ss.phone_extra) { %>, <%= ss.phone_extra %><% } %></div><% } %>
+            <% if (ss.email) { %><div><%= ss.email %></div><% } %>
+            <div style="margin-top:12px;">Это автоматическое письмо, отвечать на него не нужно.</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

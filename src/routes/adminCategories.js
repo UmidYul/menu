@@ -4,19 +4,25 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const categoryModel = require('../models/categoryModel');
+const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { categorySchema } = require('../validators/categoryValidators');
-const menuCache = require('../services/menuCache');
+const pgNotify = require('../services/pgNotify');
 
 router.use(requireAuth, requireRole(['venue_admin']));
 
 async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
-  const categories = await categoryModel.listByVenueWithCounts(venueId);
+  const [categories, langSettings] = await Promise.all([
+    categoryModel.listByVenueWithCounts(venueId),
+    venueModel.getLangSettings(venueId),
+  ]);
+  const enabledLangs = (langSettings && langSettings.enabled_langs) || ['ru', 'uz'];
   res.status(status || 200).render('admin/categories', {
     categories,
+    enabledLangs,
     error: error || null,
-    formValues: formValues || { name_ru: '', name_uz: '' },
+    formValues: formValues || { name_ru: '', name_uz: '', name_en: '' },
     formTarget: formTarget || null,
     login: req.session.admin.login,
     role: req.session.admin.role,
@@ -67,6 +73,7 @@ router.post('/', async (req, res, next) => {
       return renderList(req, res, 400, t(parsed.error.issues[0].message), {
         name_ru: typeof req.body.name_ru === 'string' ? req.body.name_ru : '',
         name_uz: typeof req.body.name_uz === 'string' ? req.body.name_uz : '',
+        name_en: typeof req.body.name_en === 'string' ? req.body.name_en : '',
       }, 'add');
     }
 
@@ -74,6 +81,7 @@ router.post('/', async (req, res, next) => {
     const category = await categoryModel.create(venueId, {
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
+      nameEn: parsed.data.name_en,
     });
 
     await logAction(pool, {
@@ -85,7 +93,7 @@ router.post('/', async (req, res, next) => {
       details: { name_ru: category.name_ru, name_uz: category.name_uz },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(venueId);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);
@@ -107,6 +115,7 @@ router.patch('/:id', async (req, res, next) => {
     const updated = await categoryModel.update(category.id, {
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
+      nameEn: parsed.data.name_en,
     });
 
     await logAction(pool, {
@@ -118,7 +127,7 @@ router.patch('/:id', async (req, res, next) => {
       details: { before, after: { name_ru: updated.name_ru, name_uz: updated.name_uz } },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(req.session.admin.venueId);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);
@@ -152,7 +161,7 @@ router.delete('/:id', async (req, res, next) => {
       details: { name_ru: category.name_ru, name_uz: category.name_uz },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(req.session.admin.venueId);
     res.redirect('/admin/categories');
   } catch (err) {
     if (err.code === '23503') {
@@ -203,7 +212,7 @@ router.post('/:id/move', async (req, res, next) => {
       details: { moved: direction },
     });
 
-    menuCache.invalidateVenue(req.session.admin.venueSlug);
+    await pgNotify.publishMenuChange(venueId);
     res.redirect('/admin/categories');
   } catch (err) {
     next(err);

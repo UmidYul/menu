@@ -1,0 +1,27 @@
+<%
+// Шапка сайта — общая для лендинга и других публичных страниц (например /apply).
+// Ожидает: lang, t, isLanding (bool — секционные ссылки #features/#how/#prices/#faq работают
+// как обычные якоря только на самом лендинге; с других страниц должны вести на /#... обратно
+// на главную, иначе клик по, например, "Возможности" на /apply ищет #features на текущей
+// странице и никуда не попадает).
+const sectionPrefix = isLanding ? '' : '/';
+%>
+<header class="site-header">
+  <nav class="nav container">
+    <a href="/" class="brand"><%- include('./brand') %></a>
+    <button type="button" class="mobile-menu" id="mobileMenuToggle" aria-expanded="false" aria-controls="navLinks" aria-label="<%= t('landing.navMenuAriaLabel') %>">
+      <%- include('./icon', { name: 'list', size: 22 }) %>
+    </button>
+    <div class="nav-links" id="navLinks">
+      <a href="<%= sectionPrefix %>#features"><%= t('landing.navFeatures') %></a>
+      <a href="<%= sectionPrefix %>#how"><%= t('landing.navHow') %></a>
+      <a href="<%= sectionPrefix %>#prices"><%= t('landing.navPrices') %></a>
+      <a href="<%= sectionPrefix %>#faq"><%= t('landing.navFaq') %></a>
+      <div class="lang">
+        <a href="?lang=ru" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+        <a href="?lang=uz" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+      </div>
+      <a href="/admin/login" class="btn btn-outline"><%= t('landing.navLogin') %></a>
+    </div>
+  </nav>
+</header>
