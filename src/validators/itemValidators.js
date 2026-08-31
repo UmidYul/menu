@@ -14,26 +14,30 @@ const tagsField = z
 
 const itemSchema = z.object({
   category_id: z.coerce.number({ invalid_type_error: 'items.errorCategoryRequired' }).int().positive('items.errorCategoryRequired'),
-  name_ru: z.string().trim().min(1, 'items.errorNameRuRequired'),
-  name_uz: z.string().trim().min(1, 'items.errorNameUzRequired'),
+  name_ru: z.string().trim().min(1, 'items.errorNameRuRequired').max(200, 'items.errorTooLong'),
+  name_uz: z.string().trim().min(1, 'items.errorNameUzRequired').max(200, 'items.errorTooLong'),
   description_ru: z
     .string()
     .trim()
+    .max(2000, 'items.errorTooLong')
     .optional()
     .transform((v) => v || null),
   description_uz: z
     .string()
     .trim()
+    .max(2000, 'items.errorTooLong')
     .optional()
     .transform((v) => v || null),
   composition_ru: z
     .string()
     .trim()
+    .max(2000, 'items.errorTooLong')
     .optional()
     .transform((v) => v || null),
   composition_uz: z
     .string()
     .trim()
+    .max(2000, 'items.errorTooLong')
     .optional()
     .transform((v) => v || null),
   calories: z
@@ -49,7 +53,7 @@ const itemSchema = z.object({
     .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined))
     .refine((v) => v === undefined || /^\d+(\.\d{1,2})?$/.test(v), { message: 'items.errorOldPriceInvalid' })
     .transform((v) => (v === undefined ? null : Number(v))),
-  currency: z.string().trim().min(1, 'items.errorCurrencyRequired').default('UZS'),
+  currency: z.string().trim().min(1, 'items.errorCurrencyRequired').max(10, 'items.errorTooLong').default('UZS'),
   tags: tagsField,
 }).refine((data) => data.old_price === null || data.old_price > data.price, {
   message: 'items.errorOldPriceNotGreater',

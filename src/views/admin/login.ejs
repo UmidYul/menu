@@ -19,6 +19,7 @@
         <div class="alert alert-error"><%= error %></div>
       <% } %>
       <form method="POST" action="/admin/login">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="field">
           <label for="login"><%= t('login.loginLabel') %></label>
           <input type="text" id="login" name="login" value="<%= login %>" autocomplete="username" required>

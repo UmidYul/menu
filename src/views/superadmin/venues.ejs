@@ -44,9 +44,11 @@
               <span class="<%= venue.is_active ? 'status' : 'status off' %>"><i></i> <%= venue.is_active ? t('superadmin.statusActive') : t('superadmin.statusInactive') %></span>
               <span><%= venue.show_powered_by ? t('superadmin.poweredByShown') : t('superadmin.poweredByHidden') %></span>
               <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-active">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= venue.is_active ? t('superadmin.disable') : t('superadmin.enable') %></button>
               </form>
               <form class="inline" method="POST" action="/superadmin/venues/<%= venue.id %>/toggle-powered-by">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= venue.show_powered_by ? t('superadmin.hidePoweredBy') : t('superadmin.showPoweredByAction') %></button>
               </form>
               <a href="/superadmin/venues/<%= venue.id %>" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= t('superadmin.detailAction') %></a>
@@ -66,6 +68,7 @@
               <div class="alert alert-error"><%= error %></div>
             <% } %>
             <form method="POST" action="/superadmin/venues">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="field">
                 <label for="slug"><%= t('superadmin.slugLabel') %></label>
                 <input type="text" id="slug" name="slug" value="<%= formValues.slug %>" placeholder="my-cafe" required>
@@ -92,7 +95,7 @@
 
               <div class="field">
                 <label for="admin_password"><%= t('superadmin.adminPasswordLabel') %></label>
-                <input type="password" id="admin_password" name="admin_password" required minlength="6">
+                <input type="password" id="admin_password" name="admin_password" required minlength="10">
               </div>
 
               <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('superadmin.submit') %></button>

@@ -44,6 +44,7 @@
                   </div>
                   <strong class="price"><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
                   <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button type="submit" class="toggle <%= item.is_available ? 'on' : '' %>" aria-label="<%= item.is_available ? t('items.available') : t('items.unavailable') %>"><i></i></button>
                   </form>
                   <details class="item-menu">
@@ -55,7 +56,8 @@
                         <%- include('../partials/icon', { name: 'edit', size: 14 }) %> <%= t('common.edit') %>
                       </button>
                       <form method="POST" action="/admin/items/<%= item.id %>?_method=DELETE"
-                            onsubmit="return confirm('<%= t('items.confirmDelete', { name: item.name_ru }) %>');">
+                            data-confirm="<%= t('items.confirmDelete', { name: item.name_ru }) %>">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <button type="submit" class="danger"><%- include('../partials/icon', { name: 'trash', size: 14 }) %> <%= t('common.delete') %></button>
                       </form>
                     </div>
@@ -77,6 +79,7 @@
                     <div class="alert alert-error"><%= error %></div>
                   <% } %>
                   <form method="POST" action="/admin/items/<%= item.id %>?_method=PATCH" enctype="multipart/form-data">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <input type="hidden" name="category_id" value="<%= item.category_id %>">
                     <%
                       const editValues = {
@@ -117,6 +120,7 @@
               <div class="alert alert-error"><%= error %></div>
             <% } %>
             <form method="POST" action="/admin/items" enctype="multipart/form-data">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="field">
                 <label for="category_id"><%= t('items.categoryLabel') %></label>
                 <select id="category_id" name="category_id" required>

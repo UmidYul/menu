@@ -25,6 +25,7 @@
 
         <div class="form-card" style="max-width:560px; margin-inline:auto;">
           <form method="POST" action="/admin/venue-settings" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 0 0 6px;"><%= t('venueSettings.profileHeading') %></h3>
 
             <div class="field-grid">

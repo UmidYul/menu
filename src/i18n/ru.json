@@ -72,6 +72,7 @@
     "confirmDelete": "Удалить категорию «{{name}}»?",
     "errorEmptyNameRu": "Введите название категории на русском",
     "errorEmptyNameUz": "Введите название категории на узбекском",
+    "errorTooLong": "Слишком длинное значение",
     "errorHasItems": "Нельзя удалить категорию «{{name}}» — в ней {{count}} позиций. Сначала перенесите или удалите их.",
     "errorHasItemsGeneric": "Нельзя удалить категорию, пока в ней есть позиции меню.",
     "errorInvalidDirection": "Некорректное направление перемещения.",
@@ -117,6 +118,7 @@
     "errorCaloriesInvalid": "Калорийность должна быть целым неотрицательным числом",
     "errorOldPriceInvalid": "Некорректная старая цена",
     "errorOldPriceNotGreater": "Старая цена должна быть больше новой",
+    "errorTooLong": "Слишком длинное значение",
     "notFoundTitle": "Позиция не найдена",
     "notFoundMessage": "Такой позиции меню не существует.",
     "notFoundForeignMessage": "Такой позиции меню не существует или она принадлежит другому заведению.",
@@ -156,7 +158,8 @@
     "errorNameRequired": "Введите название заведения",
     "errorLangRequired": "Выберите язык по умолчанию",
     "errorAdminLoginTooShort": "Логин администратора должен быть не короче 3 символов",
-    "errorAdminPasswordTooShort": "Пароль администратора должен быть не короче 6 символов",
+    "errorAdminPasswordTooShort": "Пароль администратора должен быть не короче 10 символов",
+    "errorTooLong": "Слишком длинное значение",
     "errorSlugTaken": "Заведение со slug «{{slug}}» уже существует",
     "errorLoginTaken": "Логин администратора «{{login}}» уже занят",
     "errorGenericConflict": "Такой slug или логин администратора уже используется",
@@ -270,6 +273,7 @@
     "errorInvalidUrl": "Ссылка должна начинаться с http:// или https://",
     "errorInvalidEmail": "Введите корректный email",
     "errorWifiIncomplete": "Заполните оба поля Wi-Fi или оставьте оба пустыми",
+    "errorTooLong": "Слишком длинное значение",
     "saved": "Настройки сохранены"
   },
   "siteSettings": {

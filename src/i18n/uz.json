@@ -72,6 +72,7 @@
     "confirmDelete": "«{{name}}» kategoriyasini o'chirasizmi?",
     "errorEmptyNameRu": "Kategoriya nomini ruscha kiriting",
     "errorEmptyNameUz": "Kategoriya nomini o'zbekcha kiriting",
+    "errorTooLong": "Qiymat juda uzun",
     "errorHasItems": "«{{name}}» kategoriyasini o'chirib bo'lmaydi — unda {{count}} ta pozitsiya bor. Avval ularni ko'chiring yoki o'chiring.",
     "errorHasItemsGeneric": "Kategoriyada pozitsiyalar bor ekan, uni o'chirib bo'lmaydi.",
     "errorInvalidDirection": "Noto'g'ri harakat yo'nalishi.",
@@ -117,6 +118,7 @@
     "errorCaloriesInvalid": "Kaloriya butun, manfiy bo'lmagan son bo'lishi kerak",
     "errorOldPriceInvalid": "Eski narx noto'g'ri",
     "errorOldPriceNotGreater": "Eski narx yangisidan katta bo'lishi kerak",
+    "errorTooLong": "Qiymat juda uzun",
     "notFoundTitle": "Pozitsiya topilmadi",
     "notFoundMessage": "Bunday menyu pozitsiyasi mavjud emas.",
     "notFoundForeignMessage": "Bunday menyu pozitsiyasi mavjud emas yoki u boshqa muassasaga tegishli.",
@@ -156,7 +158,8 @@
     "errorNameRequired": "Muassasa nomini kiriting",
     "errorLangRequired": "Standart tilni tanlang",
     "errorAdminLoginTooShort": "Administrator logini kamida 3 ta belgidan iborat bo'lishi kerak",
-    "errorAdminPasswordTooShort": "Administrator paroli kamida 6 ta belgidan iborat bo'lishi kerak",
+    "errorAdminPasswordTooShort": "Administrator paroli kamida 10 ta belgidan iborat bo'lishi kerak",
+    "errorTooLong": "Qiymat juda uzun",
     "errorSlugTaken": "«{{slug}}» slugli muassasa allaqachon mavjud",
     "errorLoginTaken": "«{{login}}» administrator logini band",
     "errorGenericConflict": "Bunday slug yoki administrator login allaqachon band",
@@ -270,6 +273,7 @@
     "errorInvalidUrl": "Havola http:// yoki https:// bilan boshlanishi kerak",
     "errorInvalidEmail": "To'g'ri email kiriting",
     "errorWifiIncomplete": "Wi-Fi maydonlarini ikkalasini ham to'ldiring yoki ikkalasini bo'sh qoldiring",
+    "errorTooLong": "Qiymat juda uzun",
     "saved": "Sozlamalar saqlandi"
   },
   "siteSettings": {

@@ -45,12 +45,14 @@
                         <%- include('../partials/icon', { name: 'edit', size: 14 }) %> <%= t('common.edit') %>
                       </button>
                       <form method="POST" action="/admin/categories/<%= category.id %>/move">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <input type="hidden" name="direction" value="up">
                         <button type="submit" <%= index === 0 ? 'disabled' : '' %>>
                           <%- include('../partials/icon', { name: 'arrowup', size: 14 }) %> <%= t('categories.moveUp') %>
                         </button>
                       </form>
                       <form method="POST" action="/admin/categories/<%= category.id %>/move">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <input type="hidden" name="direction" value="down">
                         <button type="submit" <%= index === categories.length - 1 ? 'disabled' : '' %>>
                           <%- include('../partials/icon', { name: 'arrowdown', size: 14 }) %> <%= t('categories.moveDown') %>
@@ -58,7 +60,8 @@
                       </form>
                       <hr>
                       <form method="POST" action="/admin/categories/<%= category.id %>?_method=DELETE"
-                            onsubmit="return confirm('<%= t('categories.confirmDelete', { name: category.name_ru }) %>');">
+                            data-confirm="<%= t('categories.confirmDelete', { name: category.name_ru }) %>">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <button type="submit" class="danger"><%- include('../partials/icon', { name: 'trash', size: 14 }) %> <%= t('common.delete') %></button>
                       </form>
                     </div>
@@ -81,6 +84,7 @@
                   <div class="alert alert-error"><%= error %></div>
                 <% } %>
                 <form method="POST" action="/admin/categories/<%= category.id %>?_method=PATCH">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <div class="field">
                     <label><%= t('categories.nameRuLabel') %></label>
                     <input type="text" name="name_ru" value="<%= category.name_ru %>" required>
@@ -111,6 +115,7 @@
               <div class="alert alert-error"><%= error %></div>
             <% } %>
             <form method="POST" action="/admin/categories">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="field">
                 <label for="name_ru"><%= t('categories.nameRuLabel') %></label>
                 <input type="text" id="name_ru" name="name_ru" value="<%= formValues.name_ru %>" required>

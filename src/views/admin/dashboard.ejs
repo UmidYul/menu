@@ -98,6 +98,7 @@
               <span class="category"><%= item.category_name_ru %></span>
               <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
               <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="hidden" name="redirect" value="/admin">
                 <button type="submit" class="btn <%= item.is_available ? 'btn-outline' : 'btn-danger' %>" style="font-size:10px; min-height:32px; padding:0 10px;">
                   <%= item.is_available ? t('items.available') : t('items.unavailable') %>

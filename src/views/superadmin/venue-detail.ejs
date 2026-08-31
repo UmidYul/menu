@@ -53,6 +53,7 @@
             <div class="alert alert-error" style="margin-top:16px;"><%= ratingError %></div>
           <% } %>
           <form method="POST" action="/superadmin/venues/<%= venue.id %>/rating" style="margin-top:16px;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="field-grid">
               <div class="field">
                 <label for="rating"><%= t('superadmin.ratingLabel') %></label>
@@ -99,6 +100,7 @@
               <div class="alert alert-error"><%= error %></div>
             <% } %>
             <form method="POST" action="/superadmin/venues/<%= venue.id %>/extend">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <div class="field-grid">
                 <div class="field">
                   <label for="amount"><%= t('superadmin.amountLabel') %></label>

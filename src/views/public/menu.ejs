@@ -23,7 +23,7 @@
   <meta name="twitter:description" content="<%= metaDescription %>">
   <meta name="twitter:image" content="<%= ogImageUrl %>">
   <%- include('../partials/head-assets') %>
-  <script type="application/ld+json"><%- JSON.stringify(restaurantJsonLd) %></script>
+  <script type="application/ld+json"><%- toSafeJsonLd(restaurantJsonLd) %></script>
 </head>
 <body>
   <main class="public-menu">

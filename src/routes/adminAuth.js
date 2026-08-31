@@ -7,6 +7,13 @@ const { loginSchema } = require('../validators/authValidators');
 const { loginLimiter } = require('../middlewares/rateLimit');
 const { requireAuth } = require('../middlewares/auth');
 
+// Хеш-заглушка для bcrypt.compare, когда логин не найден — без неё ветка "нет такого админа"
+// возвращается сразу, а ветка "админ есть, пароль неверный" всегда ждёт полный bcrypt.compare
+// (~десятки мс). Разница во времени ответа позволяет перебором логинов узнавать, какие из них
+// вообще существуют, даже не подбирая пароль. Сравнение с заглушкой всегда занимает то же время,
+// что и сравнение с настоящим хешем той же стоимости, — веток с разным таймингом не остаётся.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dummy-password-for-timing-equalization', 10);
+
 router.get('/login', (req, res) => {
   if (req.session && req.session.admin) {
     return res.redirect('/admin');
@@ -27,15 +34,8 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     const { login, password } = parsed.data;
 
     const admin = await findByLogin(login);
-    if (!admin) {
-      return res.status(401).render('admin/login', {
-        error: t('login.errorInvalidCredentials'),
-        login,
-      });
-    }
-
-    const passwordMatches = await bcrypt.compare(password, admin.password_hash);
-    if (!passwordMatches) {
+    const passwordMatches = await bcrypt.compare(password, admin ? admin.password_hash : DUMMY_PASSWORD_HASH);
+    if (!admin || !passwordMatches) {
       return res.status(401).render('admin/login', {
         error: t('login.errorInvalidCredentials'),
         login,
