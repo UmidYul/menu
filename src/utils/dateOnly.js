@@ -34,6 +34,17 @@ function addMonthsUTC(date, months) {
   return result;
 }
 
+function addDaysUTC(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+// timestamptz (suspended_at/archived_at и т.п.) → его календарная дата в UTC, тем же способом,
+// что parseDateOnly/todayUTC — чтобы diffDaysUTC на "сколько дней прошло" не зависел от времени
+// суток, в которое произошёл переход статуса.
+function truncateToDateUTC(date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
 function diffDaysUTC(date, fromDate) {
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
   return Math.round((date.getTime() - fromDate.getTime()) / MS_PER_DAY);
@@ -46,5 +57,7 @@ module.exports = {
   formatDateOnly,
   isValidDateOnly,
   addMonthsUTC,
+  addDaysUTC,
+  truncateToDateUTC,
   diffDaysUTC,
 };

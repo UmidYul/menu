@@ -10,9 +10,46 @@
 <body>
   <div class="message-shell">
     <div class="message-card">
-      <div class="brand" style="justify-content:center; margin-bottom:24px;"><%- include('../partials/brand', { compact: true }) %></div>
-      <h1><%= t('publicMenu.unavailableTitle') %></h1>
+      <% if (logoUrl) { %>
+        <img class="venue-card-logo" style="margin:0 auto 20px;" src="<%= logoUrl %>" alt="">
+      <% } else { %>
+        <div class="venue-card-logo venue-card-logo-fallback" style="margin:0 auto 20px;" aria-hidden="true"><%= venueName.charAt(0).toUpperCase() %></div>
+      <% } %>
+      <h1><%= venueName %></h1>
       <p><%= t('publicMenu.unavailableMessage', { venueName }) %></p>
+
+      <% if (phone || address || instagramUrl || telegramUrl) { %>
+        <div class="venue-card-contacts" style="text-align:left; margin-top:20px;">
+          <% if (phone) { %>
+            <div class="venue-card-contact-row">
+              <%- include('../partials/icon', { name: 'phone', size: 16 }) %>
+              <a href="tel:<%= phone.replace(/[^+\d]/g, '') %>"><%= phone %></a>
+            </div>
+          <% } %>
+          <% if (address) { %>
+            <div class="venue-card-contact-row">
+              <%- include('../partials/icon', { name: 'pin', size: 16 }) %>
+              <% if (address2gisUrl) { %>
+                <a href="<%= address2gisUrl %>" target="_blank" rel="noopener"><%= address %></a>
+              <% } else { %>
+                <span><%= address %></span>
+              <% } %>
+            </div>
+          <% } %>
+          <% if (instagramUrl) { %>
+            <div class="venue-card-contact-row">
+              <%- include('../partials/icon', { name: 'instagram', size: 16 }) %>
+              <a href="<%= instagramUrl %>" target="_blank" rel="noopener"><%= t('publicMenu.instagramLabel') %></a>
+            </div>
+          <% } %>
+          <% if (telegramUrl) { %>
+            <div class="venue-card-contact-row">
+              <%- include('../partials/icon', { name: 'telegram', size: 16 }) %>
+              <a href="<%= telegramUrl %>" target="_blank" rel="noopener"><%= t('publicMenu.telegramLabel') %></a>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
     </div>
   </div>
 </body>

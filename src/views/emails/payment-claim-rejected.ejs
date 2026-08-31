@@ -1,0 +1,7 @@
+<%
+// payload: { venue_name, reason }, t, siteSettings, escapeHtml
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.paymentClaimRejectedText', { venueName: payload.venue_name, reason: payload.reason }))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.paymentClaimRejectedSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

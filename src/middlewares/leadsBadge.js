@@ -1,13 +1,20 @@
 const leadModel = require('../models/leadModel');
+const paymentClaimModel = require('../models/paymentClaimModel');
 
-// Бейдж "новые заявки" в сайдбаре суперадминки — считаем на каждый запрос под /superadmin/*,
-// а не только на /superadmin/leads, чтобы число было видно на любой странице суперадминки
-// (заведения, логи, настройки), а не только открыв сами заявки.
+// Бейджи "новые заявки"/"заявки на оплату" в сайдбаре суперадминки — считаем на каждый запрос
+// под /superadmin/*, а не только на своих страницах, чтобы число было видно на любой странице
+// суперадминки (заведения, логи, настройки), а не только открыв сами заявки.
 async function leadsBadge(req, res, next) {
   try {
-    res.locals.leadsNewCount = await leadModel.countNew();
+    const [leadsNewCount, paymentClaimsPendingCount] = await Promise.all([
+      leadModel.countNew(),
+      paymentClaimModel.countPending(),
+    ]);
+    res.locals.leadsNewCount = leadsNewCount;
+    res.locals.paymentClaimsPendingCount = paymentClaimsPendingCount;
   } catch (err) {
     res.locals.leadsNewCount = 0;
+    res.locals.paymentClaimsPendingCount = 0;
   }
   next();
 }

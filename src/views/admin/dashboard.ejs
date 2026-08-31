@@ -17,14 +17,67 @@
             <span class="eyebrow"><%= venue.name %></span>
             <h1><%= t('nav.dashboard') %></h1>
           </div>
-          <a href="/menu/<%= venue.slug %>" target="_blank" rel="noopener" class="btn btn-primary">
-            <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
-            <%= t('nav.openMenu') %>
-          </a>
+          <% if (venue.status !== 'draft') { %>
+            <a href="/menu/<%= venue.slug %>" target="_blank" rel="noopener" class="btn btn-primary">
+              <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+              <%= t('nav.openMenu') %>
+            </a>
+          <% } %>
         </div>
 
         <% if (!venue.is_active) { %>
           <div class="alert alert-error"><%= t('dashboard.venueDisabledNotice') %></div>
+        <% } else if (venue.status === 'grace') { %>
+          <div class="alert alert-error">
+            <%= t('dashboard.graceBanner', { days: graceDaysLeft }) %>
+            <a href="/admin/subscription" class="link-arrow" style="margin-left:8px;"><%= t('dashboard.payButton') %> <%- include('../partials/icon', { name: 'arrowright', size: 13 }) %></a>
+          </div>
+        <% } else if (venue.status === 'suspended') { %>
+          <div class="alert alert-error">
+            <%= t('dashboard.suspendedBanner') %>
+            <a href="/admin/subscription" class="link-arrow" style="margin-left:8px;"><%= t('dashboard.payButton') %> <%- include('../partials/icon', { name: 'arrowright', size: 13 }) %></a>
+          </div>
+        <% } else if (venue.status === 'archived') { %>
+          <div class="alert alert-error">
+            <%= t('dashboard.archivedBanner') %>
+            <% if (siteSettings && siteSettings.telegram_url) { %>
+              <a href="<%= siteSettings.telegram_url %>" target="_blank" rel="noopener" class="link-arrow" style="margin-left:8px;"><%= t('dashboard.contactSupportButton') %> <%- include('../partials/icon', { name: 'arrowright', size: 13 }) %></a>
+            <% } %>
+          </div>
+        <% } else if (venue.status === 'trial' && daysLeft !== null) { %>
+          <div class="alert alert-success"><%= t('dashboard.trialBanner', { days: daysLeft }) %></div>
+        <% } %>
+
+        <% if (venue.status === 'draft') { %>
+          <div class="form-card" style="margin-bottom:20px;">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow"><%= t('dashboard.draftEyebrow') %></span>
+                <h3><%= t('dashboard.draftTitle') %></h3>
+              </div>
+            </div>
+            <p style="color:var(--muted); font-size:13px; margin:12px 0 18px;"><%= t('dashboard.draftIntro') %></p>
+            <% if (!publishReadiness.ready) { %>
+              <div class="alert alert-error">
+                <b style="display:block; margin-bottom:6px;"><%= t('dashboard.publishChecklistHeading') %></b>
+                <ul style="margin:0; padding-left:18px;">
+                  <% if (publishReadiness.missing.includes('category')) { %><li><%= t('dashboard.publishMissingCategory') %></li><% } %>
+                  <% if (publishReadiness.missing.includes('items')) { %><li><%= t('dashboard.publishMissingItems') %></li><% } %>
+                  <% if (publishReadiness.missing.includes('name')) { %><li><%= t('dashboard.publishMissingName') %></li><% } %>
+                  <% if (publishReadiness.missing.includes('phone')) { %><li><%= t('dashboard.publishMissingPhone') %></li><% } %>
+                </ul>
+              </div>
+            <% } else { %>
+              <div class="alert alert-success"><%= t('dashboard.publishReadyHint') %></div>
+            <% } %>
+            <form method="POST" action="/admin/publish">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-primary" <%= publishReadiness.ready ? '' : 'disabled' %>>
+                <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+                <%= t('dashboard.publishButton') %>
+              </button>
+            </form>
+          </div>
         <% } %>
 
         <div class="dashboard-grid">

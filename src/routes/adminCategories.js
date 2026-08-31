@@ -2,6 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
+const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const categoryModel = require('../models/categoryModel');
 const venueModel = require('../models/venueModel');
@@ -9,7 +10,7 @@ const { logAction } = require('../models/adminActionLogModel');
 const { categorySchema } = require('../validators/categoryValidators');
 const pgNotify = require('../services/pgNotify');
 
-router.use(requireAuth, requireRole(['venue_admin']));
+router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
 
 async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;

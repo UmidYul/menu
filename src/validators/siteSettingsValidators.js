@@ -50,6 +50,12 @@ const siteSettingsSchema = z.object({
   about_uz: optionalText(600),
   offer_url: optionalUrl,
   privacy_url: optionalUrl,
+  payment_card_number: optionalText(30),
+  payment_card_holder: optionalText(100),
+  payment_bank_name: optionalText(100),
+  payment_instructions_ru: optionalText(600),
+  payment_instructions_uz: optionalText(600),
+  payment_instructions_en: optionalText(600),
 });
 
 module.exports = { siteSettingsSchema };

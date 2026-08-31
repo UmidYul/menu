@@ -641,6 +641,20 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
 .apply-thanks-icon { display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto; border-radius: 50%; background: var(--sage); color: #4c5e47; }
 .apply-thanks-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; margin-top: 8px; }
 
+/* экран "Подписка" заведения (промт 1.4) */
+.period-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 4px 0 22px; }
+.period-option { position: relative; }
+.period-option input[type="radio"] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.period-option label { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; border: 1.5px solid var(--border); border-radius: 12px; text-align: center; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.period-option label:has(input:checked) { border-color: var(--primary); background: #f7e6e1; }
+.period-option label:has(input:focus-visible) { outline: 3px solid #d6a08f; outline-offset: 2px; }
+.period-option-months { font-family: var(--font-serif); font-size: 20px; font-weight: 500; }
+.period-option-price { font-size: 12px; font-weight: 700; color: var(--ink); }
+.period-option-discount { font-size: 10px; font-weight: 800; color: #6c9365; }
+.payment-pending-card { padding: 26px; border: 1px solid var(--border); border-radius: 14px; background: var(--sage); text-align: center; }
+.payment-pending-card h3 { margin: 10px 0 6px; font-family: var(--font-serif); font-size: 22px; font-weight: 500; }
+.payment-pending-card p { margin: 0 0 18px; color: #4c5e47; font-size: 13px; }
+
 /* auth screen */
 .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .auth-card { width: 100%; max-width: 380px; padding: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: 0 24px 55px #6e62531c; position: relative; }

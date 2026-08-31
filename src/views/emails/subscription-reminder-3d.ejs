@@ -1,0 +1,7 @@
+<%
+// payload: { venue_name, until }, t, siteSettings, escapeHtml
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.subscriptionReminder3dText', { venueName: payload.venue_name, until: payload.until }))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.subscriptionReminder3dSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

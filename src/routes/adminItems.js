@@ -2,6 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
+const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
 const categoryModel = require('../models/categoryModel');
@@ -12,7 +13,7 @@ const { itemSchema, ALLOWED_TAGS } = require('../validators/itemValidators');
 const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
 const pgNotify = require('../services/pgNotify');
 
-router.use(requireAuth);
+router.use(requireAuth, venueStatusGate);
 
 const { groupByCategory } = itemModel;
 

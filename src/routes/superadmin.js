@@ -15,6 +15,7 @@ const { extendSubscriptionSchema, PAYMENT_METHODS, PERIOD_MONTHS } = require('..
 const { siteSettingsSchema } = require('../validators/siteSettingsValidators');
 const pgNotify = require('../services/pgNotify');
 const siteSettingsCache = require('../services/siteSettingsCache');
+const venueLifecycle = require('../services/venueLifecycle');
 const {
   todayUTC,
   parseDateOnly,
@@ -401,6 +402,15 @@ router.post('/venues/:id/extend', async (req, res, next) => {
 
       await venueModel.updateSubscriptionUntil(client, id, extendsUntilStr);
 
+      // Оплата всегда означает "активна" — даже если до этого шёл триал или заведение уже
+      // числилось suspended/grace (промт 1.3, edge case "продлили подписку заведению в
+      // suspended — статус должен немедленно вернуться в active"). draft/archived продление
+      // само по себе не трогает — см. venueLifecycle.reviveToActiveIfNeeded.
+      await venueLifecycle.reviveToActiveIfNeeded(client, venue, {
+        actorAdminId: req.session.admin.id,
+        reason: 'payment',
+      });
+
       await logAction(client, {
         adminId: req.session.admin.id,
         venueId: id,
@@ -417,8 +427,7 @@ router.post('/venues/:id/extend', async (req, res, next) => {
       });
 
       // Письмо необязательное поле у заведения — пока его нет, уведомлять некуда, enqueue
-      // без адресата смысла не имеет. Реально отправлять пока некому: воркер очереди — промт 1.1,
-      // здесь запись просто ложится в notifications со статусом 'pending'.
+      // без адресата смысла не имеет.
       if (venue.email) {
         await notificationModel.enqueue(client, {
           channel: 'email',
@@ -515,6 +524,12 @@ function toSiteSettingsFormValues(settings) {
     about_uz: settings.about_uz || '',
     offer_url: settings.offer_url || '',
     privacy_url: settings.privacy_url || '',
+    payment_card_number: settings.payment_card_number || '',
+    payment_card_holder: settings.payment_card_holder || '',
+    payment_bank_name: settings.payment_bank_name || '',
+    payment_instructions_ru: settings.payment_instructions_ru || '',
+    payment_instructions_uz: settings.payment_instructions_uz || '',
+    payment_instructions_en: settings.payment_instructions_en || '',
   };
 }
 
@@ -523,6 +538,8 @@ function readRawSiteSettingsValues(body) {
     'owner_name', 'phone', 'phone_extra', 'email', 'telegram_url', 'instagram_url',
     'address_ru', 'address_uz', 'working_hours_ru', 'working_hours_uz',
     'about_ru', 'about_uz', 'offer_url', 'privacy_url',
+    'payment_card_number', 'payment_card_holder', 'payment_bank_name',
+    'payment_instructions_ru', 'payment_instructions_uz', 'payment_instructions_en',
   ];
   const values = {};
   keys.forEach((key) => {
@@ -575,6 +592,12 @@ router.post('/site-settings', async (req, res, next) => {
       aboutUz: parsed.data.about_uz,
       offerUrl: parsed.data.offer_url,
       privacyUrl: parsed.data.privacy_url,
+      paymentCardNumber: parsed.data.payment_card_number,
+      paymentCardHolder: parsed.data.payment_card_holder,
+      paymentBankName: parsed.data.payment_bank_name,
+      paymentInstructionsRu: parsed.data.payment_instructions_ru,
+      paymentInstructionsUz: parsed.data.payment_instructions_uz,
+      paymentInstructionsEn: parsed.data.payment_instructions_en,
     });
 
     await logAction(pool, {

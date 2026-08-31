@@ -8,7 +8,9 @@ const UPLOADS_ROOT = path.join(__dirname, '..', '..', 'public', 'uploads');
 const THUMB_WIDTH = 200;
 const FULL_WIDTH = 800;
 
-async function saveItemPhoto(venueId, buffer) {
+// Общее ядро для saveItemPhoto/saveReceiptPhoto — ничего в самой обработке не зависит от того,
+// фото это позиции меню или скриншот чека, только вызывающий код и назначение файла разные.
+async function saveVenueImage(venueId, buffer) {
   const dir = path.join(UPLOADS_ROOT, String(venueId));
   await fs.mkdir(dir, { recursive: true });
 
@@ -36,6 +38,17 @@ async function saveItemPhoto(venueId, buffer) {
   };
 }
 
+async function saveItemPhoto(venueId, buffer) {
+  return saveVenueImage(venueId, buffer);
+}
+
+// Скриншот чека к заявке на оплату (промт 1.4) — тот же пайплайн (thumb+full webp), receipt_url
+// хранит полноразмерную версию: чек нужно читать целиком (суммы/реквизиты), а не превью.
+async function saveReceiptPhoto(venueId, buffer) {
+  const { photoUrl } = await saveVenueImage(venueId, buffer);
+  return photoUrl;
+}
+
 async function deleteItemPhotoFiles(photoUrl, photoThumbUrl) {
   for (const url of [photoUrl, photoThumbUrl]) {
     if (!url) continue;
@@ -45,4 +58,4 @@ async function deleteItemPhotoFiles(photoUrl, photoThumbUrl) {
   }
 }
 
-module.exports = { saveItemPhoto, deleteItemPhotoFiles };
+module.exports = { saveItemPhoto, saveReceiptPhoto, deleteItemPhotoFiles };

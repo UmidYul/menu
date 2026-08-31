@@ -13,15 +13,17 @@ const defaultLocale = require('./middlewares/locale');
 const { adminLocale } = require('./middlewares/adminLocale');
 const { csrfProtection } = require('./middlewares/csrf');
 const { leadsBadge } = require('./middlewares/leadsBadge');
-const { uploadItemPhoto, uploadVenueImages } = require('./middlewares/upload');
+const { uploadItemPhoto, uploadVenueImages, uploadReceiptPhoto } = require('./middlewares/upload');
 const adminAuthRoutes = require('./routes/adminAuth');
 const adminLocaleRoutes = require('./routes/adminLocale');
 const adminDashboardRoutes = require('./routes/adminDashboard');
 const superadminRoutes = require('./routes/superadmin');
 const superadminLeadsRoutes = require('./routes/superadminLeads');
+const superadminPaymentClaimsRoutes = require('./routes/superadminPaymentClaims');
 const adminCategoriesRoutes = require('./routes/adminCategories');
 const adminItemsRoutes = require('./routes/adminItems');
 const adminVenueSettingsRoutes = require('./routes/adminVenueSettings');
+const adminSubscriptionRoutes = require('./routes/adminSubscription');
 const publicMenuRoutes = require('./routes/publicMenu');
 const landingRoutes = require('./routes/landing');
 const applyRoutes = require('./routes/apply');
@@ -110,6 +112,10 @@ app.get('/health', async (req, res) => {
 // и молча пропускает дальше.
 app.use('/admin/items', adminLocale, uploadItemPhoto, csrfProtection, adminItemsRoutes);
 app.use('/admin/venue-settings', adminLocale, uploadVenueImages, csrfProtection, adminVenueSettingsRoutes);
+// uploadReceiptPhoto здесь же ДО csrfProtection — POST /admin/subscription/claim несёт
+// необязательный скриншот чека (multipart/form-data), та же причина, что у items/venue-settings
+// выше. GET / и POST /cancel-claim (обычный urlencoded) multer пропускает молча.
+app.use('/admin/subscription', adminLocale, uploadReceiptPhoto, csrfProtection, adminSubscriptionRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminAuthRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminLocaleRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminDashboardRoutes);
@@ -119,6 +125,7 @@ app.use('/admin/categories', adminLocale, csrfProtection, adminCategoriesRoutes)
 // префикс обязан быть зарегистрирован первым, иначе не имеет значения, что superadmin.js
 // не содержит маршрутов /leads — порядок регистрации решает, какая цепочка обработает запрос.
 app.use('/superadmin/leads', adminLocale, csrfProtection, leadsBadge, superadminLeadsRoutes);
+app.use('/superadmin/payment-claims', adminLocale, csrfProtection, leadsBadge, superadminPaymentClaimsRoutes);
 app.use('/superadmin', adminLocale, csrfProtection, leadsBadge, superadminRoutes);
 app.use('/menu', publicMenuRoutes);
 app.use('/apply', csrfProtection, applyRoutes);

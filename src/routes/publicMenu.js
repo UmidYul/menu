@@ -211,14 +211,39 @@ function buildMenuViewModel(venue, groupedRows, lang, req) {
   };
 }
 
+// venues.status === 'draft' — заведение существует, но ещё не публиковалось, ссылок на его
+// страницу нигде нет: с точки зрения гостя её как будто не существует, тот же ответ, что и для
+// несуществующего slug (см. промт 1.3, раздел "Поведение публичной страницы").
+function renderNotFound(req, res) {
+  const lang = SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : DEFAULT_LANG;
+  return res.status(404).render('public/menu-not-found', { lang, t: (key, params) => t(key, lang, params) });
+}
+
+// Общая для is_active=false / suspended / archived страница-заглушка — QR-коды уже напечатаны
+// и висят на столах, ссылка не должна умирать: код ответа разный (200 для is_active=false и
+// suspended, 410 Gone для archived — ясный сигнал поисковику, что страница не вернётся), но
+// вёрстка и текст одинаковые, без единого намёка на причину (гость не должен знать про неоплату).
+function renderUnavailable(req, res, venue, lang, statusCode) {
+  return res.status(statusCode).render('public/menu-unavailable', {
+    venueName: venue.name,
+    phone: venue.phone,
+    address: venue.address,
+    address2gisUrl: venue.address_2gis_url,
+    instagramUrl: venue.instagram_url,
+    telegramUrl: venue.telegram_url,
+    logoUrl: venue.logo_thumb_url || null,
+    lang,
+    t: (key, params) => t(key, lang, params),
+  });
+}
+
 async function renderMenuPage(req, res, next) {
   try {
     const { slug } = req.params;
 
     const venue = await venueModel.findPublicBySlug(slug);
-    if (!venue) {
-      const lang = SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : DEFAULT_LANG;
-      return res.status(404).render('public/menu-not-found', { lang, t: (key, params) => t(key, lang, params) });
+    if (!venue || venue.status === 'draft') {
+      return renderNotFound(req, res);
     }
 
     const lang = resolveLang(req, venue);
@@ -226,12 +251,17 @@ async function renderMenuPage(req, res, next) {
       res.cookie(LANG_COOKIE, lang, { httpOnly: false, sameSite: 'lax' });
     }
 
+    // is_active=false — ручной рубильник суперадмина, действует поверх любого статуса
+    // (архивное заведение с is_active=false всё равно отдаёт 200, а не 410 — это тот же самый
+    // "временно недоступно", а не "окончательно закрыто").
     if (!venue.is_active) {
-      return res.status(200).render('public/menu-unavailable', {
-        venueName: venue.name,
-        lang,
-        t: (key, params) => t(key, lang, params),
-      });
+      return renderUnavailable(req, res, venue, lang, 200);
+    }
+    if (venue.status === 'suspended') {
+      return renderUnavailable(req, res, venue, lang, 200);
+    }
+    if (venue.status === 'archived') {
+      return renderUnavailable(req, res, venue, lang, 410);
     }
 
     if (shouldCountView(req, slug)) {

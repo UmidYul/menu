@@ -3,15 +3,22 @@ const { pool } = require('../config/db');
 // Ставит уведомление в очередь. clientOrPool позволяет вызывать это в той же транзакции, что и
 // событие, которое его породило (см. superadmin.js /venues/:id/extend) — если транзакция
 // откатится, уведомление не должно остаться висеть в базе.
+// ON CONFLICT ... DO NOTHING на dedup_key — идемпотентный enqueue для напоминаний планировщика
+// (промт 1.3): повторный вызов с тем же dedupKey (например, при перезапуске процесса посреди
+// пересчёта) просто не создаёт вторую запись, вместо падения на уникальном индексе. Предложение
+// WHERE обязано дословно совпадать с индексом (см. 1787503500000_create-notifications) — иначе
+// Postgres не примет его как arbiter для ON CONFLICT. Без dedupKey (большинство существующих
+// вызовов) — dedup_key остаётся NULL и никогда не участвует в этом индексе, поведение не меняется.
 async function enqueue(clientOrPool, { channel, recipient, template, payload, lang, scheduledAt, dedupKey }) {
   const executor = clientOrPool || pool;
   const result = await executor.query(
     `INSERT INTO notifications (channel, recipient, template, payload, lang, scheduled_at, dedup_key)
      VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()), $7)
+     ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL AND status <> 'failed' DO NOTHING
      RETURNING *`,
     [channel, recipient, template, payload ? JSON.stringify(payload) : '{}', lang || 'ru', scheduledAt || null, dedupKey || null]
   );
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 // Захватывает пачку "готовых к отправке" записей под SELECT ... FOR UPDATE SKIP LOCKED, чтобы

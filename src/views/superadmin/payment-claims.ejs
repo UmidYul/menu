@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('superadmin.claimsHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+<%
+  const CLAIM_STATUS_BADGE_CLASS = { pending: 'status warn', approved: 'status', rejected: 'status off', cancelled: 'status off' };
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'paymentClaims', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: t('superadmin.claimsHeading'), lang, currentPath: '/superadmin/payment-claims', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div><span class="eyebrow"><%= t('roles.superadmin') %></span><h1><%= t('superadmin.claimsHeading') %></h1></div>
+        </div>
+
+        <form method="GET" action="/superadmin/payment-claims" class="field-grid" style="max-width:340px; margin-bottom:20px;">
+          <div class="field" style="margin-bottom:0;">
+            <select name="status" onchange="this.form.submit()">
+              <option value=""><%= t('superadmin.claimsFilterAllStatuses') %></option>
+              <% ['pending', 'approved', 'rejected', 'cancelled'].forEach((s) => { %>
+                <option value="<%= s %>" <%= filterStatus === s ? 'selected' : '' %>><%= t(`subscription.claimStatus.${s}`) %></option>
+              <% }) %>
+            </select>
+          </div>
+        </form>
+
+        <div class="table-card">
+          <% if (claims.rows.length === 0) { %>
+            <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('superadmin.claimsEmpty') %></div>
+          <% } %>
+          <% claims.rows.forEach((claim) => { %>
+            <div class="table-row" style="grid-template-columns: 110px 1fr .6fr .8fr .8fr 90px;">
+              <span class="category"><%= claim.created_at.toISOString().slice(0, 10) %></span>
+              <a href="/superadmin/payment-claims/<%= claim.id %>"><b><%= claim.venue_name %></b></a>
+              <span><%= claim.months %> <%= t('subscription.monthsShort') %></span>
+              <span class="category"><%= Number(claim.amount).toLocaleString('ru-RU') %> <%= claim.currency %></span>
+              <span class="<%= CLAIM_STATUS_BADGE_CLASS[claim.status] %>"><i></i> <%= t(`subscription.claimStatus.${claim.status}`) %></span>
+              <a href="/superadmin/payment-claims/<%= claim.id %>" class="btn btn-outline" style="font-size:10px; min-height:32px; padding:0 10px;"><%= t('superadmin.detailAction') %></a>
+            </div>
+          <% }) %>
+        </div>
+
+        <% if (claims.totalPages > 1) { %>
+          <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:20px; font-size:12px; color:var(--muted);">
+            <% if (claims.page > 1) { %>
+              <a href="/superadmin/payment-claims?status=<%= filterStatus %>&page=<%= claims.page - 1 %>" class="btn btn-outline"><%= t('superadmin.pagePrev') %></a>
+            <% } %>
+            <span><%= t('superadmin.pageInfo', { page: claims.page, totalPages: claims.totalPages }) %></span>
+            <% if (claims.page < claims.totalPages) { %>
+              <a href="/superadmin/payment-claims?status=<%= filterStatus %>&page=<%= claims.page + 1 %>" class="btn btn-outline"><%= t('superadmin.pageNext') %></a>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

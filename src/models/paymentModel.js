@@ -10,12 +10,15 @@ async function create(client, { venueId, amount, currency, method, comment, paid
   return result.rows[0];
 }
 
+// LEFT JOIN, не JOIN — created_by теперь nullable (платежи, подтверждённые кнопкой в Telegram,
+// промт 1.4, не привязаны к вошедшему в веб-админку аккаунту). INNER JOIN тут молча вырезал бы
+// такие платежи из истории — та же ошибка, что уже чинили для admin_action_logs (промт 1.2).
 async function listByVenue(venueId) {
   const result = await pool.query(
     `SELECT p.id, p.amount, p.currency, p.method, p.comment, p.paid_at, p.extends_until, p.created_at,
             a.login AS created_by_login
      FROM payments p
-     JOIN admins a ON a.id = p.created_by
+     LEFT JOIN admins a ON a.id = p.created_by
      WHERE p.venue_id = $1
      ORDER BY p.paid_at DESC, p.created_at DESC`,
     [venueId]

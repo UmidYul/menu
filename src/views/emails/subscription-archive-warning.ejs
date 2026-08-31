@@ -1,0 +1,7 @@
+<%
+// payload: { venue_name, days }, t, siteSettings, escapeHtml
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.subscriptionArchiveWarningText', { venueName: payload.venue_name, days: payload.days }))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.subscriptionArchiveWarningSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

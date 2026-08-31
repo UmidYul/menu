@@ -7,11 +7,13 @@ if (role === 'venue_admin') {
     { key: 'categories', href: '/admin/categories', icon: 'list', label: t('nav.categories') },
     { key: 'items', href: '/admin/items', icon: 'utensils', label: t('nav.items') },
     { key: 'venueSettings', href: '/admin/venue-settings', icon: 'sliders', label: t('nav.venueSettings') },
+    { key: 'subscription', href: '/admin/subscription', icon: 'clock', label: t('nav.subscription') },
   ];
 } else if (role === 'superadmin') {
   _navItems = [
     { key: 'venues', href: '/superadmin/venues', icon: 'store', label: t('nav.venues') },
     { key: 'leads', href: '/superadmin/leads', icon: 'mail', label: t('nav.leads'), badge: typeof leadsNewCount !== 'undefined' ? leadsNewCount : 0 },
+    { key: 'paymentClaims', href: '/superadmin/payment-claims', icon: 'clock', label: t('nav.paymentClaims'), badge: typeof paymentClaimsPendingCount !== 'undefined' ? paymentClaimsPendingCount : 0 },
     { key: 'logs', href: '/superadmin/logs', icon: 'activity', label: t('nav.logs') },
     { key: 'siteSettings', href: '/superadmin/site-settings', icon: 'sliders', label: t('nav.siteSettings') },
   ];

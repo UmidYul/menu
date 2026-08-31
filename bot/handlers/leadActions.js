@@ -44,16 +44,19 @@ function register(bot) {
     }
     await ctx.answerCbQuery();
 
-    pendingRejectReason.expect(ctx.from.id, leadId);
+    pendingRejectReason.expect(ctx.from.id, 'lead', leadId);
     await ctx.reply(t('bot.lead.askRejectReason', lang, { venueName: lead.venue_name }));
   });
 }
 
 // Вызывается из fallback.js ДО общей обработки — если для этого владельца ждём причину
-// отклонения, следующее его сообщение целиком уходит в неё, а не в форвард поддержки.
+// отклонения ЛИДА (не заявки на оплату — см. peekType), следующее его сообщение целиком
+// уходит в неё, а не в форвард поддержки.
 async function tryConsumeRejectReason(ctx) {
   if (!isOwner(ctx.from.id)) return false;
-  const leadId = pendingRejectReason.consume(ctx.from.id);
+  if (pendingRejectReason.peekType(ctx.from.id) !== 'lead') return false;
+  const entry = pendingRejectReason.consume(ctx.from.id);
+  const leadId = entry && entry.id;
   if (!leadId) return false;
 
   const reason = ctx.message.text;

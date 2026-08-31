@@ -12,6 +12,8 @@ async function update({
   ownerName, phone, phoneExtra, email, telegramUrl, instagramUrl,
   addressRu, addressUz, workingHoursRu, workingHoursUz, aboutRu, aboutUz,
   offerUrl, privacyUrl,
+  paymentCardNumber, paymentCardHolder, paymentBankName,
+  paymentInstructionsRu, paymentInstructionsUz, paymentInstructionsEn,
 }) {
   const result = await pool.query(
     `UPDATE site_settings
@@ -19,6 +21,8 @@ async function update({
          telegram_url = $5, instagram_url = $6,
          address_ru = $7, address_uz = $8, working_hours_ru = $9, working_hours_uz = $10,
          about_ru = $11, about_uz = $12, offer_url = $13, privacy_url = $14,
+         payment_card_number = $15, payment_card_holder = $16, payment_bank_name = $17,
+         payment_instructions_ru = $18, payment_instructions_uz = $19, payment_instructions_en = $20,
          updated_at = now()
      WHERE id = 1
      RETURNING *`,
@@ -26,6 +30,8 @@ async function update({
       ownerName, phone, phoneExtra, email, telegramUrl, instagramUrl,
       addressRu, addressUz, workingHoursRu, workingHoursUz, aboutRu, aboutUz,
       offerUrl, privacyUrl,
+      paymentCardNumber, paymentCardHolder, paymentBankName,
+      paymentInstructionsRu, paymentInstructionsUz, paymentInstructionsEn,
     ]
   );
   return result.rows[0];

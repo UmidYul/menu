@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('subscription.pageTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'subscription', venueSlug: venue.slug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('subscription.heading'), lang, currentPath: '/admin/subscription', venueSlug: venue.slug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('subscription.heading') %></h1>
+          </div>
+        </div>
+
+        <% if (blocked) { %>
+          <div class="alert alert-error"><%= t('subscription.blockedNotice') %></div>
+        <% } %>
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+
+        <% if (venue.status === 'grace') { %>
+          <div class="alert alert-error"><%= t('subscription.graceNote', { days: graceDaysLeft }) %></div>
+        <% } else if (venue.status === 'suspended') { %>
+          <div class="alert alert-error"><%= t('subscription.suspendedNote') %></div>
+        <% } else if (venue.status === 'archived') { %>
+          <div class="alert alert-error"><%= t('subscription.archivedNote') %></div>
+        <% } else if (venue.status === 'trial') { %>
+          <div class="alert alert-success"><%= t('subscription.trialNote') %></div>
+        <% } %>
+
+        <div class="form-card">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('subscription.statusLabel') %></h3></div>
+          </div>
+          <div class="super-stats" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
+            <div>
+              <span><%= t('subscription.statusLabel') %></span>
+              <b style="font-size:22px;"><%= t(`subscription.status.${venue.status}`) %></b>
+            </div>
+            <div>
+              <span><%= t('subscription.untilLabel') %></span>
+              <b style="font-size:22px;"><%= venue.subscription_until || t('subscription.untilNone') %></b>
+            </div>
+            <% if (daysLeft !== null && venue.status !== 'suspended' && venue.status !== 'archived') { %>
+              <div>
+                <span><%= t('subscription.daysLeftLabel') %></span>
+                <b style="font-size:22px;"><%= Math.max(0, daysLeft) %></b>
+              </div>
+            <% } %>
+          </div>
+        </div>
+
+        <% if (venue.status !== 'draft') { %>
+          <% if (pendingClaim) { %>
+            <div class="payment-pending-card" style="margin-top:20px;">
+              <%- include('../partials/icon', { name: 'clock', size: 28 }) %>
+              <h3><%= t('subscription.pendingTitle') %></h3>
+              <p><%= t('subscription.pendingText') %></p>
+              <p style="margin:0 0 4px;"><%= t('subscription.pendingMonths', { months: pendingClaim.months }) %></p>
+              <p style="margin:0 0 4px;"><%= t('subscription.pendingAmount', { amount: Number(pendingClaim.amount).toLocaleString('ru-RU'), currency: pendingClaim.currency }) %></p>
+              <p style="margin:0 0 18px; color: var(--muted); font-size:12px;"><%= t('subscription.pendingSince', { date: pendingClaim.created_at.toISOString().slice(0, 16).replace('T', ' ') }) %></p>
+              <form method="POST" action="/admin/subscription/cancel-claim">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="claim_id" value="<%= pendingClaim.id %>">
+                <button type="submit" class="btn btn-outline"><%= t('subscription.cancelClaimButton') %></button>
+              </form>
+            </div>
+          <% } else { %>
+            <div class="form-card" style="margin-top:20px;">
+              <div class="card-header">
+                <div><span class="eyebrow">&nbsp;</span><h3><%= t('subscription.periodHeading') %></h3></div>
+              </div>
+              <form method="POST" action="/admin/subscription/claim" enctype="multipart/form-data" style="margin-top:16px;">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                <div class="period-picker">
+                  <% periodOptions.forEach((option) => { %>
+                    <div class="period-option">
+                      <label>
+                        <input type="radio" name="months" value="<%= option.months %>" <%= Number(selectedMonths) === option.months ? 'checked' : '' %>>
+                        <span class="period-option-months"><%= option.months %></span>
+                        <span class="period-option-price"><%= option.price.toLocaleString('ru-RU') %></span>
+                        <% if (option.discountPercent > 0) { %>
+                          <span class="period-option-discount"><%= t('subscription.discountBadge', { percent: option.discountPercent }) %></span>
+                        <% } %>
+                      </label>
+                    </div>
+                  <% }) %>
+                </div>
+
+                <h4 style="font-family: var(--font-serif); font-size: 16px; font-weight: 500; margin: 4px 0 14px;"><%= t('subscription.detailsHeading') %></h4>
+
+                <% if (siteSettings && siteSettings.payment_card_number) { %>
+                  <div class="wifi-field">
+                    <span class="wifi-field-label"><%= t('subscription.cardNumberLabel') %></span>
+                    <div class="wifi-field-value wifi-field-value-password">
+                      <span id="subCardNumber"><%= siteSettings.payment_card_number %></span>
+                      <button type="button" class="wifi-copy-btn" data-target="subCardNumber" data-note="subCardCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
+                        <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                      </button>
+                    </div>
+                  </div>
+                  <% if (siteSettings.payment_card_holder) { %>
+                    <p style="margin:0 0 12px; font-size:13px; color:var(--muted);"><%= t('subscription.cardHolderLabel') %>: <%= siteSettings.payment_card_holder %></p>
+                  <% } %>
+                  <% if (siteSettings.payment_bank_name) { %>
+                    <p style="margin:0 0 12px; font-size:13px; color:var(--muted);"><%= t('subscription.bankLabel') %>: <%= siteSettings.payment_bank_name %></p>
+                  <% } %>
+
+                  <div class="wifi-field">
+                    <span class="wifi-field-label"><%= t('subscription.amountLabel') %></span>
+                    <div class="wifi-field-value wifi-field-value-password">
+                      <span id="subAmountValue" data-prices="<%= JSON.stringify(periodOptions.map((o) => ({ months: o.months, price: o.price }))) %>"><%= (periodOptions.find((o) => o.months === Number(selectedMonths)) || periodOptions[1]).price.toLocaleString('ru-RU') %></span>
+                      <button type="button" class="wifi-copy-btn" data-target="subAmountValue" data-note="subAmountCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
+                        <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                      </button>
+                    </div>
+                  </div>
+
+                  <% const instructions = lang === 'uz' ? siteSettings.payment_instructions_uz : (lang === 'en' ? siteSettings.payment_instructions_en : siteSettings.payment_instructions_ru); %>
+                  <% if (instructions) { %>
+                    <p style="margin:14px 0 0; font-size:13px; color:var(--muted); white-space:pre-line;"><%= instructions %></p>
+                  <% } %>
+
+                  <span id="subCardCopiedNote" class="copied" style="display:none; margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.cardNumberCopied') %></span>
+                  <span id="subAmountCopiedNote" class="copied" style="display:none; margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.amountCopied') %></span>
+                <% } else { %>
+                  <p style="font-size:13px; color:var(--muted);"><%= t('subscription.noPaymentDetailsConfigured') %></p>
+                <% } %>
+
+                <div class="field" style="margin-top:20px;">
+                  <label for="payer_note"><%= t('subscription.commentLabel') %> <span class="hint-inline">(<%= t('subscription.commentHint') %>)</span></label>
+                  <textarea id="payer_note" name="payer_note" rows="2"><%= formValues.payer_note %></textarea>
+                </div>
+
+                <div class="field">
+                  <label for="receipt"><%= t('subscription.receiptLabel') %> <span class="hint-inline">(<%= t('subscription.receiptHint') %>)</span></label>
+                  <input type="file" id="receipt" name="receipt" accept="image/*">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:8px;"><%= t('subscription.submitClaimButton') %></button>
+              </form>
+            </div>
+          <% } %>
+        <% } %>
+
+        <div class="table-card" style="margin-top:20px;">
+          <div class="table-heading">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('subscription.historyHeading') %></h3></div>
+          </div>
+          <% if (claims.length === 0) { %>
+            <div style="padding: 26px; color: var(--muted); font-size: 13px;"><%= t('subscription.historyEmpty') %></div>
+          <% } %>
+          <% claims.forEach((claim) => { %>
+            <div class="table-row" style="grid-template-columns: 100px .6fr .8fr .8fr 1.4fr;">
+              <span class="category"><%= claim.created_at.toISOString().slice(0, 10) %></span>
+              <span><%= claim.months %> <%= t('subscription.monthsShort') %></span>
+              <b style="font-weight:600;"><%= Number(claim.amount).toLocaleString('ru-RU') %> <%= claim.currency %></b>
+              <span class="<%= claim.status === 'approved' ? 'status' : (claim.status === 'pending' ? 'status warn' : 'status off') %>"><i></i> <%= t(`subscription.claimStatus.${claim.status}`) %></span>
+              <span class="category" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<%= claim.payer_note || '' %>">
+                <%= claim.status === 'rejected' && claim.reject_reason ? t('subscription.rejectReasonPrefix', { reason: claim.reject_reason }) : (claim.payer_note || '—') %>
+              </span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var monthRadios = document.querySelectorAll('input[name="months"]');
+      var amountEl = document.getElementById('subAmountValue');
+      if (amountEl) {
+        var prices = JSON.parse(amountEl.dataset.prices || '[]');
+        monthRadios.forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            var match = prices.find(function (p) { return String(p.months) === radio.value; });
+            if (match) amountEl.textContent = match.price.toLocaleString('ru-RU');
+          });
+        });
+      }
+
+      document.querySelectorAll('.wifi-copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var valueEl = document.getElementById(btn.dataset.target);
+          var note = document.getElementById(btn.dataset.note);
+          if (!valueEl || !navigator.clipboard || !navigator.clipboard.writeText) return;
+          navigator.clipboard.writeText(valueEl.textContent.trim()).then(function () {
+            if (!note) return;
+            note.style.display = 'inline-flex';
+            setTimeout(function () { note.style.display = 'none'; }, 2000);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('superadmin.claimsHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+<%
+  const CLAIM_STATUS_BADGE_CLASS = { pending: 'status warn', approved: 'status', rejected: 'status off', cancelled: 'status off' };
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'paymentClaims', lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('roles.superadmin'), section: venue.name, lang, currentPath: '/superadmin/payment-claims', t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><span class="<%= CLAIM_STATUS_BADGE_CLASS[claim.status] %>"><i></i> <%= t(`subscription.claimStatus.${claim.status}`) %></span></span>
+            <h1><%= venue.name %></h1>
+          </div>
+          <a href="/superadmin/payment-claims" class="btn btn-outline"><%= t('superadmin.claimsBackToList') %></a>
+        </div>
+
+        <div class="form-card">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= venue.name %></h3></div>
+          </div>
+          <div class="super-stats" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
+            <div>
+              <span><%= t('subscription.periodHeading') %></span>
+              <b style="font-size:22px;"><%= claim.months %> <%= t('subscription.monthsShort') %></b>
+            </div>
+            <div>
+              <span><%= t('subscription.amountLabel') %></span>
+              <b style="font-size:22px;"><%= Number(claim.amount).toLocaleString('ru-RU') %> <%= claim.currency %></b>
+            </div>
+            <div>
+              <span><%= t('superadmin.claimsVenueLink') %></span>
+              <b style="font-size:16px;"><a href="/superadmin/venues/<%= venue.id %>"><%= venue.slug %></a></b>
+            </div>
+          </div>
+          <% if (claim.payer_note) { %>
+            <div style="margin-top:18px;">
+              <span style="display:block; color:var(--muted); font-size:11px; margin-bottom:4px;"><%= t('subscription.commentLabel') %></span>
+              <p style="margin:0; font-size:13px;"><%= claim.payer_note %></p>
+            </div>
+          <% } %>
+          <% if (claim.receipt_url) { %>
+            <div style="margin-top:18px;">
+              <span style="display:block; color:var(--muted); font-size:11px; margin-bottom:8px;"><%= t('subscription.receiptLabel') %></span>
+              <a href="<%= claim.receipt_url %>" target="_blank" rel="noopener">
+                <img src="<%= claim.receipt_url %>" alt="" style="max-width:240px; border-radius:10px; border:1px solid var(--border); display:block;">
+              </a>
+            </div>
+          <% } %>
+          <div style="margin-top:14px; color:var(--muted); font-size:11px;">
+            <%= t('subscription.pendingSince', { date: claim.created_at.toISOString().slice(0, 16).replace('T', ' ') }) %>
+            <% if (claim.reviewed_at) { %>
+              &nbsp;·&nbsp;<%= t('superadmin.claimsReviewedAt') %>: <%= claim.reviewed_at.toISOString().slice(0, 16).replace('T', ' ') %>
+            <% } %>
+          </div>
+          <% if (claim.status === 'rejected' && claim.reject_reason) { %>
+            <div class="alert alert-error" style="margin-top:14px;">
+              <%= t('subscription.rejectReasonPrefix', { reason: claim.reject_reason }) %>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (claim.status === 'pending') { %>
+          <div class="card-header" style="margin-top:24px; margin-bottom:16px;">
+            <div><span class="eyebrow">&nbsp;</span><h3>&nbsp;</h3></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-outline" onclick="document.getElementById('reject-modal').showModal()"><%= t('bot.lead.btnReject') %></button>
+              <form method="POST" action="/superadmin/payment-claims/<%= claim.id %>/confirm">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-primary">
+                  <%- include('../partials/icon', { name: 'check', size: 15 }) %> <%= t('bot.lead.btnApprove') %>
+                </button>
+              </form>
+            </div>
+          </div>
+        <% } %>
+
+        <dialog id="reject-modal" class="modal">
+          <div class="modal-head">
+            <h3><%= t('superadmin.leadRejectHeading') %></h3>
+            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+              <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+            </button>
+          </div>
+          <div class="modal-body">
+            <% if (rejectError) { %>
+              <div class="alert alert-error"><%= rejectError %></div>
+            <% } %>
+            <form method="POST" action="/superadmin/payment-claims/<%= claim.id %>/reject">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="field">
+                <label for="reason"><%= t('superadmin.leadRejectReasonLabel') %></label>
+                <textarea id="reason" name="reason" rows="3" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('superadmin.leadRejectSubmit') %></button>
+            </form>
+          </div>
+        </dialog>
+        <% if (rejectError) { %>
+          <script>document.getElementById('reject-modal').showModal();</script>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

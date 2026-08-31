@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 
 async function listAll() {
   const result = await pool.query(
-    'SELECT id, slug, name, is_active, subscription_until, show_powered_by FROM venues ORDER BY created_at DESC'
+    'SELECT id, slug, name, status, is_active, subscription_until, show_powered_by FROM venues ORDER BY created_at DESC'
   );
   return result.rows;
 }
@@ -27,6 +27,16 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
+// Для почасового пересчёта статусов (bot/worker/scheduler.js) — draft/archived не нуждаются
+// в пересчёте (venueLifecycle.computeTargetStatus сам их не трогает), исключаем на уровне SQL,
+// чтобы не гонять пересчёт по заведениям, которые заведомо не изменятся.
+async function listForLifecycleRecalc() {
+  const result = await pool.query(
+    `SELECT * FROM venues WHERE status NOT IN ('draft', 'archived')`
+  );
+  return result.rows;
+}
+
 // Лёгкий запрос без остального профиля — нужен там, где известен только venueId и требуется
 // решить, показывать ли поля _en в форме (adminItems/adminCategories).
 async function getLangSettings(venueId) {
@@ -36,7 +46,7 @@ async function getLangSettings(venueId) {
 
 async function findPublicBySlug(slug) {
   const result = await pool.query(
-    `SELECT id, slug, name, phone, address, address_2gis_url,
+    `SELECT id, slug, name, status, phone, address, address_2gis_url,
             wifi_ssid, wifi_password, instagram_url, telegram_url, working_hours, lang_default,
             enabled_langs, is_active, show_powered_by,
             logo_url, logo_thumb_url, cover_url, cover_thumb_url,
@@ -140,6 +150,7 @@ module.exports = {
   findBySlug,
   listActiveSlugs,
   findById,
+  listForLifecycleRecalc,
   getLangSettings,
   findPublicBySlug,
   create,

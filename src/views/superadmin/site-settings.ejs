@@ -97,6 +97,38 @@
               </div>
             </div>
 
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionPaymentHeading') %></h3>
+            <p class="hint" style="margin: -2px 0 14px;"><%= t('siteSettings.sectionPaymentHint') %></p>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="payment_card_number"><%= t('siteSettings.paymentCardNumberLabel') %></label>
+                <input type="text" id="payment_card_number" name="payment_card_number" value="<%= formValues.payment_card_number %>" placeholder="8600 1234 5678 9012">
+              </div>
+              <div class="field">
+                <label for="payment_card_holder"><%= t('siteSettings.paymentCardHolderLabel') %></label>
+                <input type="text" id="payment_card_holder" name="payment_card_holder" value="<%= formValues.payment_card_holder %>">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="payment_bank_name"><%= t('siteSettings.paymentBankNameLabel') %></label>
+              <input type="text" id="payment_bank_name" name="payment_bank_name" value="<%= formValues.payment_bank_name %>">
+            </div>
+
+            <div class="field">
+              <label for="payment_instructions_ru"><%= t('siteSettings.paymentInstructionsRuLabel') %></label>
+              <textarea id="payment_instructions_ru" name="payment_instructions_ru" rows="3"><%= formValues.payment_instructions_ru %></textarea>
+            </div>
+            <div class="field">
+              <label for="payment_instructions_uz"><%= t('siteSettings.paymentInstructionsUzLabel') %></label>
+              <textarea id="payment_instructions_uz" name="payment_instructions_uz" rows="3"><%= formValues.payment_instructions_uz %></textarea>
+            </div>
+            <div class="field">
+              <label for="payment_instructions_en"><%= t('siteSettings.paymentInstructionsEnLabel') %></label>
+              <textarea id="payment_instructions_en" name="payment_instructions_en" rows="3"><%= formValues.payment_instructions_en %></textarea>
+            </div>
+
             <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionDocsHeading') %></h3>
 
             <div class="field-grid">

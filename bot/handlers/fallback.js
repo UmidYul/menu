@@ -6,6 +6,7 @@ const telegramUserModel = require('../../src/models/telegramUserModel');
 const { isOwner } = require('../lib/owner');
 const supportBridge = require('../lib/supportBridge');
 const { tryConsumeRejectReason } = require('./leadActions');
+const { tryConsumeRejectReason: tryConsumeClaimRejectReason } = require('./paymentClaimActions');
 
 async function langOf(telegramId) {
   const user = await telegramUserModel.findById(telegramId);
@@ -66,6 +67,7 @@ function register(bot) {
   // сюда попадает всё остальное текстовое.
   bot.on(message('text'), async (ctx) => {
     if (await tryConsumeRejectReason(ctx)) return;
+    if (await tryConsumeClaimRejectReason(ctx)) return;
 
     if (isOwner(ctx.from.id) && ctx.message.reply_to_message) {
       const handled = await handleOwnerReply(ctx);

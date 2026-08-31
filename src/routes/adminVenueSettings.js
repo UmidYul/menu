@@ -2,6 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
+const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
@@ -9,7 +10,7 @@ const { venueSettingsSchema } = require('../validators/venueSettingsValidators')
 const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
 const pgNotify = require('../services/pgNotify');
 
-router.use(requireAuth, requireRole(['venue_admin']));
+router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
 
 function toFormValues(venue) {
   return {

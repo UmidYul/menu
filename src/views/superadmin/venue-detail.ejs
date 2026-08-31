@@ -33,7 +33,7 @@
               <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('superadmin.extendButton') %>
             </button>
           </div>
-          <div class="super-stats" style="grid-template-columns: 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
+          <div class="super-stats" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; margin-bottom: 0;">
             <div>
               <span><%= t('superadmin.subscriptionUntilLabel') %></span>
               <b style="font-size:22px;"><%= venue.subscription_until || t('superadmin.subscriptionNone') %></b>
@@ -41,6 +41,10 @@
             <div>
               <span><%= t('superadmin.colStatus') %></span>
               <b style="font-size:22px;"><span class="<%= statusClass %>" style="font-size:16px;"><i></i> <%= statusLabel %></span></b>
+            </div>
+            <div>
+              <span><%= t('subscription.statusLabel') %></span>
+              <b style="font-size:22px;"><%= t(`subscription.status.${venue.status}`) %></b>
             </div>
           </div>
         </div>
@@ -82,7 +86,7 @@
               <b style="font-weight:600;"><%= Number(payment.amount).toLocaleString('ru-RU') %> <%= payment.currency %></b>
               <span><%= t('superadmin.method_' + payment.method) %></span>
               <span class="category" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<%= payment.comment || '' %>"><%= payment.comment || '—' %></span>
-              <span><%= payment.created_by_login %></span>
+              <span><%= payment.created_by_login || t('superadmin.logsBotActor') %></span>
               <span class="category"><%= payment.extends_until %></span>
             </div>
           <% }) %>

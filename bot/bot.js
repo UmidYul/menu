@@ -9,6 +9,7 @@ const helpHandler = require('./handlers/help');
 const langHandler = require('./handlers/lang');
 const ownerHandler = require('./handlers/owner');
 const leadActionsHandler = require('./handlers/leadActions');
+const paymentClaimActionsHandler = require('./handlers/paymentClaimActions');
 const fallbackHandler = require('./handlers/fallback');
 
 // TTL сессии — 30 минут: "незавершённые сцены очищаются через 30 минут неактивности" из
@@ -31,6 +32,7 @@ function createBot() {
   langHandler.register(bot);
   ownerHandler.register(bot);
   leadActionsHandler.register(bot);
+  paymentClaimActionsHandler.register(bot);
   // fallback — последним: ловит всё, что не забрали команды/колбэки выше.
   fallbackHandler.register(bot);
 
