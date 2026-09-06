@@ -8,6 +8,7 @@ if (role === 'venue_admin') {
     { key: 'items', href: '/admin/items', icon: 'utensils', label: t('nav.items') },
     { key: 'venueSettings', href: '/admin/venue-settings', icon: 'sliders', label: t('nav.venueSettings') },
     { key: 'subscription', href: '/admin/subscription', icon: 'clock', label: t('nav.subscription') },
+    { key: 'password', href: '/admin/password', icon: 'key', label: t('nav.access') },
   ];
 } else if (role === 'superadmin') {
   _navItems = [
@@ -16,6 +17,7 @@ if (role === 'venue_admin') {
     { key: 'paymentClaims', href: '/superadmin/payment-claims', icon: 'clock', label: t('nav.paymentClaims'), badge: typeof paymentClaimsPendingCount !== 'undefined' ? paymentClaimsPendingCount : 0 },
     { key: 'logs', href: '/superadmin/logs', icon: 'activity', label: t('nav.logs') },
     { key: 'siteSettings', href: '/superadmin/site-settings', icon: 'sliders', label: t('nav.siteSettings') },
+    { key: 'password', href: '/admin/password', icon: 'key', label: t('nav.access') },
   ];
 }
 const _initials = (login || '?').slice(0, 2).toUpperCase();

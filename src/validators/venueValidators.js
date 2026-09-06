@@ -24,6 +24,17 @@ const venueRatingSchema = z.object({
   review_count: optionalReviewCount,
 });
 
+// Нужен для восстановления пароля (промт 1.5) — nullable на уровне БД, так что просто пусто,
+// если суперадмин его не знает на момент создания.
+const optionalAdminEmail = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v.toLowerCase() : null))
+  .refine((v) => v === null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+    message: 'superadmin.errorInvalidEmail',
+  });
+
 const createVenueSchema = z.object({
   slug: z
     .string()
@@ -39,6 +50,7 @@ const createVenueSchema = z.object({
   // bcrypt тихо обрезает вход длиннее 72 байт — сверху всё, что дальше, просто не участвует
   // в хеше. Ограничиваем явно, чтобы это не оказалось сюрпризом при попытке войти длинным паролем.
   admin_password: z.string().min(10, 'superadmin.errorAdminPasswordTooShort').max(72, 'superadmin.errorTooLong'),
+  admin_email: optionalAdminEmail,
 });
 
 module.exports = { createVenueSchema, venueRatingSchema };

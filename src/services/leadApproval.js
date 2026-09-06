@@ -22,6 +22,9 @@ async function generateAdminLogin(phone) {
 
 // Значения по умолчанию для формы одобрения — и для быстрого одобрения из бота "как есть",
 // и как предзаполнение формы в суперадминке, где их можно поправить перед подтверждением.
+// adminEmail предзаполняется из заявки, если она уже содержит почту — экономит суперадмину
+// один шаг, но остаётся полем формы, а не решением за него: почты в заявке может не быть,
+// а без email восстановление пароля (промт 1.5) недоступно.
 async function buildApprovalDefaults(lead) {
   const [slug, adminLogin] = await Promise.all([
     leadModel.generateUniqueSlug(lead.venue_name),
@@ -33,6 +36,7 @@ async function buildApprovalDefaults(lead) {
     langDefault: 'ru',
     adminLogin,
     adminPassword: generatePassword(),
+    adminEmail: lead.email || '',
   };
 }
 
@@ -41,8 +45,9 @@ async function buildApprovalDefaults(lead) {
 // is_active:false — до промта 1.3 нет отдельной страницы-заглушки для draft, is_active:false
 // временно отдаёт уже существующую "меню недоступно" для только что созданных заведений.
 // processedBy — admin_id суперадмина при одобрении через веб, null при быстром одобрении из
-// бота (там нет привязки Telegram к конкретному admins-аккаунту — это промт 1.5).
-async function approveLead(lead, { slug, name, langDefault, adminLogin, adminPassword, processedBy }) {
+// бота (там нет привязки Telegram к конкретному admins-аккаунту — привязка отдельная, через
+// /admin/password уже ПОСЛЕ первого входа владельца).
+async function approveLead(lead, { slug, name, langDefault, adminLogin, adminPassword, adminEmail, processedBy }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -56,6 +61,8 @@ async function approveLead(lead, { slug, name, langDefault, adminLogin, adminPas
       login: adminLogin,
       passwordHash,
       role: 'venue_admin',
+      mustChangePassword: true,
+      email: adminEmail || null,
     });
 
     await leadModel.markApproved(client, lead.id, { venueId: venue.id, processedBy: processedBy || null });
@@ -77,16 +84,25 @@ async function approveLead(lead, { slug, name, langDefault, adminLogin, adminPas
       details: { status: 'approved', venue_id: venue.id },
     });
 
-    // Логин/пароль уходят одним уведомлением — без разбивки на два сообщения, это конкретно
-    // защита промта 1.5 вместе с must_change_password, которого пока нет.
-    const payload = { venue_name: venue.name, admin_login: adminLogin, admin_password: adminPassword };
+    // Логин/ссылка на вход и пароль — ДВУМЯ отдельными уведомлениями (промт 1.5, п.1): дешёвая,
+    // но реальная защита от пересылки скриншота — в одном сообщении окажется только половина
+    // доступа. Канал выбирается как и раньше (телеграм заявки, иначе почта), просто теперь
+    // enqueue дважды с разными шаблонами вместо одного.
+    const loginPayload = { venue_name: venue.name, admin_login: adminLogin };
+    const passwordPayload = { venue_name: venue.name, admin_password: adminPassword };
     if (lead.telegram_id) {
       await notificationModel.enqueue(client, {
-        channel: 'telegram', recipient: String(lead.telegram_id), template: 'lead_approved', payload, lang: 'ru',
+        channel: 'telegram', recipient: String(lead.telegram_id), template: 'admin_credentials_login', payload: loginPayload, lang: 'ru',
+      });
+      await notificationModel.enqueue(client, {
+        channel: 'telegram', recipient: String(lead.telegram_id), template: 'admin_credentials_password', payload: passwordPayload, lang: 'ru',
       });
     } else if (lead.email) {
       await notificationModel.enqueue(client, {
-        channel: 'email', recipient: lead.email, template: 'lead_approved', payload, lang: 'ru',
+        channel: 'email', recipient: lead.email, template: 'admin_credentials_login', payload: loginPayload, lang: 'ru',
+      });
+      await notificationModel.enqueue(client, {
+        channel: 'email', recipient: lead.email, template: 'admin_credentials_password', payload: passwordPayload, lang: 'ru',
       });
     }
 

@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const express = require('express');
 
 const router = express.Router();
@@ -10,6 +9,7 @@ const notificationModel = require('../models/notificationModel');
 const siteSettingsCache = require('../services/siteSettingsCache');
 const env = require('../config/env');
 const { SERVICE_NAME } = require('../config/constants');
+const { hashIp } = require('../utils/hashIp');
 
 const LANG_COOKIE = 'site_lang';
 // Бот-заполнители обычно проходят форму мгновенно — реальному человеку нужно хотя бы
@@ -25,15 +25,6 @@ function resolveLang(req, res) {
     return req.cookies[LANG_COOKIE];
   }
   return DEFAULT_LANG;
-}
-
-// Псевдонимизация IP для leads.ip_hash: соль включает дату, так что хеш одного и того же IP
-// меняется день ото дня — нельзя по хешу сопоставить активность за разные сутки, но в рамках
-// одних суток одинаковые IP всё ещё дают одинаковый хеш (пригодно для анализа паттернов спама).
-// SESSION_SECRET уже обязателен в env.js — отдельный секрет под это заводить незачем.
-function hashIp(ip) {
-  const day = new Date().toISOString().slice(0, 10);
-  return crypto.createHash('sha256').update(`${env.SESSION_SECRET}:${day}:${ip}`).digest('hex');
 }
 
 async function renderForm(req, res, lang, { status = 200, error = null, values = {} } = {}) {

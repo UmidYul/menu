@@ -12,9 +12,11 @@ const sessionMiddleware = require('./config/session');
 const defaultLocale = require('./middlewares/locale');
 const { adminLocale } = require('./middlewares/adminLocale');
 const { csrfProtection } = require('./middlewares/csrf');
+const { redirectIfMustChangePassword } = require('./middlewares/auth');
 const { leadsBadge } = require('./middlewares/leadsBadge');
 const { uploadItemPhoto, uploadVenueImages, uploadReceiptPhoto } = require('./middlewares/upload');
 const adminAuthRoutes = require('./routes/adminAuth');
+const adminPasswordRoutes = require('./routes/adminPassword');
 const adminLocaleRoutes = require('./routes/adminLocale');
 const adminDashboardRoutes = require('./routes/adminDashboard');
 const superadminRoutes = require('./routes/superadmin');
@@ -110,16 +112,24 @@ app.get('/health', async (req, res) => {
 // форма с файлом (создание/правка позиции, настройки заведения) всегда получит 403. На
 // не-multipart запросах (GET, DELETE, /toggle) multer видит несовпадающий Content-Type
 // и молча пропускает дальше.
-app.use('/admin/items', adminLocale, uploadItemPhoto, csrfProtection, adminItemsRoutes);
-app.use('/admin/venue-settings', adminLocale, uploadVenueImages, csrfProtection, adminVenueSettingsRoutes);
+// redirectIfMustChangePassword (промт 1.5) — стоит на каждом маунте с настоящим содержимым
+// админки, кроме /admin/password (это и есть форма смены, которую он должен пропускать) и
+// общих /admin-маунтов auth/locale ниже (логаут обязан работать всегда, переключение языка
+// безобидно). Сам redirect случается только если в сессии реально стоит флаг — на всех
+// остальных запросах middleware мгновенно передаёт управление дальше.
+app.use('/admin/items', adminLocale, uploadItemPhoto, csrfProtection, redirectIfMustChangePassword, adminItemsRoutes);
+app.use('/admin/venue-settings', adminLocale, uploadVenueImages, csrfProtection, redirectIfMustChangePassword, adminVenueSettingsRoutes);
 // uploadReceiptPhoto здесь же ДО csrfProtection — POST /admin/subscription/claim несёт
 // необязательный скриншот чека (multipart/form-data), та же причина, что у items/venue-settings
 // выше. GET / и POST /cancel-claim (обычный urlencoded) multer пропускает молча.
-app.use('/admin/subscription', adminLocale, uploadReceiptPhoto, csrfProtection, adminSubscriptionRoutes);
+app.use('/admin/subscription', adminLocale, uploadReceiptPhoto, csrfProtection, redirectIfMustChangePassword, adminSubscriptionRoutes);
+// /admin/password — сама форма смены пароля и привязка Telegram; сюда redirectIfMustChangePassword
+// намеренно не ставится (это и есть единственный маршрут, доступный с флагом must_change_password).
+app.use('/admin/password', adminLocale, csrfProtection, adminPasswordRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminAuthRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminLocaleRoutes);
-app.use('/admin', adminLocale, csrfProtection, adminDashboardRoutes);
-app.use('/admin/categories', adminLocale, csrfProtection, adminCategoriesRoutes);
+app.use('/admin', adminLocale, csrfProtection, redirectIfMustChangePassword, adminDashboardRoutes);
+app.use('/admin/categories', adminLocale, csrfProtection, redirectIfMustChangePassword, adminCategoriesRoutes);
 // /superadmin/leads должен идти раньше общего '/superadmin' ниже — та же причина, что и у
 // /admin/items и /admin/venue-settings выше (см. комментарий над ними): более специфичный
 // префикс обязан быть зарегистрирован первым, иначе не имеет значения, что superadmin.js

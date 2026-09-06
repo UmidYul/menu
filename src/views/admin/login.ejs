@@ -16,6 +16,9 @@
       </div>
       <div class="brand" style="margin-bottom:22px;"><%- include('../partials/brand', { compact: true }) %></div>
       <h1><%= t('login.heading') %></h1>
+      <% if (locals.success) { %>
+        <div class="alert alert-success"><%= success %></div>
+      <% } %>
       <% if (error) { %>
         <div class="alert alert-error"><%= error %></div>
       <% } %>
@@ -31,6 +34,7 @@
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('login.submit') %></button>
       </form>
+      <div class="auth-forgot"><a href="/admin/forgot"><%= t('login.forgotLink') %></a></div>
     </div>
   </div>
 </body>

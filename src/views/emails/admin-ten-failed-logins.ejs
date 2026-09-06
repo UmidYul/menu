@@ -1,0 +1,8 @@
+<%
+// payload: { venue_name }, t, siteSettings, escapeHtml
+const bodyHtml = `
+  <p>${escapeHtml(t('bot.templates.adminTenFailedLoginsLine1', { venueName: payload.venue_name }))}</p>
+  <p>${escapeHtml(t('bot.templates.adminTenFailedLoginsLine2'))}</p>
+`;
+%>
+<%- include('./layout', { title: t('bot.templates.adminTenFailedLoginsSubject', { venueName: payload.venue_name }), bodyHtml, siteSettings }) %>

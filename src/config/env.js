@@ -36,6 +36,14 @@ if (!botConfigured) {
   console.warn('env: BOT_TOKEN не задан — функции, связанные с Telegram-ботом, отключены.');
 }
 
+// Username бота (без @) — нужен веб-процессу отдельно от BOT_TOKEN, чтобы собрать
+// deep-link t.me/<username>?start=... (привязка Telegram, промт 1.5). Веб-процесс не
+// держит соединения с Bot API и не может узнать username сам через getMe().
+const botUsername = process.env.BOT_USERNAME || null;
+if (botConfigured && !botUsername) {
+  console.warn('env: BOT_USERNAME не задан — кнопка "Привязать Telegram" не сможет собрать ссылку на бота.');
+}
+
 const botMode = process.env.BOT_MODE === 'webhook' ? 'webhook' : 'polling';
 const ownerTelegramIds = (process.env.OWNER_TELEGRAM_ID || '')
   .split(',')
@@ -68,6 +76,7 @@ module.exports = {
 
   BOT_TOKEN: process.env.BOT_TOKEN || null,
   botConfigured,
+  BOT_USERNAME: botUsername,
   BOT_MODE: botMode,
   BOT_PORT: Number(process.env.BOT_PORT) || 3001,
   BOT_WEBHOOK_URL: process.env.BOT_WEBHOOK_URL || null,

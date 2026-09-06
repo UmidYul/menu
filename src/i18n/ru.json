@@ -7,7 +7,8 @@
     "delete": "Удалить",
     "back": "Назад",
     "actions": "Действия",
-    "loggedInAs": "Вы вошли как"
+    "loggedInAs": "Вы вошли как",
+    "copy": "Скопировать"
   },
   "roles": {
     "superadmin": "суперадминистратор",
@@ -25,7 +26,8 @@
     "logs": "Логи",
     "siteSettings": "Настройки сайта",
     "openMenu": "Открыть меню",
-    "preview": "Предпросмотр"
+    "preview": "Предпросмотр",
+    "access": "Доступ"
   },
   "login": {
     "pageTitle": "Вход — QR-меню",
@@ -37,7 +39,51 @@
     "errorInvalidCredentials": "Неверный логин или пароль",
     "errorAccountDisabled": "Эта учётная запись отключена. Обратитесь к администратору заведения.",
     "errorVenueDisabled": "Заведение временно отключено. Обратитесь к администратору сервиса.",
-    "errorRateLimited": "Слишком много попыток входа. Попробуйте снова через 15 минут."
+    "errorRateLimited": "Слишком много попыток входа. Попробуйте снова через 15 минут.",
+    "forgotLink": "Забыли пароль?",
+    "forgotPageTitle": "Восстановление пароля — QR-меню",
+    "forgotHeading": "Восстановление пароля",
+    "forgotHint": "Укажите логин или почту, привязанную к аккаунту — если такой аккаунт есть, мы отправим ссылку для смены пароля.",
+    "forgotIdentifierLabel": "Логин или почта",
+    "forgotSubmit": "Отправить ссылку",
+    "forgotSubmittedMessage": "Если такой аккаунт существует, мы отправили письмо со ссылкой для смены пароля.",
+    "forgotErrorEmptyField": "Введите логин или почту",
+    "backToLogin": "Назад ко входу",
+    "resetPageTitle": "Новый пароль — QR-меню",
+    "resetHeading": "Новый пароль",
+    "resetInvalidToken": "Ссылка недействительна или уже использована. Запросите новую.",
+    "resetSubmit": "Сохранить новый пароль",
+    "resetSuccessMessage": "Пароль изменён. Войдите с новым паролем.",
+    "newPasswordLabel": "Новый пароль",
+    "newPasswordHint": "Минимум 8 символов, не должен совпадать с логином и не быть слишком простым.",
+    "currentPasswordLabel": "Текущий пароль",
+    "errorCurrentPasswordWrong": "Текущий пароль указан неверно",
+    "errorPasswordTooShort": "Пароль должен быть не короче 8 символов",
+    "errorPasswordTooLong": "Слишком длинный пароль",
+    "errorPasswordMatchesLogin": "Пароль не должен совпадать с логином",
+    "errorPasswordTooCommon": "Этот пароль слишком простой и часто встречается — выберите другой",
+    "passwordStrengthWeak": "Слабый",
+    "passwordStrengthMedium": "Средний",
+    "passwordStrengthStrong": "Надёжный",
+    "accessPageTitle": "Доступ — QR-меню",
+    "accessHeading": "Доступ",
+    "changePasswordHeading": "Смена пароля",
+    "changePasswordSubmit": "Сменить пароль",
+    "passwordChanged": "Пароль изменён",
+    "telegramLinkHeading": "Telegram",
+    "telegramLinkIntro": "Привяжите Telegram — так вы будете получать уведомления о заведении и сможете восстановить доступ без почты.",
+    "telegramGenerateButton": "Привязать Telegram",
+    "telegramLinkCodeHint": "Откройте бота и нажмите кнопку ниже, либо перейдите по ссылке — привязка произойдёт автоматически. Код действует 15 минут.",
+    "telegramLinkCodeLabel": "Код",
+    "telegramCodeCopied": "Скопировано",
+    "telegramOpenBotButton": "Открыть бота",
+    "telegramRegenerateButton": "Сгенерировать новый код",
+    "telegramLinkedText": "Telegram привязан. Вы получаете уведомления о заведении и можете восстановить доступ через бота.",
+    "telegramUnlinkButton": "Отвязать Telegram",
+    "telegramUnlinkConfirm": "Отвязать Telegram от аккаунта?",
+    "telegramLinkUnavailable": "Привязка Telegram временно недоступна.",
+    "forgotNoEmailHint": "Если почты нет — восстановление недоступно, обратитесь в поддержку через",
+    "forgotBotLinkText": "Telegram-бота"
   },
   "dashboard": {
     "slugLabel": "Slug",
@@ -304,7 +350,11 @@
     "ratingSubmit": "Сохранить рейтинг",
     "ratingNone": "не задан",
     "errorInvalidRating": "Рейтинг должен быть числом от 0 до 5",
-    "errorInvalidReviewCount": "Количество отзывов должно быть целым неотрицательным числом"
+    "errorInvalidReviewCount": "Количество отзывов должно быть целым неотрицательным числом",
+    "errorInvalidEmail": "Некорректный email",
+    "adminEmailLabel": "Email администратора (для восстановления пароля)",
+    "adminEmailHint": "Необязательно, но без него восстановление пароля недоступно владельцу.",
+    "actionAuthFail": "Неудачный вход"
   },
   "subscription": {
     "pageTitle": "Подписка — панель управления",
@@ -731,7 +781,6 @@
       "btnHaveAccount": "У меня уже есть аккаунт",
       "btnAskQuestion": "Задать вопрос",
       "btnChangeLang": "🌐 Язык",
-      "accountComingSoon": "Привязка существующего аккаунта появится в одном из следующих обновлений. Если нужна помощь прямо сейчас — напишите здесь, поможем.",
       "askQuestionPrompt": "Напишите ваш вопрос — мы получим его и ответим здесь же."
     },
     "lang": {
@@ -844,12 +893,6 @@
       "leadCreatedLine1": "Поступила новая заявка на подключение: «{{venueName}}».",
       "leadCreatedLine2": "Контакт: {{contactName}}, телефон: {{phone}}.",
       "leadCreatedComment": "Комментарий: {{comment}}",
-      "leadApprovedSubject": "Заявка одобрена — {{venueName}}",
-      "leadApprovedTelegram": "Заявка на «{{venueName}}» одобрена! Доступ в панель управления:\nЛогин: {{adminLogin}}\nПароль: {{adminPassword}}",
-      "leadApprovedLine1": "Заявка на «{{venueName}}» одобрена!",
-      "leadApprovedLine2": "Доступ в панель управления:",
-      "leadApprovedLogin": "Логин: {{login}}",
-      "leadApprovedPassword": "Пароль: {{password}}",
       "leadRejectedSubject": "По заявке «{{venueName}}»",
       "leadRejectedTelegram": "К сожалению, заявка на «{{venueName}}» отклонена.\nПричина: {{reason}}",
       "leadRejectedLine1": "К сожалению, заявка на «{{venueName}}» отклонена.",
@@ -872,7 +915,31 @@
       "manualContactNeededTelegram": "📵 У заведения «{{venueName}}» (#{{venueId}}) нет email — не удалось отправить напоминание о подписке ({{reason}}). Свяжитесь вручную.",
       "venuePublishedTelegram": "🎉 Заведение «{{venueName}}» (#{{venueId}}) опубликовано и начало бесплатный период.",
       "paymentClaimRejectedSubject": "Заявка на оплату отклонена — {{venueName}}",
-      "paymentClaimRejectedText": "Заявка на оплату подписки «{{venueName}}» отклонена. Причина: {{reason}}"
+      "paymentClaimRejectedText": "Заявка на оплату подписки «{{venueName}}» отклонена. Причина: {{reason}}",
+      "adminCredentialsLoginSubject": "Доступ в панель управления «{{venueName}}»",
+      "adminCredentialsLoginTelegram": "Заявка на «{{venueName}}» одобрена!\nЛогин: {{adminLogin}}\nВход: {{url}}\nПароль придёт следующим сообщением.",
+      "adminCredentialsLoginLine1": "Заявка на «{{venueName}}» одобрена! Доступ в панель управления:",
+      "adminCredentialsLoginLine2": "Логин: {{login}}",
+      "adminCredentialsLoginLine3": "Пароль придёт отдельным письмом.",
+      "adminCredentialsPasswordSubject": "Пароль для «{{venueName}}»",
+      "adminCredentialsPasswordTelegram": "Пароль: {{adminPassword}}",
+      "adminCredentialsPasswordLine1": "Пароль для входа в панель управления «{{venueName}}»:",
+      "adminCredentialsPasswordLine2": "Смените его при первом входе — система попросит об этом сама.",
+      "adminPasswordChangedSubject": "Пароль изменён",
+      "adminPasswordChangedTelegram": "Пароль аккаунта {{login}} изменён. Если это были не вы — напишите нам.",
+      "adminPasswordChangedLine1": "Пароль аккаунта {{login}} изменён.",
+      "adminPasswordChangedLine2": "Если это были не вы — напишите нам как можно скорее.",
+      "passwordResetLinkSubject": "Восстановление пароля",
+      "passwordResetLinkTelegram": "Восстановление пароля для {{login}}:\n{{url}}\nСсылка действует 60 минут.",
+      "passwordResetLinkLine1": "Запрошено восстановление пароля для аккаунта {{login}}. Перейдите по ссылке, чтобы задать новый пароль:",
+      "passwordResetLinkLine2": "Ссылка действует 60 минут и работает только один раз. Если вы не запрашивали восстановление — просто проигнорируйте это письмо.",
+      "adminTelegramUnlinkedSubject": "Telegram отвязан от аккаунта",
+      "adminTelegramUnlinkedLine1": "Telegram отвязан от аккаунта {{login}} — он привязан к другому аккаунту.",
+      "adminTelegramUnlinkedLine2": "Если это были не вы — напишите нам.",
+      "adminTenFailedLoginsSubject": "Много неудачных попыток входа — «{{venueName}}»",
+      "adminTenFailedLoginsTelegram": "10 неудачных попыток входа подряд в панель управления «{{venueName}}». Если это не вы — проверьте пароль.",
+      "adminTenFailedLoginsLine1": "Зафиксировано 10 неудачных попыток входа подряд в панель управления «{{venueName}}».",
+      "adminTenFailedLoginsLine2": "Если это были не вы, рекомендуем сменить пароль."
     },
     "paymentClaim": {
       "card": "💳 Заявка на оплату\n\nЗаведение: {{venueName}}\nПериод: {{months}} мес.\nСумма: {{amount}} {{currency}}\nКомментарий: {{note}}",
@@ -884,6 +951,14 @@
       "confirmFailed": "Не удалось подтвердить заявку. Попробуйте ещё раз или проверьте логи.",
       "askRejectReason": "Укажите причину отказа следующим сообщением.",
       "rejected": "Заявка отклонена, заведение уведомлено."
+    },
+    "account": {
+      "linkSuccess": "Telegram привязан к заведению «{{venueName}}»! Теперь уведомления будут приходить сюда.",
+      "linkInvalidCode": "Код недействителен или уже использован. Получите новый в панели управления → Доступ.",
+      "linkedMenu": "Аккаунт {{login}} привязан к этому Telegram.",
+      "btnForgotPassword": "Забыл пароль",
+      "notLinkedHint": "Этот Telegram ещё не привязан ни к одному аккаунту. Зайдите в панель управления → Доступ → «Привязать Telegram» и перейдите по ссылке, которая там появится.",
+      "forgotLinkSent": "Ссылка для смены пароля:\n{{url}}\nДействует 60 минут."
     }
   }
 }

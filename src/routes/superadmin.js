@@ -37,7 +37,7 @@ router.get('/venues', async (req, res, next) => {
       role: req.session.admin.role,
       error: null,
       formTarget: null,
-      formValues: { slug: '', name: '', lang_default: 'ru', admin_login: '' },
+      formValues: { slug: '', name: '', lang_default: 'ru', admin_login: '', admin_email: '' },
     });
   } catch (err) {
     next(err);
@@ -59,6 +59,7 @@ router.post('/venues', async (req, res, next) => {
         name: typeof req.body.name === 'string' ? req.body.name : '',
         lang_default: req.body.lang_default === 'uz' ? 'uz' : 'ru',
         admin_login: typeof req.body.admin_login === 'string' ? req.body.admin_login : '',
+        admin_email: typeof req.body.admin_email === 'string' ? req.body.admin_email : '',
       },
     });
   };
@@ -68,8 +69,10 @@ router.post('/venues', async (req, res, next) => {
     if (!parsed.success) {
       return renderWithError(400, t(parsed.error.issues[0].message));
     }
-    const { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: adminPassword } =
-      parsed.data;
+    const {
+      slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: adminPassword,
+      admin_email: adminEmail,
+    } = parsed.data;
 
     const existingVenue = await venueModel.findBySlug(slug);
     if (existingVenue) {
@@ -92,6 +95,8 @@ router.post('/venues', async (req, res, next) => {
         login: adminLogin,
         passwordHash,
         role: 'venue_admin',
+        mustChangePassword: true,
+        email: adminEmail || null,
       });
 
       await logAction(client, {
@@ -102,6 +107,19 @@ router.post('/venues', async (req, res, next) => {
         entityId: venue.id,
         details: { slug: venue.slug, name: venue.name, admin_login: admin.login },
       });
+
+      // В отличие от одобрения заявки (leadApproval.js), здесь нет заранее известного канала
+      // (ни telegram_id, ни подтверждённого email заявки) — единственный доступный на момент
+      // создания адрес — то, что суперадмин только что вписал в это же поле формы. Без email
+      // отправлять некуда, это ожидаемо (форма не требует его обязательным), просто ничего не уйдёт.
+      if (adminEmail) {
+        await notificationModel.enqueue(client, {
+          channel: 'email', recipient: adminEmail, template: 'admin_credentials_login', payload: { venue_name: venue.name, admin_login: adminLogin }, lang: 'ru',
+        });
+        await notificationModel.enqueue(client, {
+          channel: 'email', recipient: adminEmail, template: 'admin_credentials_password', payload: { venue_name: venue.name, admin_password: adminPassword }, lang: 'ru',
+        });
+      }
 
       await client.query('COMMIT');
     } catch (err) {
@@ -457,12 +475,13 @@ router.post('/venues/:id/extend', async (req, res, next) => {
   }
 });
 
-const LOG_ACTION_TYPES = ['create', 'update', 'delete', 'toggle_availability'];
+const LOG_ACTION_TYPES = ['create', 'update', 'delete', 'toggle_availability', 'auth_fail'];
 const ACTION_LABEL_KEYS = {
   create: 'superadmin.actionCreate',
   update: 'superadmin.actionUpdate',
   delete: 'superadmin.actionDelete',
   toggle_availability: 'superadmin.actionToggleAvailability',
+  auth_fail: 'superadmin.actionAuthFail',
 };
 const ENTITY_LABEL_KEYS = {
   item: 'superadmin.entityItem',

@@ -7,7 +7,8 @@
     "delete": "O'chirish",
     "back": "Orqaga",
     "actions": "Amallar",
-    "loggedInAs": "Siz quyidagicha kirdingiz:"
+    "loggedInAs": "Siz quyidagicha kirdingiz:",
+    "copy": "Nusxalash"
   },
   "roles": {
     "superadmin": "superadministrator",
@@ -25,7 +26,8 @@
     "logs": "Loglar",
     "siteSettings": "Sayt sozlamalari",
     "openMenu": "Menyuni ochish",
-    "preview": "Ko'rib chiqish"
+    "preview": "Ko'rib chiqish",
+    "access": "Kirish huquqi"
   },
   "login": {
     "pageTitle": "Kirish — QR-menyu",
@@ -37,7 +39,51 @@
     "errorInvalidCredentials": "Login yoki parol noto'g'ri",
     "errorAccountDisabled": "Ushbu hisob o'chirilgan. Muassasa administratoriga murojaat qiling.",
     "errorVenueDisabled": "Muassasa vaqtincha o'chirilgan. Servis administratoriga murojaat qiling.",
-    "errorRateLimited": "Juda ko'p kirish urinishi. 15 daqiqadan so'ng qayta urining."
+    "errorRateLimited": "Juda ko'p kirish urinishi. 15 daqiqadan so'ng qayta urining.",
+    "forgotLink": "Parolni unutdingizmi?",
+    "forgotPageTitle": "Parolni tiklash — QR-menyu",
+    "forgotHeading": "Parolni tiklash",
+    "forgotHint": "Hisobga bog'langan login yoki pochtani kiriting — agar bunday hisob mavjud bo'lsa, parolni almashtirish uchun havola yuboramiz.",
+    "forgotIdentifierLabel": "Login yoki pochta",
+    "forgotSubmit": "Havola yuborish",
+    "forgotSubmittedMessage": "Agar bunday hisob mavjud bo'lsa, parolni almashtirish uchun havola bilan xat yubordik.",
+    "forgotErrorEmptyField": "Login yoki pochtani kiriting",
+    "backToLogin": "Kirishga qaytish",
+    "resetPageTitle": "Yangi parol — QR-menyu",
+    "resetHeading": "Yangi parol",
+    "resetInvalidToken": "Havola yaroqsiz yoki allaqachon ishlatilgan. Yangisini so'rang.",
+    "resetSubmit": "Yangi parolni saqlash",
+    "resetSuccessMessage": "Parol o'zgartirildi. Yangi parol bilan kiring.",
+    "newPasswordLabel": "Yangi parol",
+    "newPasswordHint": "Kamida 8 belgi, login bilan bir xil bo'lmasligi va juda oddiy bo'lmasligi kerak.",
+    "currentPasswordLabel": "Joriy parol",
+    "errorCurrentPasswordWrong": "Joriy parol noto'g'ri kiritildi",
+    "errorPasswordTooShort": "Parol kamida 8 belgidan iborat bo'lishi kerak",
+    "errorPasswordTooLong": "Parol juda uzun",
+    "errorPasswordMatchesLogin": "Parol login bilan bir xil bo'lmasligi kerak",
+    "errorPasswordTooCommon": "Bu parol juda oddiy va tez-tez uchraydi — boshqasini tanlang",
+    "passwordStrengthWeak": "Zaif",
+    "passwordStrengthMedium": "O'rtacha",
+    "passwordStrengthStrong": "Ishonchli",
+    "accessPageTitle": "Kirish huquqi — QR-menyu",
+    "accessHeading": "Kirish huquqi",
+    "changePasswordHeading": "Parolni almashtirish",
+    "changePasswordSubmit": "Parolni almashtirish",
+    "passwordChanged": "Parol o'zgartirildi",
+    "telegramLinkHeading": "Telegram",
+    "telegramLinkIntro": "Telegramni bog'lang — shunda muassasa haqida bildirishnomalar keladi va pochtasiz ham kirishni tiklay olasiz.",
+    "telegramGenerateButton": "Telegramni bog'lash",
+    "telegramLinkCodeHint": "Botni oching va pastdagi tugmani bosing, yoki havolaga o'ting — bog'lash avtomatik amalga oshadi. Kod 15 daqiqa amal qiladi.",
+    "telegramLinkCodeLabel": "Kod",
+    "telegramCodeCopied": "Nusxalandi",
+    "telegramOpenBotButton": "Botni ochish",
+    "telegramRegenerateButton": "Yangi kod yaratish",
+    "telegramLinkedText": "Telegram bog'langan. Siz muassasa haqida bildirishnomalar olasiz va bot orqali kirishni tiklay olasiz.",
+    "telegramUnlinkButton": "Telegramni uzish",
+    "telegramUnlinkConfirm": "Telegramni hisobdan uzasizmi?",
+    "telegramLinkUnavailable": "Telegramni bog'lash hozircha mavjud emas.",
+    "forgotNoEmailHint": "Agar pochta bo'lmasa — tiklash mavjud emas, qo'llab-quvvatlashga murojaat qiling:",
+    "forgotBotLinkText": "Telegram-bot"
   },
   "dashboard": {
     "slugLabel": "Slug",
@@ -304,7 +350,11 @@
     "ratingSubmit": "Reytingni saqlash",
     "ratingNone": "belgilanmagan",
     "errorInvalidRating": "Reyting 0 dan 5 gacha bo'lgan son bo'lishi kerak",
-    "errorInvalidReviewCount": "Sharhlar soni manfiy bo'lmagan butun son bo'lishi kerak"
+    "errorInvalidReviewCount": "Sharhlar soni manfiy bo'lmagan butun son bo'lishi kerak",
+    "errorInvalidEmail": "Email noto'g'ri",
+    "adminEmailLabel": "Administrator email (parolni tiklash uchun)",
+    "adminEmailHint": "Majburiy emas, lekin u bo'lmasa egasi parolni tiklay olmaydi.",
+    "actionAuthFail": "Muvaffaqiyatsiz kirish"
   },
   "subscription": {
     "pageTitle": "Obuna — boshqaruv paneli",
@@ -731,7 +781,6 @@
       "btnHaveAccount": "Mening hisobim allaqachon bor",
       "btnAskQuestion": "Savol berish",
       "btnChangeLang": "🌐 Til",
-      "accountComingSoon": "Mavjud hisobni bog'lash keyingi yangilanishlardan birida paydo bo'ladi. Yordam hozir kerak bo'lsa — shu yerga yozing, yordam beramiz.",
       "askQuestionPrompt": "Savolingizni yozing — uni ko'ramiz va shu yerda javob beramiz."
     },
     "lang": {
@@ -844,12 +893,6 @@
       "leadCreatedLine1": "Ulanish uchun yangi ariza tushdi: «{{venueName}}».",
       "leadCreatedLine2": "Kontakt: {{contactName}}, telefon: {{phone}}.",
       "leadCreatedComment": "Izoh: {{comment}}",
-      "leadApprovedSubject": "Ariza tasdiqlandi — {{venueName}}",
-      "leadApprovedTelegram": "«{{venueName}}» arizasi tasdiqlandi! Boshqaruv paneliga kirish:\nLogin: {{adminLogin}}\nParol: {{adminPassword}}",
-      "leadApprovedLine1": "«{{venueName}}» arizasi tasdiqlandi!",
-      "leadApprovedLine2": "Boshqaruv paneliga kirish:",
-      "leadApprovedLogin": "Login: {{login}}",
-      "leadApprovedPassword": "Parol: {{password}}",
       "leadRejectedSubject": "«{{venueName}}» arizasi bo'yicha",
       "leadRejectedTelegram": "Afsuski, «{{venueName}}» arizasi rad etildi.\nSabab: {{reason}}",
       "leadRejectedLine1": "Afsuski, «{{venueName}}» arizasi rad etildi.",
@@ -872,7 +915,31 @@
       "manualContactNeededTelegram": "📵 «{{venueName}}» (#{{venueId}}) muassasasida email yo'q — obuna haqida eslatma yuborib bo'lmadi ({{reason}}). Qo'lda bog'laning.",
       "venuePublishedTelegram": "🎉 «{{venueName}}» (#{{venueId}}) muassasasi e'lon qilindi va bepul davr boshlandi.",
       "paymentClaimRejectedSubject": "To'lov arizasi rad etildi — {{venueName}}",
-      "paymentClaimRejectedText": "«{{venueName}}» obunasini to'lash arizasi rad etildi. Sabab: {{reason}}"
+      "paymentClaimRejectedText": "«{{venueName}}» obunasini to'lash arizasi rad etildi. Sabab: {{reason}}",
+      "adminCredentialsLoginSubject": "«{{venueName}}» boshqaruv paneliga kirish",
+      "adminCredentialsLoginTelegram": "«{{venueName}}» arizasi tasdiqlandi!\nLogin: {{adminLogin}}\nKirish: {{url}}\nParol keyingi xabarda keladi.",
+      "adminCredentialsLoginLine1": "«{{venueName}}» arizasi tasdiqlandi! Boshqaruv paneliga kirish:",
+      "adminCredentialsLoginLine2": "Login: {{login}}",
+      "adminCredentialsLoginLine3": "Parol alohida xatda keladi.",
+      "adminCredentialsPasswordSubject": "«{{venueName}}» uchun parol",
+      "adminCredentialsPasswordTelegram": "Parol: {{adminPassword}}",
+      "adminCredentialsPasswordLine1": "«{{venueName}}» boshqaruv paneliga kirish uchun parol:",
+      "adminCredentialsPasswordLine2": "Birinchi kirishda uni almashtiring — tizim buni o'zi so'raydi.",
+      "adminPasswordChangedSubject": "Parol o'zgartirildi",
+      "adminPasswordChangedTelegram": "{{login}} hisobining paroli o'zgartirildi. Agar bu siz bo'lmasangiz — bizga yozing.",
+      "adminPasswordChangedLine1": "{{login}} hisobining paroli o'zgartirildi.",
+      "adminPasswordChangedLine2": "Agar bu siz bo'lmasangiz — iloji boricha tezroq bizga yozing.",
+      "passwordResetLinkSubject": "Parolni tiklash",
+      "passwordResetLinkTelegram": "{{login}} uchun parolni tiklash:\n{{url}}\nHavola 60 daqiqa amal qiladi.",
+      "passwordResetLinkLine1": "{{login}} hisobi uchun parolni tiklash so'ralgan. Yangi parol o'rnatish uchun havolaga o'ting:",
+      "passwordResetLinkLine2": "Havola 60 daqiqa amal qiladi va faqat bir marta ishlaydi. Agar tiklashni so'ramagan bo'lsangiz — bu xatni e'tiborsiz qoldiring.",
+      "adminTelegramUnlinkedSubject": "Telegram hisobdan uzildi",
+      "adminTelegramUnlinkedLine1": "{{login}} hisobidan Telegram uzildi — u boshqa hisobga bog'landi.",
+      "adminTelegramUnlinkedLine2": "Agar bu siz bo'lmasangiz — bizga yozing.",
+      "adminTenFailedLoginsSubject": "Ko'p muvaffaqiyatsiz kirish urinishlari — «{{venueName}}»",
+      "adminTenFailedLoginsTelegram": "«{{venueName}}» boshqaruv paneliga ketma-ket 10 marta muvaffaqiyatsiz kirish urinishi. Agar bu siz bo'lmasangiz — parolni tekshiring.",
+      "adminTenFailedLoginsLine1": "«{{venueName}}» boshqaruv paneliga ketma-ket 10 marta muvaffaqiyatsiz kirish urinishi qayd etildi.",
+      "adminTenFailedLoginsLine2": "Agar bu siz bo'lmasangiz, parolni almashtirishni tavsiya qilamiz."
     },
     "paymentClaim": {
       "card": "💳 To'lov arizasi\n\nMuassasa: {{venueName}}\nDavr: {{months}} oy\nSumma: {{amount}} {{currency}}\nIzoh: {{note}}",
@@ -884,6 +951,14 @@
       "confirmFailed": "Arizani tasdiqlab bo'lmadi. Qaytadan urinib ko'ring yoki loglarni tekshiring.",
       "askRejectReason": "Rad etish sababini keyingi xabarda yozing.",
       "rejected": "Ariza rad etildi, muassasa xabardor qilindi."
+    },
+    "account": {
+      "linkSuccess": "Telegram «{{venueName}}» muassasasiga bog'landi! Endi bildirishnomalar shu yerga keladi.",
+      "linkInvalidCode": "Kod yaroqsiz yoki allaqachon ishlatilgan. Boshqaruv paneli → Kirish huquqi bo'limidan yangisini oling.",
+      "linkedMenu": "{{login}} hisobi shu Telegramga bog'langan.",
+      "btnForgotPassword": "Parolni unutdim",
+      "notLinkedHint": "Bu Telegram hali hech qanday hisobga bog'lanmagan. Boshqaruv paneli → Kirish huquqi → «Telegramni bog'lash» bo'limiga o'ting va u yerda paydo bo'ladigan havolani bosing.",
+      "forgotLinkSent": "Parolni almashtirish havolasi:\n{{url}}\n60 daqiqa amal qiladi."
     }
   }
 }

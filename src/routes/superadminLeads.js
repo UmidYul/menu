@@ -68,6 +68,7 @@ function buildApproveFormValues(defaults) {
     lang_default: defaults.langDefault,
     admin_login: defaults.adminLogin,
     admin_password: defaults.adminPassword,
+    admin_email: defaults.adminEmail || '',
   };
 }
 
@@ -135,28 +136,32 @@ router.post('/:id/approve', async (req, res, next) => {
           lang_default: req.body.lang_default === 'uz' ? 'uz' : 'ru',
           admin_login: typeof req.body.admin_login === 'string' ? req.body.admin_login : '',
           admin_password: '',
+          admin_email: typeof req.body.admin_email === 'string' ? req.body.admin_email : '',
         },
       });
     }
-    const { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: adminPassword } = parsed.data;
+    const {
+      slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: adminPassword,
+      admin_email: adminEmail,
+    } = parsed.data;
 
     const existingVenue = await venueModel.findBySlug(slug);
     if (existingVenue) {
       return renderDetail(req, res, lead, {
         approveError: t('superadmin.errorSlugTaken', { slug }),
-        approveFormValues: { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: '' },
+        approveFormValues: { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: '', admin_email: adminEmail || '' },
       });
     }
     const existingAdmin = await adminModel.findByLogin(adminLogin);
     if (existingAdmin) {
       return renderDetail(req, res, lead, {
         approveError: t('superadmin.errorLoginTaken', { login: adminLogin }),
-        approveFormValues: { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: '' },
+        approveFormValues: { slug, name, lang_default: langDefault, admin_login: adminLogin, admin_password: '', admin_email: adminEmail || '' },
       });
     }
 
     const { venue } = await leadApproval.approveLead(lead, {
-      slug, name, langDefault, adminLogin, adminPassword, processedBy: req.session.admin.id,
+      slug, name, langDefault, adminLogin, adminPassword, adminEmail, processedBy: req.session.admin.id,
     });
     res.redirect(`/superadmin/venues/${venue.id}`);
   } catch (err) {

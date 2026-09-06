@@ -7,7 +7,8 @@
     "delete": "Delete",
     "back": "Back",
     "actions": "Actions",
-    "loggedInAs": "Signed in as"
+    "loggedInAs": "Signed in as",
+    "copy": "Copy"
   },
   "roles": {
     "superadmin": "superadmin",
@@ -25,7 +26,8 @@
     "logs": "Logs",
     "siteSettings": "Site settings",
     "openMenu": "Open menu",
-    "preview": "Preview"
+    "preview": "Preview",
+    "access": "Access"
   },
   "login": {
     "pageTitle": "Sign in — QR-menu",
@@ -37,7 +39,51 @@
     "errorInvalidCredentials": "Incorrect login or password",
     "errorAccountDisabled": "This account has been disabled. Contact your venue administrator.",
     "errorVenueDisabled": "This venue has been temporarily disabled. Contact the service administrator.",
-    "errorRateLimited": "Too many sign-in attempts. Try again in 15 minutes."
+    "errorRateLimited": "Too many sign-in attempts. Try again in 15 minutes.",
+    "forgotLink": "Forgot password?",
+    "forgotPageTitle": "Password recovery — QR-menu",
+    "forgotHeading": "Password recovery",
+    "forgotHint": "Enter the login or email linked to your account — if such an account exists, we'll send a password reset link.",
+    "forgotIdentifierLabel": "Login or email",
+    "forgotSubmit": "Send link",
+    "forgotSubmittedMessage": "If such an account exists, we've sent an email with a password reset link.",
+    "forgotErrorEmptyField": "Enter your login or email",
+    "backToLogin": "Back to sign in",
+    "resetPageTitle": "New password — QR-menu",
+    "resetHeading": "New password",
+    "resetInvalidToken": "This link is invalid or has already been used. Request a new one.",
+    "resetSubmit": "Save new password",
+    "resetSuccessMessage": "Password changed. Sign in with your new password.",
+    "newPasswordLabel": "New password",
+    "newPasswordHint": "At least 8 characters, must not match your login, and must not be too common.",
+    "currentPasswordLabel": "Current password",
+    "errorCurrentPasswordWrong": "Current password is incorrect",
+    "errorPasswordTooShort": "Password must be at least 8 characters",
+    "errorPasswordTooLong": "Password is too long",
+    "errorPasswordMatchesLogin": "Password must not match your login",
+    "errorPasswordTooCommon": "This password is too common — choose a different one",
+    "passwordStrengthWeak": "Weak",
+    "passwordStrengthMedium": "Medium",
+    "passwordStrengthStrong": "Strong",
+    "accessPageTitle": "Access — QR-menu",
+    "accessHeading": "Access",
+    "changePasswordHeading": "Change password",
+    "changePasswordSubmit": "Change password",
+    "passwordChanged": "Password changed",
+    "telegramLinkHeading": "Telegram",
+    "telegramLinkIntro": "Link Telegram — you'll get notifications about your venue and can recover access without email.",
+    "telegramGenerateButton": "Link Telegram",
+    "telegramLinkCodeHint": "Open the bot and tap the button below, or follow the link — linking happens automatically. The code is valid for 15 minutes.",
+    "telegramLinkCodeLabel": "Code",
+    "telegramCodeCopied": "Copied",
+    "telegramOpenBotButton": "Open bot",
+    "telegramRegenerateButton": "Generate a new code",
+    "telegramLinkedText": "Telegram is linked. You receive notifications about your venue and can recover access via the bot.",
+    "telegramUnlinkButton": "Unlink Telegram",
+    "telegramUnlinkConfirm": "Unlink Telegram from this account?",
+    "telegramLinkUnavailable": "Linking Telegram is temporarily unavailable.",
+    "forgotNoEmailHint": "If you have no email on file, recovery isn't available — contact support via",
+    "forgotBotLinkText": "the Telegram bot"
   },
   "dashboard": {
     "slugLabel": "Slug",
@@ -304,7 +350,11 @@
     "ratingSubmit": "Save rating",
     "ratingNone": "not set",
     "errorInvalidRating": "Rating must be a number from 0 to 5",
-    "errorInvalidReviewCount": "Number of reviews must be a non-negative whole number"
+    "errorInvalidReviewCount": "Number of reviews must be a non-negative whole number",
+    "errorInvalidEmail": "Invalid email",
+    "adminEmailLabel": "Admin email (for password recovery)",
+    "adminEmailHint": "Optional, but without it the owner cannot recover their password.",
+    "actionAuthFail": "Failed sign-in"
   },
   "subscription": {
     "pageTitle": "Subscription — admin panel",
@@ -731,7 +781,6 @@
       "btnHaveAccount": "I already have an account",
       "btnAskQuestion": "Ask a question",
       "btnChangeLang": "🌐 Language",
-      "accountComingSoon": "Linking an existing account is coming in a future update. If you need help right now, just message us here.",
       "askQuestionPrompt": "Type your question — we'll get it and reply right here."
     },
     "lang": {
@@ -844,12 +893,6 @@
       "leadCreatedLine1": "A new connection request came in: \"{{venueName}}\".",
       "leadCreatedLine2": "Contact: {{contactName}}, phone: {{phone}}.",
       "leadCreatedComment": "Comment: {{comment}}",
-      "leadApprovedSubject": "Request approved — {{venueName}}",
-      "leadApprovedTelegram": "Your request for \"{{venueName}}\" has been approved! Access to the admin panel:\nLogin: {{adminLogin}}\nPassword: {{adminPassword}}",
-      "leadApprovedLine1": "Your request for \"{{venueName}}\" has been approved!",
-      "leadApprovedLine2": "Access to the admin panel:",
-      "leadApprovedLogin": "Login: {{login}}",
-      "leadApprovedPassword": "Password: {{password}}",
       "leadRejectedSubject": "About your request for \"{{venueName}}\"",
       "leadRejectedTelegram": "Unfortunately, the request for \"{{venueName}}\" was rejected.\nReason: {{reason}}",
       "leadRejectedLine1": "Unfortunately, the request for \"{{venueName}}\" was rejected.",
@@ -872,7 +915,31 @@
       "manualContactNeededTelegram": "📵 Venue \"{{venueName}}\" (#{{venueId}}) has no email on file — couldn't send a subscription reminder ({{reason}}). Contact them manually.",
       "venuePublishedTelegram": "🎉 Venue \"{{venueName}}\" (#{{venueId}}) was published and started its free trial.",
       "paymentClaimRejectedSubject": "Payment request rejected — {{venueName}}",
-      "paymentClaimRejectedText": "The payment request for \"{{venueName}}\"'s subscription was rejected. Reason: {{reason}}"
+      "paymentClaimRejectedText": "The payment request for \"{{venueName}}\"'s subscription was rejected. Reason: {{reason}}",
+      "adminCredentialsLoginSubject": "Access to the \"{{venueName}}\" dashboard",
+      "adminCredentialsLoginTelegram": "\"{{venueName}}\" application approved!\nLogin: {{adminLogin}}\nSign in: {{url}}\nThe password will arrive in the next message.",
+      "adminCredentialsLoginLine1": "Your \"{{venueName}}\" application has been approved! Dashboard access:",
+      "adminCredentialsLoginLine2": "Login: {{login}}",
+      "adminCredentialsLoginLine3": "The password will arrive in a separate email.",
+      "adminCredentialsPasswordSubject": "Password for \"{{venueName}}\"",
+      "adminCredentialsPasswordTelegram": "Password: {{adminPassword}}",
+      "adminCredentialsPasswordLine1": "Password for the \"{{venueName}}\" dashboard:",
+      "adminCredentialsPasswordLine2": "Change it on first sign-in — the system will prompt you automatically.",
+      "adminPasswordChangedSubject": "Password changed",
+      "adminPasswordChangedTelegram": "The password for account {{login}} has been changed. If this wasn't you, contact us.",
+      "adminPasswordChangedLine1": "The password for account {{login}} has been changed.",
+      "adminPasswordChangedLine2": "If this wasn't you, please contact us as soon as possible.",
+      "passwordResetLinkSubject": "Password recovery",
+      "passwordResetLinkTelegram": "Password recovery for {{login}}:\n{{url}}\nThe link is valid for 60 minutes.",
+      "passwordResetLinkLine1": "A password reset was requested for account {{login}}. Follow the link to set a new password:",
+      "passwordResetLinkLine2": "The link is valid for 60 minutes and works only once. If you didn't request this, just ignore this email.",
+      "adminTelegramUnlinkedSubject": "Telegram unlinked from your account",
+      "adminTelegramUnlinkedLine1": "Telegram has been unlinked from account {{login}} — it's now linked to a different account.",
+      "adminTelegramUnlinkedLine2": "If this wasn't you, contact us.",
+      "adminTenFailedLoginsSubject": "Many failed sign-in attempts — \"{{venueName}}\"",
+      "adminTenFailedLoginsTelegram": "10 failed sign-in attempts in a row for the \"{{venueName}}\" dashboard. If this wasn't you, check your password.",
+      "adminTenFailedLoginsLine1": "10 failed sign-in attempts in a row were recorded for the \"{{venueName}}\" dashboard.",
+      "adminTenFailedLoginsLine2": "If this wasn't you, we recommend changing your password."
     },
     "paymentClaim": {
       "card": "💳 Payment request\n\nVenue: {{venueName}}\nPeriod: {{months}} mo.\nAmount: {{amount}} {{currency}}\nComment: {{note}}",
@@ -884,6 +951,14 @@
       "confirmFailed": "Couldn't confirm the request. Try again or check the logs.",
       "askRejectReason": "Send the rejection reason as your next message.",
       "rejected": "Request rejected, the venue has been notified."
+    },
+    "account": {
+      "linkSuccess": "Telegram is now linked to {{venueName}}! Notifications will arrive here from now on.",
+      "linkInvalidCode": "This code is invalid or already used. Get a new one from the dashboard → Access.",
+      "linkedMenu": "Account {{login}} is linked to this Telegram.",
+      "btnForgotPassword": "Forgot password",
+      "notLinkedHint": "This Telegram isn't linked to any account yet. Go to the dashboard → Access → \"Link Telegram\" and follow the link shown there.",
+      "forgotLinkSent": "Password reset link:\n{{url}}\nValid for 60 minutes."
     }
   }
 }

@@ -62,32 +62,6 @@ const TEMPLATES = {
     },
   },
 
-  lead_approved: {
-    telegram(payload, lang) {
-      return {
-        text: t('bot.templates.leadApprovedTelegram', lang, {
-          venueName: payload.venue_name,
-          adminLogin: payload.admin_login,
-          adminPassword: payload.admin_password,
-        }),
-      };
-    },
-    async email(payload, lang) {
-      const tt = (key, params) => t(key, lang, params);
-      const siteSettings = await siteSettingsCache.get();
-      const html = await ejs.renderFile(emailPath('lead-approved'), { payload, t: tt, siteSettings, escapeHtml });
-      return {
-        subject: tt('bot.templates.leadApprovedSubject', { venueName: payload.venue_name }),
-        html,
-        text: tt('bot.templates.leadApprovedTelegram', {
-          venueName: payload.venue_name,
-          adminLogin: payload.admin_login,
-          adminPassword: payload.admin_password,
-        }),
-      };
-    },
-  },
-
   lead_rejected: {
     telegram(payload, lang) {
       return {
@@ -106,11 +80,127 @@ const TEMPLATES = {
     },
   },
 
-  // Напоминания о подписке (промт 1.3, bot/worker/scheduler.js) — только email: заведение пока
-  // никак не привязано к конкретному Telegram-чату (эта привязка — промт 1.5), так что
-  // venueLifecycle.notifyVenue сейчас может доставить их только на email заведения. Как только
-  // 1.5 добавит привязку, туда же добавляется telegram()-рендер — сама эта запись менять не надо.
+  // Промт 1.5 — выдача первичного доступа ДВУМЯ отдельными уведомлениями (логин+ссылка, затем
+  // пароль отдельно). Канал (telegram/email) выбирает вызывающий код (leadApproval.js/
+  // superadmin.js) — здесь просто оба рендера на случай любого из двух.
+  admin_credentials_login: {
+    telegram(payload, lang) {
+      return {
+        text: t('bot.templates.adminCredentialsLoginTelegram', lang, {
+          venueName: payload.venue_name,
+          adminLogin: payload.admin_login,
+          url: `${env.APP_BASE_URL}/admin/login`,
+        }),
+      };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const fullPayload = { ...payload, login_url: `${env.APP_BASE_URL}/admin/login` };
+      const html = await ejs.renderFile(emailPath('admin-credentials-login'), { payload: fullPayload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.adminCredentialsLoginSubject', { venueName: payload.venue_name }),
+        html,
+        text: tt('bot.templates.adminCredentialsLoginTelegram', {
+          venueName: payload.venue_name, adminLogin: payload.admin_login, url: `${env.APP_BASE_URL}/admin/login`,
+        }),
+      };
+    },
+  },
+
+  admin_credentials_password: {
+    telegram(payload, lang) {
+      return {
+        text: t('bot.templates.adminCredentialsPasswordTelegram', lang, { adminPassword: payload.admin_password }),
+      };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('admin-credentials-password'), { payload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.adminCredentialsPasswordSubject', { venueName: payload.venue_name }),
+        html,
+        text: tt('bot.templates.adminCredentialsPasswordTelegram', { adminPassword: payload.admin_password }),
+      };
+    },
+  },
+
+  admin_password_changed: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.adminPasswordChangedTelegram', lang, { login: payload.admin_login }) };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('admin-password-changed'), { payload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.adminPasswordChangedSubject'),
+        html,
+        text: tt('bot.templates.adminPasswordChangedTelegram', { login: payload.admin_login }),
+      };
+    },
+  },
+
+  password_reset_link: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.passwordResetLinkTelegram', lang, { login: payload.admin_login, url: payload.reset_url }) };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('password-reset-link'), { payload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.passwordResetLinkSubject'),
+        html,
+        text: tt('bot.templates.passwordResetLinkTelegram', { login: payload.admin_login, url: payload.reset_url }),
+      };
+    },
+  },
+
+  // Уведомление ПРЕЖНЕМУ владельцу привязки при перепривязке того же Telegram-аккаунта к
+  // другому admins (edge case промта 1.5) — только email: он больше не управляет этим
+  // telegram_id, слать туда уведомление о том, что он его больше не контролирует, бессмысленно.
+  admin_telegram_unlinked: {
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('admin-telegram-unlinked'), { payload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.adminTelegramUnlinkedSubject'),
+        html,
+        text: tt('bot.templates.adminTelegramUnlinkedLine1', { login: payload.admin_login }),
+      };
+    },
+  },
+
+  // 10 неудачных входов подряд (промт 1.5, п.5) — идёт через venueLifecycle.notifyVenue,
+  // поэтому нужны оба рендера: telegram, если у заведения уже привязан owner_telegram_id,
+  // иначе email.
+  admin_ten_failed_logins: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.adminTenFailedLoginsTelegram', lang, { venueName: payload.venue_name }) };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('admin-ten-failed-logins'), { payload, t: tt, siteSettings, escapeHtml });
+      return {
+        subject: tt('bot.templates.adminTenFailedLoginsSubject', { venueName: payload.venue_name }),
+        html,
+        text: tt('bot.templates.adminTenFailedLoginsTelegram', { venueName: payload.venue_name }),
+      };
+    },
+  },
+
+  // Напоминания о подписке (промт 1.3, bot/worker/scheduler.js) — раньше только email, потому
+  // что заведение было никак не привязано к Telegram-чату; промт 1.5 добавил привязку
+  // (venues.owner_telegram_id), поэтому у всех записей ниже теперь есть и telegram()-рендер —
+  // notifyVenue сам выбирает канал (telegram, если привязан, иначе email).
   subscription_reminder_7d: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionReminder7dText', lang, { venueName: payload.venue_name, until: payload.until }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -124,6 +214,9 @@ const TEMPLATES = {
   },
 
   subscription_reminder_3d: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionReminder3dText', lang, { venueName: payload.venue_name, until: payload.until }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -137,6 +230,9 @@ const TEMPLATES = {
   },
 
   subscription_reminder_1d: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionReminder1dText', lang, { venueName: payload.venue_name, until: payload.until }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -150,6 +246,9 @@ const TEMPLATES = {
   },
 
   subscription_expiring_today: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionExpiringTodayText', lang, { venueName: payload.venue_name }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -163,6 +262,9 @@ const TEMPLATES = {
   },
 
   subscription_grace_warning: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionGraceWarningText', lang, { venueName: payload.venue_name, days: payload.days }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -176,6 +278,9 @@ const TEMPLATES = {
   },
 
   venue_suspended: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.venueSuspendedText', lang, { venueName: payload.venue_name }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();
@@ -189,6 +294,9 @@ const TEMPLATES = {
   },
 
   subscription_archive_warning: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.subscriptionArchiveWarningText', lang, { venueName: payload.venue_name, days: payload.days }) };
+    },
     async email(payload, lang) {
       const tt = (key, params) => t(key, lang, params);
       const siteSettings = await siteSettingsCache.get();

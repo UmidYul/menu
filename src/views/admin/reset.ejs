@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('login.resetPageTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="brand" style="margin-bottom:22px;"><%- include('../partials/brand', { compact: true }) %></div>
+      <h1><%= t('login.resetHeading') %></h1>
+      <% if (!valid) { %>
+        <div class="alert alert-error"><%= t('login.resetInvalidToken') %></div>
+        <a href="/admin/forgot" class="btn btn-primary" style="width:100%;"><%= t('login.forgotSubmit') %></a>
+      <% } else { %>
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+        <form method="POST" action="/admin/reset" id="reset-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="token" value="<%= token %>">
+          <div class="field">
+            <label for="new_password"><%= t('login.newPasswordLabel') %></label>
+            <input type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="8" required>
+            <div class="password-strength" data-strength-for="new_password"
+                 data-label-weak="<%= t('login.passwordStrengthWeak') %>"
+                 data-label-medium="<%= t('login.passwordStrengthMedium') %>"
+                 data-label-strong="<%= t('login.passwordStrengthStrong') %>"></div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('login.resetSubmit') %></button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+  <script src="/js/password-strength.js"></script>
+</body>
+</html>

@@ -116,11 +116,16 @@ function computeTargetStatus(venue, today) {
 }
 
 // Напоминание для САМОГО заведения (не владельца сервиса): Telegram, если у заведения есть
-// привязанный telegram_id — этой привязки пока нет нигде в проекте (появится в промте 1.5,
-// "привязка Telegram к admins"), так что на практике сейчас всегда либо email, либо, если его
-// тоже нет, задача владельцу сервиса связаться вручную — оба этих пути уже предусмотрены самим
-// промтом 1.3 как явный фолбэк, а не сокращение объёма работы.
+// привязанный owner_telegram_id (промт 1.5, "привязка Telegram к admins" — приоритетнее почты,
+// доставляется мгновенно и не попадает в спам), иначе email, иначе задача владельцу сервиса
+// связаться вручную — этот путь предусмотрен самим промтом 1.3 как явный фолбэк, а не сокращение
+// объёма работы.
 async function notifyVenue(client, venue, { template, payload, dedupKey }) {
+  if (venue.owner_telegram_id) {
+    return notificationModel.enqueue(client, {
+      channel: 'telegram', recipient: String(venue.owner_telegram_id), template, payload, lang: venue.lang_default || 'ru', dedupKey,
+    });
+  }
   if (venue.email) {
     return notificationModel.enqueue(client, {
       channel: 'email', recipient: venue.email, template, payload, lang: venue.lang_default || 'ru', dedupKey,

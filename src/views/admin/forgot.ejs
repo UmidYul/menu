@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('login.forgotPageTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-lang lang">
+        <a href="/admin/lang?lang=ru&redirect=/admin/forgot" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>
+        <a href="/admin/lang?lang=uz&redirect=/admin/forgot" class="<%= lang === 'uz' ? 'active' : '' %>">UZ</a>
+        <a href="/admin/lang?lang=en&redirect=/admin/forgot" class="<%= lang === 'en' ? 'active' : '' %>">EN</a>
+      </div>
+      <div class="brand" style="margin-bottom:22px;"><%- include('../partials/brand', { compact: true }) %></div>
+      <h1><%= t('login.forgotHeading') %></h1>
+      <% if (submitted) { %>
+        <div class="alert alert-success"><%= t('login.forgotSubmittedMessage') %></div>
+        <a href="/admin/login" class="btn btn-primary" style="width:100%;"><%= t('login.backToLogin') %></a>
+      <% } else { %>
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+        <p class="auth-hint">
+          <%= t('login.forgotHint') %>
+          <% if (locals.botLink) { %>
+            <%= t('login.forgotNoEmailHint') %> <a href="<%= botLink %>" target="_blank" rel="noopener"><%= t('login.forgotBotLinkText') %></a>
+          <% } %>
+        </p>
+        <form method="POST" action="/admin/forgot">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="field">
+            <label for="identifier"><%= t('login.forgotIdentifierLabel') %></label>
+            <input type="text" id="identifier" name="identifier" value="<%= identifier %>" autocomplete="username" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('login.forgotSubmit') %></button>
+        </form>
+        <div class="auth-forgot"><a href="/admin/login"><%= t('login.backToLogin') %></a></div>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>
