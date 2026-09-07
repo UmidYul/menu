@@ -23,13 +23,20 @@ const superadminRoutes = require('./routes/superadmin');
 const superadminLeadsRoutes = require('./routes/superadminLeads');
 const superadminPaymentClaimsRoutes = require('./routes/superadminPaymentClaims');
 const adminCategoriesRoutes = require('./routes/adminCategories');
+const adminAnalyticsRoutes = require('./routes/adminAnalytics');
+const adminTablesRoutes = require('./routes/adminTables');
+const adminOrdersSettingsRoutes = require('./routes/adminOrdersSettings');
 const adminItemsRoutes = require('./routes/adminItems');
+const adminItemOptionsRoutes = require('./routes/adminItemOptions');
 const adminVenueSettingsRoutes = require('./routes/adminVenueSettings');
 const adminSubscriptionRoutes = require('./routes/adminSubscription');
+const apiEventsRoutes = require('./routes/apiEvents');
+const publicOrdersRoutes = require('./routes/publicOrders');
 const publicMenuRoutes = require('./routes/publicMenu');
 const landingRoutes = require('./routes/landing');
 const applyRoutes = require('./routes/apply');
 const seoRoutes = require('./routes/seo');
+const { eventsByIpLimiter, eventsBySessionLimiter, ordersByIpLimiter } = require('./middlewares/rateLimit');
 const { toSafeJsonLd } = require('./utils/safeJsonLd');
 const { pickLocalized } = require('./utils/localize');
 
@@ -118,6 +125,9 @@ app.get('/health', async (req, res) => {
 // безобидно). Сам redirect случается только если в сессии реально стоит флаг — на всех
 // остальных запросах middleware мгновенно передаёт управление дальше.
 app.use('/admin/items', adminLocale, uploadItemPhoto, csrfProtection, redirectIfMustChangePassword, adminItemsRoutes);
+// Группы опций позиции (промт 2.1) — отдельный префикс, без multer: файлов здесь не бывает,
+// формы обычные urlencoded плюс один JSON-эндпоинт перетаскивания.
+app.use('/admin/item-options', adminLocale, csrfProtection, redirectIfMustChangePassword, adminItemOptionsRoutes);
 app.use('/admin/venue-settings', adminLocale, uploadVenueImages, csrfProtection, redirectIfMustChangePassword, adminVenueSettingsRoutes);
 // uploadReceiptPhoto здесь же ДО csrfProtection — POST /admin/subscription/claim несёт
 // необязательный скриншот чека (multipart/form-data), та же причина, что у items/venue-settings
@@ -130,6 +140,9 @@ app.use('/admin', adminLocale, csrfProtection, adminAuthRoutes);
 app.use('/admin', adminLocale, csrfProtection, adminLocaleRoutes);
 app.use('/admin', adminLocale, csrfProtection, redirectIfMustChangePassword, adminDashboardRoutes);
 app.use('/admin/categories', adminLocale, csrfProtection, redirectIfMustChangePassword, adminCategoriesRoutes);
+app.use('/admin/analytics', adminLocale, csrfProtection, redirectIfMustChangePassword, adminAnalyticsRoutes);
+app.use('/admin/tables', adminLocale, csrfProtection, redirectIfMustChangePassword, adminTablesRoutes);
+app.use('/admin/orders-settings', adminLocale, csrfProtection, redirectIfMustChangePassword, adminOrdersSettingsRoutes);
 // /superadmin/leads должен идти раньше общего '/superadmin' ниже — та же причина, что и у
 // /admin/items и /admin/venue-settings выше (см. комментарий над ними): более специфичный
 // префикс обязан быть зарегистрирован первым, иначе не имеет значения, что superadmin.js
@@ -137,6 +150,14 @@ app.use('/admin/categories', adminLocale, csrfProtection, redirectIfMustChangePa
 app.use('/superadmin/leads', adminLocale, csrfProtection, leadsBadge, superadminLeadsRoutes);
 app.use('/superadmin/payment-claims', adminLocale, csrfProtection, leadsBadge, superadminPaymentClaimsRoutes);
 app.use('/superadmin', adminLocale, csrfProtection, leadsBadge, superadminRoutes);
+// Промт 3.2. Без csrfProtection (как /menu ниже — гость анонимен) и без adminLocale/locale
+// вообще: это не HTML-страница, ответ всегда 204 без тела. Свои лимитеры — IP затем session_hash
+// (см. комментарии в middlewares/rateLimit.js).
+app.use('/api/events', eventsByIpLimiter, eventsBySessionLimiter, apiEventsRoutes);
+// Промт 2.4. Как и /api/events — публичный, анонимный, без csrfProtection: у гостя нет сессии,
+// к которой можно привязать токен. Защита — лимитеры (IP здесь, session_hash внутри роута),
+// серверный пересчёт суммы и httpOnly-cookie стола, которую клиент не может подделать.
+app.use('/order', ordersByIpLimiter, publicOrdersRoutes);
 app.use('/menu', publicMenuRoutes);
 app.use('/apply', csrfProtection, applyRoutes);
 app.use('/', seoRoutes);

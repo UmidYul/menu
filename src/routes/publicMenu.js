@@ -3,7 +3,11 @@ const express = require('express');
 const router = express.Router();
 const venueModel = require('../models/venueModel');
 const itemModel = require('../models/itemModel');
+const itemOptionModel = require('../models/itemOptionModel');
 const venuePageViewModel = require('../models/venuePageViewModel');
+const venueTableModel = require('../models/venueTableModel');
+const menuEventModel = require('../models/menuEventModel');
+const eventTracking = require('../services/eventTracking');
 const menuCache = require('../services/menuCache');
 const { t, SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
 const { pickLocalized } = require('../utils/localize');
@@ -14,6 +18,12 @@ const LANG_LABELS = { ru: 'RU', uz: 'UZ', en: 'EN' };
 const LANG_COOKIE = 'menu_lang';
 const VIEW_COOKIE_PREFIX = 'mv_';
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Промт 2.4: привязка к столу живёт 3 часа — достаточно на один визит (гость не теряет стол,
+// переключая категории и язык), но не настолько долго, чтобы завтрашний заказ из дома ушёл
+// «со стола 7». Cookie отдельная на заведение: в одном браузере могут быть открыты меню разных
+// заведений, и стол из одного не должен подставиться в заказ другому.
+const TABLE_COOKIE_PREFIX = 'mt_';
+const TABLE_COOKIE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 // Уникальный просмотр — не более одного засчитанного просмотра с одного браузера в день на
 // заведение, независимо от того, сколько раз гость переключил категорию/язык или обновил
@@ -27,6 +37,31 @@ function shouldCountView(req, slug) {
 function markViewCounted(res, slug) {
   const today = new Date().toISOString().slice(0, 10);
   res.cookie(`${VIEW_COOKIE_PREFIX}${slug}`, today, { httpOnly: true, sameSite: 'lax', maxAge: DAY_MS });
+}
+
+// ?t=<token> из QR-кода на столе -> стол этого заведения. Токен в cookie не кладём (в ней уже
+// разрешённый id стола): cookie httpOnly, но токен всё равно секрет самого стола, и таскать его
+// по каждому запросу незачем. Невалидный/деактивированный/чужой токен молча игнорируется —
+// по промту это «заказ без стола», а не ошибка страницы.
+async function resolveTable(req, res, venue) {
+  const token = typeof req.query.t === 'string' ? req.query.t.trim() : '';
+  if (token) {
+    const table = await venueTableModel.findActiveByToken(token, venue.id);
+    if (table) {
+      res.cookie(`${TABLE_COOKIE_PREFIX}${venue.slug}`, String(table.id), {
+        httpOnly: true, sameSite: 'lax', maxAge: TABLE_COOKIE_MAX_AGE_MS,
+      });
+      return table;
+    }
+    return null;
+  }
+
+  const cookieValue = req.cookies && req.cookies[`${TABLE_COOKIE_PREFIX}${venue.slug}`];
+  const tableId = Number(cookieValue);
+  if (!Number.isInteger(tableId) || tableId <= 0) return null;
+  // Стол мог быть деактивирован или удалён уже после того, как гость отсканировал QR —
+  // проверяем на каждом рендере, а не доверяем cookie.
+  return venueTableModel.findActiveByIdForVenue(tableId, venue.id);
 }
 
 // 'en-GB,en;q=0.9,ru;q=0.8' → ['en', 'ru'] — берём только первичный подтег до дефиса,
@@ -81,6 +116,10 @@ function buildVenueInfo(venue, lang) {
     telegramUrl: venue.telegram_url,
     workingHours: venue.working_hours,
     showPoweredBy: venue.show_powered_by,
+    // Промт 2.4. Признак уровня заведения (одинаковый для всех гостей) — безопасно попадает
+    // в кэшируемый HTML. Приём заказов требует и включённого переключателя, и живой привязки
+    // к Telegram-группе: без группы заказ некуда отправить, и кнопку показывать незачем.
+    ordersAvailable: Boolean(venue.orders_enabled && venue.telegram_chat_id && !venue.telegram_chat_broken),
     logoUrl: venue.logo_thumb_url || null,
     coverUrl: venue.cover_url || null,
     description: pickLocalized(venue, 'description', lang),
@@ -152,11 +191,51 @@ function buildSeoInfo(venue, req, lang, tt) {
   };
 }
 
-function buildItemViewModel(item, lang, tt) {
+// Группы опций позиции для гостя (промт 2.1): локализованные названия, только доступные
+// варианты влияют на "от <цены>", подпись-счётчик собирается как "Размер: 3 · Сироп: 2" —
+// название группы плюс число вариантов. Именно так, а не «2 размера · 3 добавки» из промта:
+// в ru/uz/en у произвольного названия группы нет способа согласовать число ("3 размера",
+// но "3 сиропа"), а название + счётчик остаётся грамматичным на всех трёх языках и вдобавок
+// говорит гостю, ЧТО именно можно выбрать.
+function buildOptionGroupsViewModel(groups, lang) {
+  return groups.map((group) => ({
+    id: group.id,
+    name: pickLocalized(group, 'name', lang),
+    selection: group.selection,
+    isRequired: group.is_required,
+    minSelect: group.min_select,
+    maxSelect: group.max_select,
+    options: group.options.map((option) => ({
+      id: option.id,
+      name: pickLocalized(option, 'name', lang),
+      priceDelta: Number(option.price_delta),
+      isAvailable: option.is_available,
+      isDefault: option.is_default,
+    })),
+  }));
+}
+
+function buildItemViewModel(item, lang, tt, optionGroups = []) {
   const description = pickLocalized(item, 'description', lang);
   const composition = pickLocalized(item, 'composition', lang);
-  const extraTagCount = item.tags.filter((tag) => tag !== 'new').length;
+  const groups = buildOptionGroupsViewModel(optionGroups, lang);
+  const hasSurcharge = groups.some((group) => group.options.some((o) => o.isAvailable && o.priceDelta > 0));
+  const optionsSummary = groups
+    .map((group) => ({ name: group.name, available: group.options.filter((o) => o.isAvailable).length }))
+    .filter((group) => group.available > 0)
+    .map((group) => `${group.name}: ${group.available}`)
+    .join(' · ');
+  // Обязательная группа, в которой не осталось ни одного доступного варианта, делает позицию
+  // недоступной целиком (edge case промта): гостю нечего выбрать, а без выбора добавить нельзя —
+  // честнее показать "нет в наличии", чем кнопку, которая заведомо ничего не даст.
+  const blockedByEmptyRequiredGroup = groups.some(
+    (group) => (group.isRequired || group.minSelect > 0) && group.options.every((o) => !o.isAvailable)
+  );
   return {
+    optionGroups: groups,
+    hasOptions: groups.length > 0,
+    optionsSummary: optionsSummary || null,
+    priceFrom: hasSurcharge,
     id: item.id,
     name: pickLocalized(item, 'name', lang),
     description,
@@ -167,19 +246,25 @@ function buildItemViewModel(item, lang, tt) {
     discountPercent: item.old_price ? Math.round((1 - item.price / item.old_price) * 100) : null,
     currency: item.currency,
     photoThumbUrl: item.photo_thumb_url,
+    photoUrl: item.photo_url,
     tags: item.tags.map((tag) => ({ key: tag, label: tt(`tags.${tag}`) })),
-    isAvailable: item.is_available,
-    hasDetails: !!(composition || item.calories),
-    // Есть ли что показать в hover/tap-раскрытии карточки — если нет, карточка не должна
-    // реагировать на hover анимацией раскрытия (нечего раскрывать).
-    hasReveal: !!(description || composition || item.calories || extraTagCount > 0),
+    isAvailable: item.is_available && !blockedByEmptyRequiredGroup,
+    // Расширенные данные для карточки блюда (промт 2.2). Аллергены отдаём уже переведённым
+    // списком: в карточке они выводятся строкой "содержит: …", а сырые коды гостю не нужны.
+    weight: item.weight_value && item.weight_unit
+      ? `${Number(item.weight_value).toLocaleString('ru-RU')} ${tt('items.weightUnit_' + item.weight_unit)}`
+      : null,
+    cookingTimeMinutes: item.cooking_time_minutes || null,
+    allergens: (item.allergens || []).map((code) => tt(`allergens.${code}`)),
+    spicyLevel: item.spicy_level === null || item.spicy_level === undefined ? null : item.spicy_level,
+    isPopular: Boolean(item.is_popular),
   };
 }
 
 // Вся видимая часть меню собирается одним запросом (все категории заведения сразу), чтобы лента
 // категорий, scroll-spy и поиск по всему меню работали на одной странице без перезагрузки.
 // Категории без единой позиции сами не попадают в выборку (INNER JOIN в listByVenueGrouped).
-function buildMenuViewModel(venue, groupedRows, lang, req) {
+function buildMenuViewModel(venue, groupedRows, lang, req, optionGroupsByItem = new Map()) {
   const tt = (key, params) => t(key, lang, params);
 
   const groups = itemModel.groupByCategory(groupedRows).map((group) => ({
@@ -189,7 +274,11 @@ function buildMenuViewModel(venue, groupedRows, lang, req) {
       'name',
       lang
     ),
-    items: group.items.map((item) => buildItemViewModel(item, lang, tt)),
+    items: group.items.map((item) => ({
+      ...buildItemViewModel(item, lang, tt, optionGroupsByItem.get(item.id) || []),
+      // Нужна карточке блюда: лента "ещё из этой категории" собирается на клиенте.
+      categoryId: group.categoryId,
+    })),
   }));
 
   // Теги для панели фильтров — только те, что реально встречаются хотя бы у одной позиции
@@ -200,8 +289,11 @@ function buildMenuViewModel(venue, groupedRows, lang, req) {
   })));
   const availableTags = Array.from(tagSet).map((key) => ({ key, label: tt(`tags.${key}`) }));
 
+  const allItems = groups.reduce((acc, group) => acc.concat(group.items), []);
+
   return {
     groups,
+    allItems,
     availableTags,
     lang,
     langSwitcherOptions: buildLangSwitcherOptions(venue.enabled_langs || ['ru', 'uz']),
@@ -237,12 +329,73 @@ function renderUnavailable(req, res, venue, lang, statusCode) {
   });
 }
 
+// Промт 1.6, пункт чеклиста "Проверить меню" — единственный способ увидеть публичную страницу
+// черновика: собственный владелец, залогиненный именно в это заведение (venue_id из сессии,
+// не просто "любой venue_admin" — чужой draft по-прежнему не должен быть виден). Гость
+// по-прежнему получает 404 для draft — ни статус, ни содержимое чужого черновика не палятся.
+function isOwnerPreview(req, venue) {
+  return venue.status === 'draft'
+    && Boolean(req.session && req.session.admin)
+    && req.session.admin.role === 'venue_admin'
+    && req.session.admin.venueId === venue.id;
+}
+
+async function buildFullViewModel(venue, lang, req) {
+  const [rows, optionGroupsByItem] = await Promise.all([
+    itemModel.listByVenueGrouped(venue.id),
+    itemOptionModel.listGroupsByItemForVenue(venue.id),
+  ]);
+  return buildMenuViewModel(venue, rows, lang, req, optionGroupsByItem);
+}
+
+// Мета-теги и начальное состояние для прямой ссылки на блюдо. Позиции может уже не быть
+// (удалили/сняли с продажи, а ссылку кто-то сохранил) — тогда карточка всё равно открывается,
+// но с пометкой "этой позиции больше нет в меню": 404 на живом меню сбивал бы с толку сильнее.
+function toAbsoluteUrl(url, baseUrl) {
+  return /^https?:\/\//i.test(url) ? url : `${baseUrl}${url}`;
+}
+
+function itemLinkExtras(viewModel, requestedItemId, req, venue) {
+  if (!requestedItemId) {
+    return { initialItemId: null, initialItemMissing: false };
+  }
+
+  const item = viewModel.allItems.find((candidate) => candidate.id === requestedItemId) || null;
+  if (!item) {
+    return { initialItemId: requestedItemId, initialItemMissing: true };
+  }
+
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const itemUrl = `${baseUrl}/menu/${venue.slug}?item=${item.id}`;
+  const description = item.description
+    || [item.composition, item.weight].filter(Boolean).join(' · ')
+    || viewModel.metaDescription;
+
+  return {
+    initialItemId: item.id,
+    initialItemMissing: false,
+    pageTitle: `${item.name} — ${venue.name}`,
+    metaDescription: description,
+    canonicalUrl: itemUrl,
+    ogUrl: itemUrl,
+    // Фото позиции как превью ссылки; если фото нет — общая картинка заведения, которую
+    // и так генерирует /og/:slug/image.png. Часть фото залита к нам (относительный путь,
+    // нужен домен), часть приходит абсолютной ссылкой на внешнее хранилище — её не трогаем.
+    ogImageUrl: item.photoUrl ? toAbsoluteUrl(item.photoUrl, baseUrl) : viewModel.ogImageUrl,
+  };
+}
+
 async function renderMenuPage(req, res, next) {
   try {
     const { slug } = req.params;
 
     const venue = await venueModel.findPublicBySlug(slug);
-    if (!venue || venue.status === 'draft') {
+    if (!venue) {
+      return renderNotFound(req, res);
+    }
+
+    const preview = isOwnerPreview(req, venue);
+    if (venue.status === 'draft' && !preview) {
       return renderNotFound(req, res);
     }
 
@@ -253,34 +406,76 @@ async function renderMenuPage(req, res, next) {
 
     // is_active=false — ручной рубильник суперадмина, действует поверх любого статуса
     // (архивное заведение с is_active=false всё равно отдаёт 200, а не 410 — это тот же самый
-    // "временно недоступно", а не "окончательно закрыто").
-    if (!venue.is_active) {
-      return renderUnavailable(req, res, venue, lang, 200);
-    }
-    if (venue.status === 'suspended') {
-      return renderUnavailable(req, res, venue, lang, 200);
-    }
-    if (venue.status === 'archived') {
-      return renderUnavailable(req, res, venue, lang, 410);
+    // "временно недоступно", а не "окончательно закрыто"). Предпросмотр черновика владельцем —
+    // единственное исключение: draft по определению is_active=false (см. leadApproval.js),
+    // иначе владелец никогда не увидел бы собственное меню до публикации.
+    if (!preview) {
+      if (!venue.is_active) {
+        return renderUnavailable(req, res, venue, lang, 200);
+      }
+      if (venue.status === 'suspended') {
+        return renderUnavailable(req, res, venue, lang, 200);
+      }
+      if (venue.status === 'archived') {
+        return renderUnavailable(req, res, venue, lang, 410);
+      }
     }
 
-    if (shouldCountView(req, slug)) {
-      markViewCounted(res, slug);
-      venuePageViewModel.recordView(venue.id).catch((err) => {
-        console.error('Не удалось записать просмотр меню', err);
+    // Промт 2.4. Вызывается ТОЛЬКО ради побочного эффекта — поставить cookie стола, если гость
+    // пришёл по QR со стола (?t=<token>). Номер стола намеренно НЕ попадает в отрисованный HTML:
+    // страница кэшируется по slug+lang, и вкладка гостя за столом 5 иначе раздавала бы «стол 5»
+    // всем остальным. Актуальный стол экран заказа спрашивает отдельно (GET /order/:slug/context),
+    // а при самой отправке заказа сервер всё равно перерезолвит его сам из этой же cookie.
+    await resolveTable(req, res, venue);
+
+    // Предпросмотр не считается просмотром гостя и не читает/не пишет общий кэш меню —
+    // кэш ключуется по slug+lang и обслуживает реальных посетителей, смешивать с ним
+    // черновик (который вот-вот может стать другим содержимым) не стоит.
+    if (!preview) {
+      // Промт 3.2: page_view пишется на КАЖДЫЙ показ страницы, а не только на "уникальный визит
+      // за день", как venue_page_views ниже — иначе разбивка по часам суток/дням недели в
+      // аналитике потеряла бы весь сигнал повторных заходов одного гостя за день. Это отдельная,
+      // более подробная метрика поверх старой, а не замена ей (см. README, промт 3.2).
+      menuEventModel.insertOne(eventTracking.buildPageViewRow(venue.id, req, lang)).catch((err) => {
+        console.error('Не удалось записать событие page_view', err);
+      });
+
+      if (shouldCountView(req, slug)) {
+        markViewCounted(res, slug);
+        venuePageViewModel.recordView(venue.id).catch((err) => {
+          console.error('Не удалось записать просмотр меню', err);
+        });
+      }
+    }
+
+    // ?item=<id> — прямая ссылка на карточку блюда (промт 2.2). Страница с таким параметром
+    // отдаёт мета-теги конкретной позиции, поэтому мимо общего кэша: он ключуется по slug+lang
+    // и на всех ссылках вернул бы одни и те же теги заведения.
+    const requestedItemId = Number(req.query.item) || null;
+
+    if (preview) {
+      const viewModel = await buildFullViewModel(venue, lang, req);
+      return res.render('public/menu', {
+        ...viewModel, isPreview: true, ...itemLinkExtras(viewModel, requestedItemId, req, venue),
       });
     }
 
-    const cached = menuCache.get(slug, lang);
-    if (cached) {
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.status(200).send(cached);
+    if (!requestedItemId) {
+      const cached = menuCache.get(slug, lang);
+      if (cached) {
+        res.set('Content-Type', 'text/html; charset=utf-8');
+        return res.status(200).send(cached);
+      }
     }
 
-    const rows = await itemModel.listByVenueGrouped(venue.id);
-    const viewModel = buildMenuViewModel(venue, rows, lang, req);
+    const viewModel = await buildFullViewModel(venue, lang, req);
+    const extras = itemLinkExtras(viewModel, requestedItemId, req, venue);
 
-    res.render('public/menu', viewModel, (err, html) => {
+    if (requestedItemId) {
+      return res.render('public/menu', { ...viewModel, isPreview: false, ...extras });
+    }
+
+    res.render('public/menu', { ...viewModel, isPreview: false, ...extras }, (err, html) => {
       if (err) return next(err);
       menuCache.set(venue.id, slug, lang, html);
       res.set('Content-Type', 'text/html; charset=utf-8');

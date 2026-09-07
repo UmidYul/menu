@@ -9,6 +9,7 @@ const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { categorySchema } = require('../validators/categoryValidators');
 const pgNotify = require('../services/pgNotify');
+const demoData = require('../services/demoData');
 
 router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
 
@@ -168,6 +169,49 @@ router.delete('/:id', async (req, res, next) => {
     if (err.code === '23503') {
       return renderList(req, res, 409, t('categories.errorHasItemsGeneric'));
     }
+    next(err);
+  }
+});
+
+// Промт 1.6 — "Заполнить примером" в пустом состоянии категорий. Реальное содержание меню
+// после этого создаётся тем же путём, что и вручную (categoryModel.create/itemModel.create),
+// просто с is_demo=true — pgNotify нужен так же, как и для настоящей категории/позиции.
+router.post('/demo-fill', async (req, res, next) => {
+  try {
+    const venueId = req.session.admin.venueId;
+    const result = await demoData.fillWithDemoData(venueId);
+    if (result.created) {
+      await logAction(pool, {
+        adminId: req.session.admin.id,
+        venueId,
+        actionType: 'create',
+        entityType: 'venue',
+        entityId: venueId,
+        details: { action: 'demo_fill' },
+      });
+      await pgNotify.publishMenuChange(venueId);
+    }
+    res.redirect('/admin/categories');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/demo-remove', async (req, res, next) => {
+  try {
+    const venueId = req.session.admin.venueId;
+    await demoData.removeDemoData(venueId);
+    await logAction(pool, {
+      adminId: req.session.admin.id,
+      venueId,
+      actionType: 'delete',
+      entityType: 'venue',
+      entityId: venueId,
+      details: { action: 'demo_remove' },
+    });
+    await pgNotify.publishMenuChange(venueId);
+    res.redirect('/admin/categories');
+  } catch (err) {
     next(err);
   }
 });

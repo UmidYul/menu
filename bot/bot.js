@@ -10,6 +10,8 @@ const langHandler = require('./handlers/lang');
 const ownerHandler = require('./handlers/owner');
 const leadActionsHandler = require('./handlers/leadActions');
 const paymentClaimActionsHandler = require('./handlers/paymentClaimActions');
+const telegramGroupLinkHandler = require('./handlers/telegramGroupLink');
+const orderActionsHandler = require('./handlers/orderActions');
 const fallbackHandler = require('./handlers/fallback');
 
 // TTL сессии — 30 минут: "незавершённые сцены очищаются через 30 минут неактивности" из
@@ -33,6 +35,9 @@ function createBot() {
   ownerHandler.register(bot);
   leadActionsHandler.register(bot);
   paymentClaimActionsHandler.register(bot);
+  orderActionsHandler.register(bot);
+  // Привязка группы (промт 2.4) — до fallback: тот забирает любой текст и дальше не пускает.
+  telegramGroupLinkHandler.register(bot);
   // fallback — последним: ловит всё, что не забрали команды/колбэки выше.
   fallbackHandler.register(bot);
 

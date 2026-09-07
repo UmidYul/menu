@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('nav.tables') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'tables', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.tables'), lang, currentPath: '/admin/tables', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.tables') %></h1>
+          </div>
+          <% if (tables.some((table) => table.is_active)) { %>
+            <a href="/admin/tables/print" target="_blank" rel="noopener" class="btn btn-outline">
+              <%- include('../partials/icon', { name: 'qrcode', size: 16 }) %>
+              <%= t('tables.printAllButton') %>
+            </a>
+          <% } %>
+        </div>
+
+        <% if (error) { %>
+          <div class="alert alert-error"><%= error %></div>
+        <% } %>
+        <% if (locals.query && query.regenerated) { %>
+          <div class="alert alert-success"><%= t('tables.regeneratedNotice') %></div>
+        <% } %>
+
+        <div class="dashboard-card tables-create-card">
+          <h3><%= t('tables.bulkCreateHeading') %></h3>
+          <p class="analytics-card-hint"><%= t('tables.bulkCreateHint') %></p>
+          <form method="POST" action="/admin/tables" class="tables-create-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="tables-create-field">
+              <span><%= t('tables.prefixLabel') %></span>
+              <input type="text" name="prefix" value="<%= formValues.prefix %>" placeholder="<%= t('tables.prefixPlaceholder') %>">
+            </label>
+            <label class="tables-create-field tables-create-field-narrow">
+              <span><%= t('tables.fromLabel') %></span>
+              <input type="text" inputmode="numeric" name="from" value="<%= formValues.from %>" placeholder="1" required>
+            </label>
+            <label class="tables-create-field tables-create-field-narrow">
+              <span><%= t('tables.toLabel') %></span>
+              <input type="text" inputmode="numeric" name="to" value="<%= formValues.to %>" placeholder="20" required>
+            </label>
+            <button type="submit" class="btn btn-primary"><%= t('tables.createButton') %></button>
+          </form>
+        </div>
+
+        <% if (tables.length === 0) { %>
+          <div class="empty-state">
+            <div class="empty-state-icons">
+              <span class="empty-state-icon"><%- include('../partials/icon', { name: 'qrcode', size: 22 }) %></span>
+            </div>
+            <h3><%= t('tables.emptyHeading') %></h3>
+            <p><%= t('tables.emptyExplain') %></p>
+          </div>
+        <% } else { %>
+          <div class="table-card">
+            <div class="table-heading">
+              <h3><%= t('tables.listHeading') %></h3>
+            </div>
+            <% tables.forEach((table) => { %>
+              <div class="table-row tables-row <%= table.is_active ? '' : 'is-inactive' %>">
+                <div class="tables-row-number">
+                  <b><%= table.number %></b>
+                  <% if (!table.is_active) { %><span class="tables-inactive-badge"><%= t('tables.inactiveBadge') %></span><% } %>
+                </div>
+
+                <form method="POST" action="/admin/tables/<%= table.id %>/rename" class="tables-rename-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="text" name="number" value="<%= table.number %>" aria-label="<%= t('tables.renameLabel') %>">
+                  <button type="submit" class="icon-btn" title="<%= t('common.save') %>" aria-label="<%= t('common.save') %>">
+                    <%- include('../partials/icon', { name: 'check', size: 14 }) %>
+                  </button>
+                </form>
+
+                <div class="tables-row-actions">
+                  <a class="icon-btn" href="/admin/tables/<%= table.id %>/qr.png?download=1"
+                     title="<%= t('tables.downloadQrTitle') %>" aria-label="<%= t('tables.downloadQrTitle') %>">
+                    <%- include('../partials/icon', { name: 'qrcode', size: 14 }) %>
+                  </a>
+
+                  <form method="POST" action="/admin/tables/<%= table.id %>/toggle">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="icon-btn" title="<%= table.is_active ? t('tables.deactivateTitle') : t('tables.activateTitle') %>"
+                            aria-label="<%= table.is_active ? t('tables.deactivateTitle') : t('tables.activateTitle') %>">
+                      <%- include('../partials/icon', { name: table.is_active ? 'eye' : 'check', size: 14 }) %>
+                    </button>
+                  </form>
+
+                  <form method="POST" action="/admin/tables/<%= table.id %>/regenerate" data-confirm="<%= t('tables.regenerateConfirm') %>">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="icon-btn" title="<%= t('tables.regenerateTitle') %>" aria-label="<%= t('tables.regenerateTitle') %>">
+                      <%- include('../partials/icon', { name: 'unlink', size: 14 }) %>
+                    </button>
+                  </form>
+
+                  <form method="POST" action="/admin/tables/<%= table.id %>/delete" data-confirm="<%= t('tables.deleteConfirm') %>">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="icon-btn icon-btn-danger" title="<%= t('common.delete') %>" aria-label="<%= t('common.delete') %>">
+                      <%- include('../partials/icon', { name: 'trash', size: 14 }) %>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

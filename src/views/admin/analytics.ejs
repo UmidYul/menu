@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('nav.analytics') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'analytics', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.analytics'), lang, currentPath: '/admin/analytics', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.analytics') %></h1>
+          </div>
+          <% if (dashboard.hasEnoughData) { %>
+            <a href="/admin/analytics/export.xlsx?<%= periodQuery %>" class="btn btn-outline">
+              <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+              <%= t('analytics.exportButton') %>
+            </a>
+          <% } %>
+        </div>
+
+        <%# Период — обычная GET-форма с query-параметрами: результат можно сохранить в закладки
+            и переслать ссылкой, без скрытого состояния на сервере. %>
+        <form method="GET" action="/admin/analytics" class="analytics-period-form">
+          <div class="analytics-period-tabs">
+            <a href="/admin/analytics?period=7" class="analytics-period-tab <%= dashboard.period.preset === '7' ? 'active' : '' %>"><%= t('analytics.period7') %></a>
+            <a href="/admin/analytics?period=30" class="analytics-period-tab <%= dashboard.period.preset === '30' ? 'active' : '' %>"><%= t('analytics.period30') %></a>
+          </div>
+          <div class="analytics-period-custom">
+            <input type="hidden" name="period" value="custom">
+            <input type="date" name="from" value="<%= dashboard.period.from.toISOString().slice(0,10) %>" max="<%= new Date().toISOString().slice(0,10) %>">
+            <span>—</span>
+            <input type="date" name="to" value="<%= dashboard.period.to.toISOString().slice(0,10) %>" max="<%= new Date().toISOString().slice(0,10) %>">
+            <button type="submit" class="btn btn-outline"><%= t('analytics.periodCustomApply') %></button>
+          </div>
+        </form>
+
+        <% if (!dashboard.hasEnoughData) { %>
+          <div class="analytics-empty-state">
+            <%- include('../partials/icon', { name: 'barchart', size: 32 }) %>
+            <p><%= t('analytics.notEnoughData') %></p>
+            <% if (dashboard.totalViews > 0) { %><small><%= t('analytics.notEnoughDataCount', { count: dashboard.totalViews }) %></small><% } %>
+          </div>
+        <% } else { %>
+
+          <div class="dashboard-grid analytics-grid">
+            <div class="dashboard-card analytics-card-views">
+              <div class="analytics-card-head">
+                <h3><%= t('analytics.viewsHeading') %></h3>
+                <div class="analytics-total">
+                  <b><%= dashboard.totalViews %></b>
+                  <% if (dashboard.trendPercent !== null) { %>
+                    <span class="analytics-trend <%= dashboard.trendPercent >= 0 ? 'up' : 'down' %>"><%= dashboard.trendPercent >= 0 ? '+' : '' %><%= dashboard.trendPercent %>%</span>
+                  <% } %>
+                </div>
+              </div>
+              <%- include('../partials/analytics-bar-chart', { id: 'chartDaily', bars: dashboard.dailyPageViews.days.map((d) => ({ label: d.label, value: d.count, heightPercent: d.heightPercent })), valueSuffix: '', ariaLabel: t('analytics.viewsHeading') }) %>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.peakHoursHeading') %></h3>
+              <%- include('../partials/analytics-bar-chart', { id: 'chartHourly', bars: dashboard.hourlyPeak.map((h) => ({ label: h.hour, value: h.value, heightPercent: h.heightPercent })), valueSuffix: '', ariaLabel: t('analytics.peakHoursHeading') }) %>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.dowHeading') %></h3>
+              <%- include('../partials/analytics-bar-chart', { id: 'chartDow', bars: dashboard.dayOfWeek, valueSuffix: '', ariaLabel: t('analytics.dowHeading') }) %>
+            </div>
+          </div>
+
+          <div class="dashboard-grid analytics-grid analytics-grid-lists">
+            <div class="dashboard-card">
+              <h3><%= t('analytics.topViewedHeading') %></h3>
+              <% if (dashboard.topViewed.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.noData') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.topViewed.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.name %></span><span class="analytics-top-value"><%= row.views %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.topAddedHeading') %></h3>
+              <% if (dashboard.topAdded.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.noData') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.topAdded.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.name %></span><span class="analytics-top-value"><%= row.adds %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+          </div>
+
+          <div class="dashboard-grid analytics-grid analytics-grid-lists">
+            <div class="dashboard-card">
+              <h3><%= t('analytics.viewedNotAddedHeading') %></h3>
+              <p class="analytics-card-hint"><%= t('analytics.viewedNotAddedHint') %></p>
+              <% if (dashboard.viewedNotAdded.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.noData') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.viewedNotAdded.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.name %></span><span class="analytics-top-value"><%= row.views %> / <%= row.adds %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.neverViewedHeading') %></h3>
+              <p class="analytics-card-hint"><%= t('analytics.neverViewedHint') %></p>
+              <% if (dashboard.neverViewed.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.allViewed') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.neverViewed.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.name %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+          </div>
+
+          <div class="dashboard-grid analytics-grid analytics-grid-lists">
+            <div class="dashboard-card">
+              <h3><%= t('analytics.searchTopHeading') %></h3>
+              <% if (dashboard.searchTop.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.noData') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.searchTop.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.dimension %></span><span class="analytics-top-value"><%= row.value %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+
+            <div class="dashboard-card analytics-card-highlight">
+              <h3><%= t('analytics.searchEmptyHeading') %></h3>
+              <p class="analytics-card-hint"><%= t('analytics.searchEmptyHint') %></p>
+              <% if (dashboard.searchEmptyTop.length === 0) { %><p class="analytics-empty-note"><%= t('analytics.noData') %></p><% } %>
+              <ol class="analytics-top-list">
+                <% dashboard.searchEmptyTop.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= row.dimension %></span><span class="analytics-top-value"><%= row.value %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+          </div>
+
+          <div class="dashboard-grid analytics-grid analytics-grid-breakdowns">
+            <div class="dashboard-card">
+              <h3><%= t('analytics.langHeading') %></h3>
+              <% dashboard.langBreakdown.rows.forEach((row) => { %>
+                <div class="analytics-breakdown-row">
+                  <span><%= row.label %></span>
+                  <div class="analytics-breakdown-bar"><i style="width: <%= Math.round(row.value / dashboard.langBreakdown.total * 100) %>%"></i></div>
+                  <span class="analytics-breakdown-pct"><%= Math.round(row.value / dashboard.langBreakdown.total * 100) %>%</span>
+                </div>
+              <% }) %>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.deviceHeading') %></h3>
+              <% dashboard.deviceBreakdown.rows.forEach((row) => { %>
+                <div class="analytics-breakdown-row">
+                  <span><%= row.label %></span>
+                  <div class="analytics-breakdown-bar"><i style="width: <%= Math.round(row.value / dashboard.deviceBreakdown.total * 100) %>%"></i></div>
+                  <span class="analytics-breakdown-pct"><%= Math.round(row.value / dashboard.deviceBreakdown.total * 100) %>%</span>
+                </div>
+              <% }) %>
+            </div>
+
+            <div class="dashboard-card">
+              <h3><%= t('analytics.sourceHeading') %></h3>
+              <% dashboard.sourceBreakdown.rows.forEach((row) => { %>
+                <div class="analytics-breakdown-row">
+                  <span><%= t('analytics.source.' + row.key) %></span>
+                  <div class="analytics-breakdown-bar"><i style="width: <%= Math.round(row.value / dashboard.sourceBreakdown.total * 100) %>%"></i></div>
+                  <span class="analytics-breakdown-pct"><%= Math.round(row.value / dashboard.sourceBreakdown.total * 100) %>%</span>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+
+          <% if (dashboard.tableTop.length > 0) { %>
+            <div class="dashboard-card">
+              <h3><%= t('analytics.tablesHeading') %></h3>
+              <ol class="analytics-top-list">
+                <% dashboard.tableTop.forEach((row) => { %>
+                  <li><span class="analytics-top-name"><%= t('analytics.tableLabel', { number: row.dimension }) %></span><span class="analytics-top-value"><%= row.value %></span></li>
+                <% }) %>
+              </ol>
+            </div>
+          <% } %>
+
+        <% } %>
+
+        <div class="dashboard-card analytics-settings-card">
+          <h3><%= t('analytics.settingsHeading') %></h3>
+          <form method="POST" action="/admin/analytics/toggle-exclude-owner" class="analytics-toggle-row">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="returnQuery" value="?<%= periodQuery %>">
+            <div>
+              <b><%= t('analytics.excludeOwnerLabel') %></b>
+              <small><%= t('analytics.excludeOwnerHint') %></small>
+            </div>
+            <button type="submit" class="toggle <%= venue.exclude_owner_views ? 'on' : '' %>" aria-pressed="<%= venue.exclude_owner_views %>"><i></i></button>
+          </form>
+          <form method="POST" action="/admin/analytics/toggle-weekly-summary" class="analytics-toggle-row">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="returnQuery" value="?<%= periodQuery %>">
+            <div>
+              <b><%= t('analytics.weeklySummaryLabel') %></b>
+              <small><%= venue.owner_telegram_id ? t('analytics.weeklySummaryHint') : t('analytics.weeklySummaryNoTelegram') %></small>
+            </div>
+            <button type="submit" class="toggle <%= venue.weekly_summary_enabled ? 'on' : '' %>" aria-pressed="<%= venue.weekly_summary_enabled %>" <%= venue.owner_telegram_id ? '' : 'disabled' %>><i></i></button>
+          </form>
+        </div>
+
+      </div>
+    </section>
+  </div>
+  <script src="/js/analytics-charts.js" defer></script>
+</body>
+</html>

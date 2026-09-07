@@ -25,7 +25,33 @@
           <% } %>
 
           <% if (categories.length === 0) { %>
-            <p style="color:var(--muted); font-size:13px;"><%= t('categories.empty') %></p>
+            <div class="empty-state">
+              <div class="empty-state-icons">
+                <span class="empty-state-icon"><%- include('../partials/icon', { name: 'list', size: 22 }) %></span>
+              </div>
+              <h3><%= t('categories.emptyHeading') %></h3>
+              <p><%= t('categories.emptyExplain') %></p>
+              <p class="empty-state-example"><%= t('categories.emptyExample') %></p>
+              <button type="button" class="btn btn-primary" onclick="document.getElementById('add-category-modal').showModal()">
+                <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('categories.emptyCreateFirst') %>
+              </button>
+              <form method="POST" action="/admin/categories/demo-fill" style="margin-top:12px;">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-outline"><%= t('categories.demoFillButton') %></button>
+              </form>
+            </div>
+          <% } %>
+
+          <% if (categories.some((c) => c.is_demo)) { %>
+            <div class="alert alert-success" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <span><%= t('categories.demoActiveNotice') %></span>
+              <form method="POST" action="/admin/categories/demo-remove" data-confirm="<%= t('categories.demoRemoveConfirm') %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-outline btn-sm">
+                  <%- include('../partials/icon', { name: 'trash', size: 13 }) %> <%= t('categories.demoRemoveButton') %>
+                </button>
+              </form>
+            </div>
           <% } %>
 
           <% if (categories.length > 0) { %>
@@ -33,7 +59,7 @@
               <% categories.forEach((category, index) => { %>
                 <div class="table-row item-row" style="grid-template-columns: 1fr 40px;">
                   <div class="item-row-info">
-                    <b><%= category.name_ru %></b>
+                    <b><%= category.name_ru %> <% if (category.is_demo) { %><span class="dish-row-tag"><%= t('categories.demoBadge') %></span><% } %></b>
                     <span><%= t('categories.itemsCount', { count: category.item_count }) %></span>
                   </div>
                   <details class="item-menu">

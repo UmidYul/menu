@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= venueName %> — <%= t('publicMenu.pageTitleSuffix') %></title>
+  <%# При заходе по ссылке на блюдо (?item=<id>) заголовок/описание/картинка — этой позиции,
+      чтобы ссылка разворачивалась превью блюда в Telegram, а не общей карточкой заведения. %>
+  <% const _title = locals.pageTitle || (venueName + ' — ' + t('publicMenu.pageTitleSuffix')); %>
+  <title><%= _title %></title>
   <meta name="description" content="<%= metaDescription %>">
   <link rel="canonical" href="<%= canonicalUrl %>">
   <% hreflangLinks.forEach((alt) => { %>
@@ -12,20 +15,23 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="<%= serviceName %>">
   <meta property="og:locale" content="<%= ogLocale %>">
-  <meta property="og:title" content="<%= venueName %> — <%= t('publicMenu.pageTitleSuffix') %>">
+  <meta property="og:title" content="<%= _title %>">
   <meta property="og:description" content="<%= metaDescription %>">
-  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta property="og:url" content="<%= locals.ogUrl || canonicalUrl %>">
   <meta property="og:image" content="<%= ogImageUrl %>">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="<%= venueName %> — <%= t('publicMenu.pageTitleSuffix') %>">
+  <meta name="twitter:title" content="<%= _title %>">
   <meta name="twitter:description" content="<%= metaDescription %>">
   <meta name="twitter:image" content="<%= ogImageUrl %>">
   <%- include('../partials/head-assets') %>
   <script type="application/ld+json"><%- toSafeJsonLd(restaurantJsonLd) %></script>
 </head>
 <body>
+  <% if (isPreview) { %>
+    <div class="preview-banner"><%= t('publicMenu.previewBanner') %></div>
+  <% } %>
   <main class="public-menu">
     <header class="menu-header container">
       <div class="brand"><%- include('../partials/brand', { compact: true }) %></div>
@@ -154,7 +160,7 @@
             <div class="category-nav-track" id="categoryNavTrack">
               <button type="button" class="category-chip active" data-category-chip="all"><%= t('publicMenu.allCategoriesLabel') %></button>
               <% groups.forEach((group) => { %>
-                <button type="button" class="category-chip" data-category-chip="category-<%= group.categoryId %>"><%= group.categoryName %></button>
+                <button type="button" class="category-chip" data-category-chip="category-<%= group.categoryId %>" data-category-id="<%= group.categoryId %>"><%= group.categoryName %></button>
               <% }) %>
             </div>
             <button type="button" class="category-nav-arrow category-nav-arrow-right" data-scroll-dir="1" aria-label="<%= t('publicMenu.scrollCategoriesRight') %>" hidden>
@@ -216,6 +222,11 @@
       <% } %>
     </footer>
 
+    <%# Промт 3.2: короткая, ненавязчивая строка о сборе обезличенной статистики — не баннер
+        согласия (собираем данные не о личности гостя, а IP/UA хешируются посуточно, см. README),
+        но гость должен иметь возможность узнать об этом, не читая политику конфиденциальности. %>
+    <p class="menu-analytics-note container"><%= t('publicMenu.analyticsDisclosure') %></p>
+
     <% if (showPoweredBy) { %>
       <div class="mini-footer container">
         <a href="/" class="brand mini-footer-brand"><%- include('../partials/brand', { compact: true }) %></a>
@@ -244,8 +255,149 @@
       </button>
     </div>
     <div class="modal-body">
+      <p id="cartChangedNote" class="cart-changed-note" hidden><%= t('publicMenu.cartChangedNote') %></p>
       <div id="cartPanelList"></div>
-      <button type="button" id="cartClearBtn" class="btn btn-outline" style="width:100%; margin-top:14px;"><%= t('publicMenu.cartClear') %></button>
+      <%# Промт 2.4: кнопка есть, только если заведение принимает заказы (признак уровня
+          заведения, безопасно кэшируется вместе со страницей). Стол и часы работы проверяются
+          отдельно — при открытии экрана подтверждения и ещё раз на сервере при отправке. %>
+      <% if (ordersAvailable) { %>
+        <button type="button" id="orderStartBtn" class="btn btn-primary order-start-btn">
+          <%- include('../partials/icon', { name: 'cart', size: 16 }) %>
+          <%= t('orders.sendOrderButton') %>
+        </button>
+      <% } %>
+      <button type="button" id="cartClearBtn" class="btn btn-outline cart-clear-btn"><%= t('publicMenu.cartClear') %></button>
+    </div>
+  </dialog>
+
+  <%# Одна общая модалка выбора опций на всё меню — содержимое рисует menu-cart.js по данным
+      из #menuData; отдельный <dialog> на каждую позицию раздул бы страницу впустую. %>
+  <dialog id="item-options-modal" class="modal modal-sheet">
+    <div class="modal-head">
+      <h3 id="optionsModalTitle"></h3>
+      <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+        <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="optionsModalMedia" class="options-modal-media" hidden></div>
+      <p id="optionsModalDescription" class="options-modal-description" hidden></p>
+      <div id="optionsModalGroups"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" id="optionsSubmitBtn" class="btn btn-primary options-submit">
+        <span class="options-submit-label"></span>
+        <span class="options-submit-total"></span>
+      </button>
+    </div>
+  </dialog>
+
+  <% if (ordersAvailable) { %>
+    <%# Заказ и вызов официанта (промт 2.4). Всё содержимое, зависящее от стола, наполняет
+        order-flow.js после запроса /order/:slug/context — в кэшируемый HTML стол не попадает. %>
+    <dialog id="order-modal" class="modal modal-sheet">
+      <div class="modal-head">
+        <h3 id="orderModalTitle"><%= t('orders.confirmHeading') %></h3>
+        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+          <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="orderError" class="alert alert-error" hidden></div>
+
+        <div id="orderConfirmStep">
+          <div id="orderLines" class="order-lines"></div>
+          <div class="order-total-row">
+            <span><%= t('orders.totalLabel') %></span>
+            <strong id="orderTotal"></strong>
+          </div>
+
+          <div class="order-field" id="orderTableKnown" hidden>
+            <span class="order-field-label"><%= t('orders.tableLabel') %></span>
+            <b id="orderTableNumber"></b>
+          </div>
+          <label class="order-field" id="orderTableInput" hidden>
+            <span class="order-field-label"><%= t('orders.tableManualLabel') %></span>
+            <input type="text" id="orderTableNumberInput" maxlength="40" placeholder="<%= t('orders.tableManualPlaceholder') %>">
+          </label>
+
+          <label class="order-field">
+            <span class="order-field-label"><%= t('orders.commentLabel') %></span>
+            <textarea id="orderComment" rows="2" maxlength="500" placeholder="<%= t('orders.commentPlaceholder') %>"></textarea>
+          </label>
+        </div>
+
+        <%# Экран «заказ отправлен»: номер крупно — промт просит предложить сделать скриншот,
+            потому что вкладку могут закрыть и статус будет негде посмотреть. %>
+        <div id="orderSentStep" hidden>
+          <div class="order-sent">
+            <span class="order-sent-label"><%= t('orders.sentOrderNumberLabel') %></span>
+            <b id="orderSentNumber"></b>
+            <p class="order-sent-hint"><%= t('orders.sentScreenshotHint') %></p>
+            <div class="order-status-row">
+              <span class="order-status-dot" id="orderStatusDot"></span>
+              <span id="orderStatusText"></span>
+            </div>
+            <p class="order-undelivered" id="orderUndelivered" hidden><%= t('orders.undeliveredHint') %></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="orderSubmitBtn" class="btn btn-primary options-submit">
+          <span><%= t('orders.confirmButton') %></span>
+        </button>
+        <button type="button" id="orderCloseBtn" class="btn btn-outline options-submit" hidden><%= t('orders.closeButton') %></button>
+      </div>
+    </dialog>
+
+    <dialog id="waiter-modal" class="modal modal-sheet">
+      <div class="modal-head">
+        <h3><%= t('orders.waiterHeading') %></h3>
+        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+          <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="waiterError" class="alert alert-error" hidden></div>
+        <div id="waiterResult" class="alert alert-success" hidden></div>
+        <div class="waiter-options" id="waiterOptions">
+          <button type="button" class="waiter-option" data-call-type="come"><%= t('orders.waiterCome') %></button>
+          <button type="button" class="waiter-option" data-call-type="bill"><%= t('orders.waiterBill') %></button>
+          <button type="button" class="waiter-option" data-call-type="cutlery"><%= t('orders.waiterCutlery') %></button>
+        </div>
+      </div>
+    </dialog>
+
+    <%# Кнопка вызова официанта появляется только когда стол известен — это решает order-flow.js
+        по ответу /context, поэтому в разметке она изначально скрыта. %>
+    <button type="button" id="waiterCallBtn" class="waiter-call-btn" hidden aria-label="<%= t('orders.waiterHeading') %>">
+      <%- include('../partials/icon', { name: 'bell', size: 20 }) %>
+    </button>
+  <% } %>
+
+  <%# Карточка блюда (промт 2.2). Как и модалка опций — одна на всё меню: шапка с фото и кнопками
+      статична (иконки из icon.ejs, подписи через t), а тело и подвал рисует dish-card.js. %>
+  <dialog id="dish-card-modal" class="modal modal-sheet dish-card">
+    <div class="dish-card-media" id="dishCardMedia">
+      <div class="dish-card-photo" id="dishCardPhoto"></div>
+      <div class="dish-card-media-actions">
+        <button type="button" class="dish-card-action" id="dishCardShare" aria-label="<%= t('publicMenu.shareButton') %>" title="<%= t('publicMenu.shareButton') %>">
+          <%- include('../partials/icon', { name: 'share', size: 17 }) %>
+        </button>
+        <button type="button" class="dish-card-action" id="dishCardClose" aria-label="<%= t('publicMenu.cardCloseAriaLabel') %>" title="<%= t('publicMenu.cardCloseAriaLabel') %>">
+          <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+        </button>
+      </div>
+      <span class="dish-card-copied" id="dishCardCopied" hidden>
+        <%- include('../partials/icon', { name: 'check', size: 13 }) %> <%= t('publicMenu.shareCopied') %>
+      </span>
+    </div>
+    <div class="modal-body dish-card-body" id="dishCardBody"></div>
+    <div class="modal-foot dish-card-foot" id="dishCardFoot" hidden>
+      <button type="button" id="dishCardSubmit" class="btn btn-primary options-submit">
+        <span class="options-submit-label"><%= t('publicMenu.optionAddToCart') %></span>
+        <span class="options-submit-total"></span>
+      </button>
     </div>
   </dialog>
 
@@ -278,6 +430,13 @@
     </dialog>
   <% } %>
 
+  <%# event-tracker.js — раньше public-menu.js (промт 3.2): оба defer, значит выполняются в
+      порядке тегов независимо от того, кто раньше догрузился по сети; public-menu.js и другие
+      файлы ниже читают window.eventTracker при первичной настройке обработчиков (не только по
+      клику), так что он должен существовать уже на этот момент. defer-скрипт не начинает
+      выполняться раньше полного разбора DOM, так что #menuData (он ниже по файлу) к этому
+      моменту уже гарантированно есть — порядок тегов в файле на это не влияет. %>
+  <script src="/js/event-tracker.js" defer></script>
   <script src="/js/public-menu.js" defer></script>
 
   <script>
@@ -288,6 +447,7 @@
       btn.addEventListener('click', function () {
         var url = window.location.href;
         var title = document.title;
+        if (window.eventTracker) window.eventTracker.track('share');
         if (navigator.share) {
           navigator.share({ title: title, url: url }).catch(function () {});
           return;
@@ -311,6 +471,7 @@
           var valueEl = document.getElementById(btn.dataset.target);
           var note = document.getElementById(btn.dataset.note);
           if (!valueEl || !navigator.clipboard || !navigator.clipboard.writeText) return;
+          if (window.eventTracker) window.eventTracker.track('wifi_copy');
           navigator.clipboard.writeText(valueEl.textContent).then(function () {
             if (!note) return;
             note.style.display = 'inline-flex';
@@ -321,162 +482,88 @@
     })();
   </script>
 
-  <script>
-    // Корзина живёт в sessionStorage вместе с метаданными позиции (имя/цена/валюта) — теперь всё
-    // меню (все категории) рендерится на одной странице, но метаданные всё равно хранятся в
-    // корзине, а не читаются заново из DOM, чтобы сумма в плавающей корзине была отзывчивой и не
-    // зависела от того, что именно сейчас видно на экране.
-    (function () {
-      var STORAGE_KEY = 'cart:<%= venueSlug %>';
-      var cart = {};
-
-      function escapeHtml(str) {
-        var div = document.createElement('div');
-        div.textContent = str == null ? '' : String(str);
-        return div.innerHTML;
-      }
-
-      function fmt(n) {
-        return Math.round(n).toLocaleString('ru-RU');
-      }
-
-      function loadCart() {
-        try {
-          var raw = sessionStorage.getItem(STORAGE_KEY);
-          cart = raw ? JSON.parse(raw) : {};
-        } catch (e) {
-          cart = {};
-        }
-      }
-
-      function saveCart() {
-        try {
-          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
-        } catch (e) {}
-      }
-
-      function totalCount() {
-        return Object.keys(cart).reduce(function (sum, id) { return sum + cart[id].qty; }, 0);
-      }
-
-      function totalSum() {
-        return Object.keys(cart).reduce(function (sum, id) { return sum + cart[id].price * cart[id].qty; }, 0);
-      }
-
-      function renderSteppers() {
-        document.querySelectorAll('.cart-control[data-item-id]').forEach(function (el) {
-          var entry = cart[el.dataset.itemId];
-          var qty = entry ? entry.qty : 0;
-          var valueEl = el.querySelector('.qty-value');
-          if (valueEl) valueEl.textContent = qty;
-          el.classList.toggle('has-qty', qty > 0);
-        });
-      }
-
-      function renderBar(changed) {
-        var bar = document.getElementById('cartBar');
-        var count = totalCount();
-        if (count === 0) {
-          bar.hidden = true;
-          return;
-        }
-        bar.hidden = false;
-        document.getElementById('cartBarCount').textContent = count;
-        document.getElementById('cartBarItemsLabel').textContent = '<%= t("publicMenu.itemsCount", { count: "__COUNT__" }) %>'.replace('__COUNT__', count);
-        document.getElementById('cartBarTotal').textContent = fmt(totalSum());
-        if (changed && window.publicMenuPulseCart) window.publicMenuPulseCart();
-        if (changed && window.publicMenuFlashBadge) window.publicMenuFlashBadge();
-      }
-
-      function renderPanel() {
-        var list = document.getElementById('cartPanelList');
-        var ids = Object.keys(cart).filter(function (id) { return cart[id].qty > 0; });
-        if (ids.length === 0) {
-          list.innerHTML = '<p style="color:var(--muted); font-size:13px; margin:0;"><%= t('publicMenu.cartEmpty') %></p>';
-          return;
-        }
-        list.innerHTML = ids.map(function (id) {
-          var entry = cart[id];
-          return '<div class="cart-line">' +
-            '<span class="cart-line-name">' + escapeHtml(entry.name) + '</span>' +
-            '<div class="qty-stepper has-qty" data-item-id="' + id + '">' +
-              '<button type="button" class="qty-btn qty-minus" aria-label="<%= t("publicMenu.qtyDecreaseAriaLabel") %>">−</button>' +
-              '<span class="qty-value">' + entry.qty + '</span>' +
-              '<button type="button" class="qty-btn qty-plus" aria-label="<%= t("publicMenu.qtyIncreaseAriaLabel") %>">+</button>' +
-            '</div>' +
-            '<strong class="cart-line-total">' + fmt(entry.price * entry.qty) + ' ' + escapeHtml(entry.currency) + '</strong>' +
-          '</div>';
-        }).join('');
-      }
-
-      function render(changed) {
-        renderSteppers();
-        renderBar(changed);
-        renderPanel();
-      }
-
-      function changeQty(id, delta, meta) {
-        var existing = cart[id];
-        var qty = Math.max(0, Math.min(99, (existing ? existing.qty : 0) + delta));
-        if (qty === 0) {
-          delete cart[id];
-        } else {
-          cart[id] = {
-            qty: qty,
-            name: meta ? meta.name : (existing ? existing.name : ''),
-            price: meta ? meta.price : (existing ? existing.price : 0),
-            currency: meta ? meta.currency : (existing ? existing.currency : ''),
-          };
-        }
-        saveCart();
-        render(true);
-      }
-
-      function readMeta(control) {
-        return {
-          name: control.dataset.itemName,
-          price: parseFloat(control.dataset.itemPrice),
-          currency: control.dataset.itemCurrency,
-        };
-      }
-
-      document.addEventListener('click', function (e) {
-        var addBtn = e.target.closest('.cart-add-btn');
-        if (addBtn) {
-          e.preventDefault();
-          var addControl = addBtn.closest('[data-item-id]');
-          if (addControl) changeQty(addControl.dataset.itemId, 1, readMeta(addControl));
-          return;
-        }
-        var btn = e.target.closest('.qty-btn');
-        if (!btn) return;
-        e.preventDefault();
-        var stepper = btn.closest('[data-item-id]');
-        if (!stepper) return;
-        var hasMeta = stepper.hasAttribute('data-item-name');
-        changeQty(stepper.dataset.itemId, btn.classList.contains('qty-plus') ? 1 : -1, hasMeta ? readMeta(stepper) : null);
-      });
-
-      var barToggle = document.getElementById('cartBarToggle');
-      if (barToggle) {
-        barToggle.addEventListener('click', function () {
-          var dialog = document.getElementById('cart-modal');
-          if (dialog) dialog.showModal();
-        });
-      }
-
-      var clearBtn = document.getElementById('cartClearBtn');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-          cart = {};
-          saveCart();
-          render(true);
-        });
-      }
-
-      loadCart();
-      render(false);
-    })();
+  <%#
+    Данные меню для клиентской корзины и модалки опций (промт 2.1). JSON, а не набор
+    data-атрибутов на строках: модалке нужны группы/варианты целиком, а корзине — ещё и
+    возможность пересчитать строку, позиция которой сейчас скрыта фильтром или вообще
+    не видна на экране. Тексты интерфейса кладём сюда же, чтобы menu-cart.js остался
+    файлом без единой зашитой строки и без серверных шаблонных тегов.
+  %>
+  <script type="application/json" id="menuData">
+    <%-
+      JSON.stringify({
+        slug: venueSlug,
+        // Порядок позиций в меню: ключи объекта items — числовые, и движок JS сортирует их
+        // по возрастанию, а лента "ещё из этой категории" должна идти в порядке меню.
+        order: groups.reduce((acc, category) => acc.concat(category.items.map((i) => i.id)), []),
+        items: groups.reduce((acc, category) => {
+          category.items.forEach((item) => {
+            acc[item.id] = {
+              id: item.id,
+              name: item.name,
+              description: item.description || '',
+              composition: item.composition || '',
+              price: Number(item.price),
+              oldPrice: item.oldPrice ? Number(item.oldPrice) : null,
+              discountPercent: item.discountPercent,
+              priceFrom: item.priceFrom,
+              currency: item.currency,
+              photoUrl: item.photoUrl || item.photoThumbUrl || null,
+              photoThumbUrl: item.photoThumbUrl || null,
+              groups: item.optionGroups,
+              // Данные карточки блюда (промт 2.2)
+              categoryId: item.categoryId,
+              categoryName: category.categoryName,
+              isAvailable: item.isAvailable,
+              tags: item.tags,
+              calories: item.calories,
+              weight: item.weight,
+              cookingTimeMinutes: item.cookingTimeMinutes,
+              allergens: item.allergens,
+              spicyLevel: item.spicyLevel,
+              isPopular: item.isPopular,
+            };
+          });
+          return acc;
+        }, {}),
+        initialItemId: locals.initialItemId || null,
+        initialItemMissing: Boolean(locals.initialItemMissing),
+        labels: {
+          itemsCount: t('publicMenu.itemsCount', { count: '__COUNT__' }),
+          cartEmpty: t('publicMenu.cartEmpty'),
+          qtyDecrease: t('publicMenu.qtyDecreaseAriaLabel'),
+          qtyIncrease: t('publicMenu.qtyIncreaseAriaLabel'),
+          required: t('publicMenu.optionRequired'),
+          maxReached: t('publicMenu.optionMaxReached'),
+          addToCart: t('publicMenu.optionAddToCart'),
+          saveLine: t('publicMenu.optionSaveLine'),
+          editLine: t('publicMenu.cartLineEdit'),
+          composition: t('publicMenu.compositionLabel'),
+          caloriesUnit: t('publicMenu.caloriesUnit'),
+          priceFrom: t('publicMenu.priceFrom'),
+          cookingTime: t('publicMenu.cardCookingTime', { minutes: '__MINUTES__' }),
+          allergensPrefix: t('publicMenu.cardAllergensPrefix'),
+          spicyAria: t('publicMenu.cardSpicyAriaLabel', { level: '__LEVEL__', max: '__MAX__' }),
+          popular: t('publicMenu.cardPopularBadge'),
+          unavailable: t('publicMenu.unavailableBadge'),
+          moreFromCategory: t('publicMenu.cardMoreFromCategory'),
+          gone: t('publicMenu.cardItemGone'),
+          backToMenu: t('publicMenu.cardBackToMenu'),
+          shareCopied: t('publicMenu.shareCopied'),
+          orderStatusNew: t('orders.statusNew'),
+          orderStatusAccepted: t('orders.statusAccepted'),
+          orderStatusDone: t('orders.statusDone'),
+          orderStatusCancelled: t('orders.statusCancelled'),
+          orderConfirmHeading: t('orders.confirmHeading'),
+          orderSentHeading: t('orders.sentOrderNumberLabel'),
+          orderGenericError: t('orders.genericError'),
+          orderNetworkError: t('orders.networkError'),
+        },
+      }).replace(/</g, '\\u003c')
+    %>
   </script>
+  <script src="/js/menu-cart.js" defer></script>
+  <script src="/js/dish-card.js" defer></script>
+  <% if (ordersAvailable) { %><script src="/js/order-flow.js" defer></script><% } %>
 </body>
 </html>

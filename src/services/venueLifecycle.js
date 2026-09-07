@@ -11,17 +11,23 @@ const MIN_ITEMS_TO_PUBLISH = 3;
 
 // Чеклист готовности к публикации — та же выборка, что уже строит список категорий с числом
 // позиций в /admin/categories (listByVenueWithCounts), лишнего запроса не требует.
+// realItemCount (без демо, is_demo=false) — реальная защита от публикации; itemCount (с демо)
+// только чтобы отличить "позиций вообще нет" от "есть, но все демонстрационные" — промт 1.6
+// требует для второго случая понятное отдельное объяснение, а не общее "добавьте 3 позиции".
 async function checkPublishReadiness(venue) {
   const categories = await categoryModel.listByVenueWithCounts(venue.id);
   const itemCount = categories.reduce((sum, c) => sum + c.item_count, 0);
+  const realItemCount = categories.reduce((sum, c) => sum + c.real_item_count, 0);
 
   const missing = [];
   if (categories.length < MIN_CATEGORIES_TO_PUBLISH) missing.push('category');
-  if (itemCount < MIN_ITEMS_TO_PUBLISH) missing.push('items');
+  if (realItemCount < MIN_ITEMS_TO_PUBLISH) {
+    missing.push(itemCount > 0 && realItemCount === 0 ? 'all_demo' : 'items');
+  }
   if (!venue.name) missing.push('name');
   if (!venue.phone) missing.push('phone');
 
-  return { ready: missing.length === 0, missing, categoryCount: categories.length, itemCount };
+  return { ready: missing.length === 0, missing, categoryCount: categories.length, itemCount: realItemCount };
 }
 
 const TRIAL_DAYS = 30;

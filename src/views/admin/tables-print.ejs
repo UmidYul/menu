@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('tables.printPageTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body class="tables-print-body">
+  <%# Промт 2.4, «скачивание QR ... для всех сразу»: отдельной библиотеки для ZIP/PDF не заводим —
+      печать этой страницы браузером даёт и распечатку, и «сохранить как PDF». Кнопка скрыта
+      при печати (см. @media print в design-system.css). %>
+  <div class="tables-print-toolbar">
+    <div>
+      <b><%= venue.name %></b>
+      <span><%= t('tables.printHint') %></span>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="window.print()"><%= t('tables.printButton') %></button>
+  </div>
+
+  <% if (tables.length === 0) { %>
+    <p class="empty-note"><%= t('tables.printEmpty') %></p>
+  <% } %>
+
+  <div class="tables-print-grid">
+    <% tables.forEach((table) => { %>
+      <div class="tables-print-card">
+        <div class="tables-print-venue"><%= venue.name %></div>
+        <img src="<%= table.qrDataUrl %>" alt="<%= t('tables.qrAltPrefix') %> <%= table.number %>">
+        <div class="tables-print-number"><%= t('tables.tableLabel', { number: table.number }) %></div>
+        <div class="tables-print-caption"><%= t('tables.printCardCaption') %></div>
+      </div>
+    <% }) %>
+  </div>
+</body>
+</html>

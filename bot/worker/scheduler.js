@@ -1,9 +1,13 @@
 const { pool } = require('../../src/config/db');
 const venueModel = require('../../src/models/venueModel');
+const onboardingModel = require('../../src/models/onboardingModel');
+const notificationModel = require('../../src/models/notificationModel');
 const venueLifecycle = require('../../src/services/venueLifecycle');
+const analyticsAggregation = require('../../src/services/analyticsAggregation');
 const {
-  todayUTC, parseDateOnly, formatDateOnly, diffDaysUTC, truncateToDateUTC,
+  todayUTC, parseDateOnly, formatDateOnly, diffDaysUTC, truncateToDateUTC, addDaysUTC,
 } = require('../../src/utils/dateOnly');
+const analyticsDashboard = require('../../src/services/analyticsDashboard');
 
 // Раз в час (не раз в сутки — переживает перезапуск без потери целого дня), идемпотентно —
 // каждое конкретное действие (переход статуса, конкретное напоминание) защищено либо проверкой
@@ -12,6 +16,64 @@ const {
 const TICK_INTERVAL_MS = 60 * 60 * 1000;
 const GRACE_WARNING_AT_DAY = 3;
 const ARCHIVE_WARNING_DAYS_BEFORE = 7;
+
+// Промт 1.6 — подсказки от бота застрявшим на онбординге. В отличие от остальных уведомлений
+// в этом файле, у них нет фолбэка на email/владельца сервиса: без привязанного Telegram
+// подсказку просто некому показать, а писать про это на почту не то же самое ("бот заметил,
+// что вы застряли" по email выглядит иначе, чем то же сообщение от бота, с которым уже есть
+// диалог) — соответствует формулировке промта "если заведение привязало Telegram и застряло".
+const STUCK_NO_ITEMS_AT_DAY = 2;
+const STUCK_DRAFT_AT_DAY = 5;
+const QR_REMINDER_AT_DAY = 3;
+
+async function checkOnboardingNudges(venue, today) {
+  if (!venue.owner_telegram_id) return;
+  const lang = venue.lang_default || 'ru';
+
+  if (venue.status === 'draft') {
+    const daysSinceCreated = diffDaysUTC(today, truncateToDateUTC(new Date(venue.created_at)));
+
+    if (daysSinceCreated === STUCK_NO_ITEMS_AT_DAY) {
+      // Проверяем ИМЕННО в момент отправки, а не считаем на будущее заранее (промт 1.6) —
+      // к этому часу позиции вполне могли уже появиться.
+      const counts = await onboardingModel.getChecklistCounts(venue.id);
+      if (counts.item_count === 0) {
+        await notificationModel.enqueue(pool, {
+          channel: 'telegram',
+          recipient: String(venue.owner_telegram_id),
+          template: 'onboarding_stuck_no_items',
+          payload: { venue_name: venue.name },
+          lang,
+          dedupKey: `onboarding_stuck_no_items:${venue.id}`,
+        });
+      }
+    } else if (daysSinceCreated === STUCK_DRAFT_AT_DAY) {
+      await notificationModel.enqueue(pool, {
+        channel: 'telegram',
+        recipient: String(venue.owner_telegram_id),
+        template: 'onboarding_stuck_draft',
+        payload: { venue_name: venue.name },
+        lang,
+        dedupKey: `onboarding_stuck_draft:${venue.id}`,
+      });
+    }
+    return;
+  }
+
+  if (!venue.qr_downloaded_at && venue.published_at) {
+    const daysSincePublish = diffDaysUTC(today, truncateToDateUTC(new Date(venue.published_at)));
+    if (daysSincePublish === QR_REMINDER_AT_DAY) {
+      await notificationModel.enqueue(pool, {
+        channel: 'telegram',
+        recipient: String(venue.owner_telegram_id),
+        template: 'onboarding_qr_reminder',
+        payload: { venue_name: venue.name },
+        lang,
+        dedupKey: `onboarding_qr_reminder:${venue.id}`,
+      });
+    }
+  }
+}
 
 // Напоминания "приближается дата" — не зависят от того, произойдёт ли в этот же тик переход
 // статуса (см. комментарий в processVenue). Используют pool напрямую, не транзакцию: не нужно
@@ -104,8 +166,46 @@ async function applyTransitionIfNeeded(venue, today) {
   }
 }
 
+// Промт 3.2, раздел 4 "Экспорт и сводки". Только по понедельникам (UTC) — тик часовой, поэтому
+// без проверки дня недели сообщение пыталось бы отправиться (и отсекалось бы только dedupKey)
+// 24 раза за день впустую. Требует Telegram (некому показать иначе, тот же принцип, что и у
+// checkOnboardingNudges выше — на email такая сводка не переводится тем же смыслом) и явного
+// согласия владельца (venues.weekly_summary_enabled, включено по умолчанию, выключается на
+// странице аналитики).
+async function checkWeeklyAnalyticsSummary(venue, today) {
+  if (today.getUTCDay() !== 1) return;
+  if (!venue.owner_telegram_id || !venue.weekly_summary_enabled) return;
+
+  // Прошедшая неделя пн-вс, заканчивающаяся вчера (сегодня — тот самый понедельник).
+  const weekEnd = addDaysUTC(today, -1);
+  const weekStart = addDaysUTC(weekEnd, -6);
+  const lang = venue.lang_default || 'ru';
+
+  const summary = await analyticsDashboard.buildWeeklySummary(venue, weekStart, weekEnd);
+
+  await notificationModel.enqueue(pool, {
+    channel: 'telegram',
+    recipient: String(venue.owner_telegram_id),
+    template: 'weekly_analytics_summary',
+    payload: {
+      venue_name: venue.name,
+      total_views: summary.totalViews,
+      trend_percent: summary.trendPercent,
+      top_dishes: summary.topDishes,
+      top_empty_searches: summary.topEmptySearches,
+    },
+    lang,
+    // Ключ по началу недели (не по номеру недели ISO — тот же результат, но без отдельной
+    // ISO-недели арифметики): один тик из 24 в понедельник реально отправит, остальные 23
+    // молча ничего не сделают благодаря partial unique index на dedup_key.
+    dedupKey: `weekly_summary:${venue.id}:${formatDateOnly(weekStart)}`,
+  });
+}
+
 async function processVenue(venue, today) {
   await checkReminders(venue, today);
+  await checkOnboardingNudges(venue, today);
+  await checkWeeklyAnalyticsSummary(venue, today);
   await applyTransitionIfNeeded(venue, today);
 }
 
@@ -131,6 +231,15 @@ function startLifecycleScheduler() {
         } catch (err) {
           console.error('scheduler: ошибка пересчёта статуса заведения', venue.id, err);
         }
+      }
+
+      // Промт 3.2 — не привязано к конкретному заведению (список заведений с событиями
+      // analyticsAggregation берёт сам, из menu_events), поэтому вызывается отдельно от цикла
+      // выше, а не изнутри processVenue. Ошибка здесь не должна прервать остальную часть тика.
+      try {
+        await analyticsAggregation.runHourlyTick();
+      } catch (err) {
+        console.error('scheduler: ошибка агрегации аналитики', err);
       }
     })();
 

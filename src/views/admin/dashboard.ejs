@@ -48,37 +48,81 @@
           <div class="alert alert-success"><%= t('dashboard.trialBanner', { days: daysLeft }) %></div>
         <% } %>
 
-        <% if (venue.status === 'draft') { %>
-          <div class="form-card" style="margin-bottom:20px;">
-            <div class="card-header">
-              <div>
-                <span class="eyebrow"><%= t('dashboard.draftEyebrow') %></span>
-                <h3><%= t('dashboard.draftTitle') %></h3>
-              </div>
+        <div class="checklist-card">
+          <div class="checklist-header">
+            <div>
+              <span class="eyebrow"><%= t('dashboard.checklistEyebrow') %></span>
+              <h3><%= t('dashboard.checklistHeading') %></h3>
             </div>
-            <p style="color:var(--muted); font-size:13px; margin:12px 0 18px;"><%= t('dashboard.draftIntro') %></p>
-            <% if (!publishReadiness.ready) { %>
-              <div class="alert alert-error">
-                <b style="display:block; margin-bottom:6px;"><%= t('dashboard.publishChecklistHeading') %></b>
-                <ul style="margin:0; padding-left:18px;">
-                  <% if (publishReadiness.missing.includes('category')) { %><li><%= t('dashboard.publishMissingCategory') %></li><% } %>
-                  <% if (publishReadiness.missing.includes('items')) { %><li><%= t('dashboard.publishMissingItems') %></li><% } %>
-                  <% if (publishReadiness.missing.includes('name')) { %><li><%= t('dashboard.publishMissingName') %></li><% } %>
-                  <% if (publishReadiness.missing.includes('phone')) { %><li><%= t('dashboard.publishMissingPhone') %></li><% } %>
-                </ul>
-              </div>
-            <% } else { %>
-              <div class="alert alert-success"><%= t('dashboard.publishReadyHint') %></div>
+            <% if (checklistExpanded) { %>
+              <form method="POST" action="/admin/checklist-collapse">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-outline checklist-toggle-btn"><%= t('dashboard.checklistCollapse') %></button>
+              </form>
             <% } %>
-            <form method="POST" action="/admin/publish">
+          </div>
+
+          <% if (checklistExpanded) { %>
+            <div class="checklist-progress-row">
+              <span class="checklist-progress-label"><%= t('dashboard.checklistProgress', { done: checklist.doneCount, total: checklist.total }) %></span>
+            </div>
+            <div class="checklist-progress-bar">
+              <div class="checklist-progress-fill" style="transform: scaleX(<%= checklist.doneCount / checklist.total %>);"></div>
+            </div>
+            <ul class="checklist-items">
+              <% checklist.items.forEach((item) => { %>
+                <li class="checklist-item <%= item.done ? 'is-done' : '' %> <%= item.current ? 'is-current' : '' %>">
+                  <span class="checklist-item-icon">
+                    <%- include('../partials/icon', { name: item.done ? 'check' : item.icon, size: 16 }) %>
+                  </span>
+                  <span class="checklist-item-label"><%= t('dashboard.checklistItem_' + item.key) %></span>
+                  <% if (item.current) { %>
+                    <span class="checklist-item-action">
+                      <% if (item.key === 'publish') { %>
+                        <% if (venue.status === 'draft' && !publishReadiness.ready) { %>
+                          <span class="checklist-item-hint">
+                            <% if (publishReadiness.missing.includes('category')) { %><%= t('dashboard.publishMissingCategory') %><% } %>
+                            <% if (publishReadiness.missing.includes('items')) { %><%= t('dashboard.publishMissingItems') %><% } %>
+                            <% if (publishReadiness.missing.includes('all_demo')) { %><%= t('dashboard.publishMissingAllDemo') %><% } %>
+                            <% if (publishReadiness.missing.includes('name')) { %><%= t('dashboard.publishMissingName') %><% } %>
+                            <% if (publishReadiness.missing.includes('phone')) { %><%= t('dashboard.publishMissingPhone') %><% } %>
+                          </span>
+                        <% } else { %>
+                          <form method="POST" action="/admin/publish">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <button type="submit" class="btn btn-primary btn-sm"><%= t('dashboard.checklistAction_publish') %></button>
+                          </form>
+                        <% } %>
+                      <% } else if (item.key === 'qr') { %>
+                        <a href="/admin/qr.png?download=1" download="menu-qr.png" class="btn btn-primary btn-sm">
+                          <%= t('dashboard.checklistAction_qr') %>
+                        </a>
+                      <% } else if (item.key === 'preview') { %>
+                        <a href="<%= item.href %>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+                          <%= t('dashboard.checklistAction_preview') %>
+                        </a>
+                      <% } else { %>
+                        <a href="<%= item.href %>" class="btn btn-primary btn-sm">
+                          <%= t('dashboard.checklistAction_' + item.key) %>
+                        </a>
+                      <% } %>
+                    </span>
+                  <% } %>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <form method="POST" action="/admin/checklist-expand">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button type="submit" class="btn btn-primary" <%= publishReadiness.ready ? '' : 'disabled' %>>
-                <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
-                <%= t('dashboard.publishButton') %>
+              <button type="submit" class="checklist-collapsed-bar">
+                <span><%= t('dashboard.checklistProgress', { done: checklist.doneCount, total: checklist.total }) %></span>
+                <span class="checklist-progress-bar">
+                  <span class="checklist-progress-fill" style="transform: scaleX(<%= checklist.doneCount / checklist.total %>);"></span>
+                </span>
               </button>
             </form>
-          </div>
-        <% } %>
+          <% } %>
+        </div>
 
         <div class="dashboard-grid">
           <div class="dashboard-card qr-card">
@@ -109,20 +153,24 @@
               </div>
               <%- include('../partials/icon', { name: 'barchart', size: 21 }) %>
             </div>
-            <div class="metric">
-              <%= stats.totalThisMonth %>
-              <% if (stats.trend !== null) { %>
-                <span><%= stats.trend >= 0 ? '+' : '' %><%= stats.trend %>%</span>
-              <% } %>
-            </div>
-            <div class="chart">
-              <% stats.daily.forEach((day) => { %>
-                <i style="height: <%= day.heightPercent %>%;" title="<%= day.label %>: <%= day.count %>"></i>
-              <% }) %>
-            </div>
-            <small>
-              <% stats.daily.forEach((day) => { %><span><%= day.label %></span><% }) %>
-            </small>
+            <% if (stats.totalThisMonth === 0 && stats.trend === null) { %>
+              <p class="empty-note" style="padding:24px 0;"><%= t('dashboard.noStatsYet') %></p>
+            <% } else { %>
+              <div class="metric">
+                <%= stats.totalThisMonth %>
+                <% if (stats.trend !== null) { %>
+                  <span><%= stats.trend >= 0 ? '+' : '' %><%= stats.trend %>%</span>
+                <% } %>
+              </div>
+              <div class="chart">
+                <% stats.daily.forEach((day) => { %>
+                  <i style="height: <%= day.heightPercent %>%;" title="<%= day.label %>: <%= day.count %>"></i>
+                <% }) %>
+              </div>
+              <small>
+                <% stats.daily.forEach((day) => { %><span><%= day.label %></span><% }) %>
+              </small>
+            <% } %>
           </div>
         </div>
 

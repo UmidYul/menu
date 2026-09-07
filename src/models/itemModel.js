@@ -6,6 +6,7 @@ async function listByVenueGrouped(venueId) {
             i.description_ru, i.description_uz, i.description_en,
             i.composition_ru, i.composition_uz, i.composition_en, i.calories,
             i.price, i.old_price, i.currency, i.photo_url, i.photo_thumb_url, i.tags, i.is_available, i.sort_order,
+            i.is_demo, i.weight_value, i.weight_unit, i.cooking_time_minutes, i.allergens, i.spicy_level, i.is_popular,
             c.name_ru AS category_name_ru, c.name_uz AS category_name_uz, c.name_en AS category_name_en,
             c.sort_order AS category_sort_order
      FROM items i
@@ -23,7 +24,8 @@ async function listByCategory(categoryId) {
   const result = await pool.query(
     `SELECT id, category_id, name_ru, name_uz, name_en, description_ru, description_uz, description_en,
             composition_ru, composition_uz, composition_en, calories,
-            price, old_price, currency, photo_url, photo_thumb_url, tags, is_available, sort_order
+            price, old_price, currency, photo_url, photo_thumb_url, tags, is_available, sort_order,
+            weight_value, weight_unit, cooking_time_minutes, allergens, spicy_level, is_popular
      FROM items
      WHERE category_id = $1
      ORDER BY sort_order, id`,
@@ -105,27 +107,53 @@ async function create({
   tags,
   photoUrl,
   photoThumbUrl,
-}) {
-  const nextOrderResult = await pool.query(
+  isDemo,
+  weightValue,
+  weightUnit,
+  cookingTimeMinutes,
+  allergens,
+  spicyLevel,
+  isPopular,
+}, client) {
+  const executor = client || pool;
+  const nextOrderResult = await executor.query(
     'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM items WHERE category_id = $1',
     [categoryId]
   );
   const sortOrder = nextOrderResult.rows[0].next_order;
 
-  const result = await pool.query(
+  const result = await executor.query(
     `INSERT INTO items (category_id, name_ru, name_uz, name_en, description_ru, description_uz, description_en,
                          composition_ru, composition_uz, composition_en, calories, price, old_price, currency, tags,
-                         photo_url, photo_thumb_url, sort_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                         photo_url, photo_thumb_url, sort_order, is_demo,
+                         weight_value, weight_unit, cooking_time_minutes, allergens, spicy_level, is_popular)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+             $20, $21, $22, $23, $24, $25)
      RETURNING *`,
     [
       categoryId, nameRu, nameUz, nameEn || null, descriptionRu, descriptionUz, descriptionEn || null,
       compositionRu || null, compositionUz || null, compositionEn || null,
       calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags,
-      photoUrl || null, photoThumbUrl || null, sortOrder,
+      photoUrl || null, photoThumbUrl || null, sortOrder, Boolean(isDemo),
+      weightValue === undefined ? null : weightValue,
+      weightUnit === undefined ? null : weightUnit,
+      cookingTimeMinutes === undefined ? null : cookingTimeMinutes,
+      allergens || [],
+      spicyLevel === undefined ? null : spicyLevel,
+      Boolean(isPopular),
     ]
   );
   return result.rows[0];
+}
+
+// Промт 1.6 — часть "Удалить примеры", вызывается до removeDemoCategories (FK category_id
+// в items — ON DELETE RESTRICT, категорию с чужими позициями не удалить).
+async function removeDemoItems(client, venueId) {
+  const executor = client || pool;
+  await executor.query(
+    'DELETE FROM items WHERE is_demo = true AND category_id IN (SELECT id FROM categories WHERE venue_id = $1)',
+    [venueId]
+  );
 }
 
 // photoUrl/photoThumbUrl передаются только когда загружено новое фото — если их нет (null),
@@ -133,6 +161,7 @@ async function create({
 async function update(id, {
   categoryId, nameRu, nameUz, nameEn, descriptionRu, descriptionUz, descriptionEn,
   compositionRu, compositionUz, compositionEn, calories, price, oldPrice, currency, tags, photoUrl, photoThumbUrl,
+  weightValue, weightUnit, cookingTimeMinutes, allergens, spicyLevel, isPopular,
 }) {
   const result = await pool.query(
     `UPDATE items
@@ -140,7 +169,9 @@ async function update(id, {
          description_ru = $5, description_uz = $6, description_en = $7,
          composition_ru = $8, composition_uz = $9, composition_en = $10, calories = $11,
          price = $12, old_price = $13, currency = $14, tags = $15,
-         photo_url = COALESCE($16, photo_url), photo_thumb_url = COALESCE($17, photo_thumb_url)
+         photo_url = COALESCE($16, photo_url), photo_thumb_url = COALESCE($17, photo_thumb_url),
+         weight_value = $19, weight_unit = $20, cooking_time_minutes = $21,
+         allergens = $22, spicy_level = $23, is_popular = $24
      WHERE id = $18
      RETURNING *`,
     [
@@ -148,6 +179,12 @@ async function update(id, {
       compositionRu || null, compositionUz || null, compositionEn || null,
       calories === undefined ? null : calories, price, oldPrice === undefined ? null : oldPrice, currency, tags,
       photoUrl || null, photoThumbUrl || null, id,
+      weightValue === undefined ? null : weightValue,
+      weightUnit === undefined ? null : weightUnit,
+      cookingTimeMinutes === undefined ? null : cookingTimeMinutes,
+      allergens || [],
+      spicyLevel === undefined ? null : spicyLevel,
+      Boolean(isPopular),
     ]
   );
   return result.rows[0] || null;
@@ -176,4 +213,5 @@ module.exports = {
   update,
   remove,
   toggleAvailability,
+  removeDemoItems,
 };

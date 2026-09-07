@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('nav.ordersSettings') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'ordersSettings', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.ordersSettings'), lang, currentPath: '/admin/orders-settings', venueSlug, t }) %>
+      <div class="admin-content admin-content-narrow">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.ordersSettings') %></h1>
+          </div>
+        </div>
+
+        <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+        <%# 1. Привязка группы — без неё заказы некуда отправлять, поэтому блок идёт первым. %>
+        <div class="dashboard-card">
+          <h3><%= t('ordersSettings.groupHeading') %></h3>
+
+          <% if (venue.telegram_chat_id && venue.telegram_chat_broken) { %>
+            <div class="alert alert-error"><%= t('ordersSettings.groupBrokenNotice') %></div>
+          <% } %>
+
+          <% if (venue.telegram_chat_id) { %>
+            <p class="analytics-card-hint">
+              <%= t('ordersSettings.groupLinkedTo', { title: venue.telegram_chat_title || venue.telegram_chat_id }) %>
+            </p>
+            <form method="POST" action="/admin/orders-settings/unlink" data-confirm="<%= t('ordersSettings.unlinkConfirm') %>">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-outline">
+                <%- include('../partials/icon', { name: 'unlink', size: 15 }) %>
+                <%= t('ordersSettings.unlinkButton') %>
+              </button>
+            </form>
+          <% } else if (!botConfigured) { %>
+            <p class="analytics-card-hint"><%= t('ordersSettings.botUnavailable') %></p>
+          <% } else { %>
+            <ol class="orders-settings-steps">
+              <li><%= t('ordersSettings.step1', { botUsername: botUsername ? '@' + botUsername : t('ordersSettings.botFallbackName') }) %></li>
+              <li><%= t('ordersSettings.step2') %></li>
+              <li><%= t('ordersSettings.step3') %></li>
+            </ol>
+
+            <% if (linkCode) { %>
+              <div class="wifi-field">
+                <span class="wifi-field-label"><%= t('ordersSettings.codeLabel') %></span>
+                <div class="wifi-field-value wifi-field-value-password">
+                  <span id="group-link-code"><%= linkCode %></span>
+                  <button type="button" class="wifi-copy-btn" data-copy-target="group-link-code" data-copy-note="group-link-code-copied" aria-label="<%= t('common.copy') %>">
+                    <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                  </button>
+                </div>
+              </div>
+              <span id="group-link-code-copied" class="copied orders-settings-copied">
+                <%- include('../partials/icon', { name: 'check', size: 13 }) %> <%= t('ordersSettings.codeCopied') %>
+              </span>
+              <p class="analytics-card-hint"><%= t('ordersSettings.codeTtlHint') %></p>
+            <% } %>
+
+            <form method="POST" action="/admin/orders-settings/generate-code" class="orders-settings-generate">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn <%= linkCode ? 'btn-outline' : 'btn-primary' %>">
+                <%= linkCode ? t('ordersSettings.regenerateCodeButton') : t('ordersSettings.generateCodeButton') %>
+              </button>
+            </form>
+          <% } %>
+        </div>
+
+        <%# 2. Сам приём заказов — включается только когда группа уже на месте. %>
+        <div class="dashboard-card">
+          <h3><%= t('ordersSettings.acceptHeading') %></h3>
+
+          <form method="POST" action="/admin/orders-settings/toggle-orders" class="analytics-toggle-row">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div>
+              <b><%= t('ordersSettings.ordersEnabledLabel') %></b>
+              <small>
+                <%= venue.telegram_chat_id ? t('ordersSettings.ordersEnabledHint') : t('ordersSettings.ordersNeedGroupHint') %>
+              </small>
+            </div>
+            <button type="submit" class="toggle <%= venue.orders_enabled ? 'on' : '' %>"
+                    aria-pressed="<%= venue.orders_enabled %>" <%= venue.telegram_chat_id ? '' : 'disabled' %>><i></i></button>
+          </form>
+
+          <form method="POST" action="/admin/orders-settings/min-amount" class="orders-settings-min-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="tables-create-field">
+              <span><%= t('ordersSettings.minAmountLabel') %></span>
+              <input type="text" inputmode="decimal" name="min_order_amount"
+                     value="<%= venue.min_order_amount === null || venue.min_order_amount === undefined ? '' : venue.min_order_amount %>"
+                     placeholder="<%= t('ordersSettings.minAmountPlaceholder') %>">
+            </label>
+            <button type="submit" class="btn btn-outline"><%= t('common.save') %></button>
+          </form>
+          <p class="analytics-card-hint"><%= t('ordersSettings.minAmountHint') %></p>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

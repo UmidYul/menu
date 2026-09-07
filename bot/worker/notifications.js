@@ -1,5 +1,10 @@
 const notificationModel = require('../../src/models/notificationModel');
 const telegramUserModel = require('../../src/models/telegramUserModel');
+const orderModel = require('../../src/models/orderModel');
+const waiterCallModel = require('../../src/models/waiterCallModel');
+const venueModel = require('../../src/models/venueModel');
+const venueLifecycle = require('../../src/services/venueLifecycle');
+const { pool } = require('../../src/config/db');
 const mailer = require('../../src/services/mailer');
 const { renderNotification } = require('../templates/notifications');
 
@@ -39,6 +44,36 @@ function createTelegramThrottle() {
   };
 }
 
+// Промт 2.4. Кнопки «Принят»/«Готово»/«Иду» редактируют ИМЕННО ТО сообщение, которое ушло в
+// группу, — значит его message_id надо сохранить. Единственное место, где воркер знает и id
+// записи в БД (из payload), и результат отправки.
+async function rememberMessageId(row, sentMessage) {
+  if (!sentMessage || !sentMessage.message_id) return;
+  try {
+    if (row.template === 'order_created' && row.payload.order_id) {
+      await orderModel.setTelegramMessageId(row.payload.order_id, sentMessage.message_id);
+    } else if (row.template === 'waiter_call_created' && row.payload.call_id) {
+      await waiterCallModel.setTelegramMessageId(row.payload.call_id, sentMessage.message_id);
+    }
+  } catch (err) {
+    // Само сообщение уже доставлено — не портим доставку из-за неудачной записи id; кнопки
+    // в этом (редком) случае просто ответят «сообщение не найдено», заказ при этом цел.
+    console.error('worker: не удалось сохранить message_id', row.template, err.message);
+  }
+}
+
+// Группа переехала в супергруппу — Telegram отдаёт новый id в parameters.migrate_to_chat_id.
+// Связь при этом не рвётся: обновляем chat_id заведения и даём записи ретрай (промт 2.4).
+async function handleChatMigration(row, err) {
+  const newChatId = err.parameters && err.parameters.migrate_to_chat_id;
+  if (!newChatId) return false;
+
+  const venueId = row.payload && row.payload.venue_id;
+  if (venueId) await venueModel.updateTelegramChatId(venueId, newChatId);
+  await notificationModel.markFailed(row.id, `Чат мигрировал в супергруппу ${newChatId}, повтор`, new Date(Date.now() + 5_000));
+  return true;
+}
+
 async function processTelegramRow(telegram, throttle, row) {
   const content = await renderNotification('telegram', row.template, row.payload, row.lang);
   if (!content) {
@@ -48,9 +83,39 @@ async function processTelegramRow(telegram, throttle, row) {
 
   await throttle(row.recipient);
   try {
-    await telegram.sendMessage(row.recipient, content.text, content.extra);
+    const sent = await telegram.sendMessage(row.recipient, content.text, content.extra);
+    await rememberMessageId(row, sent);
     await notificationModel.markSent(row.id);
   } catch (err) {
+    if (await handleChatMigration(row, err)) return;
+
+    // Бота удалили из группы или лишили прав — помечаем связь разорванной, чтобы админка
+    // показала «переподключите», а гостю новые заказы не предлагались (промт 2.4).
+    // Сам заказ при этом уже сохранён в БД и не теряется.
+    const isGroupSendFailure = (err.code === 403 || err.code === 400)
+      && row.payload && row.payload.venue_id
+      && (row.template === 'order_created' || row.template === 'waiter_call_created');
+    if (isGroupSendFailure) {
+      await venueModel.markTelegramChatBroken(row.payload.venue_id).catch(() => {});
+      await notificationModel.markFailed(row.id, `Группа недоступна: ${err.message}`, null);
+      // Промт 2.4: «владельцу — алерт». Идёт по обычной цепочке notifyVenue (личный Telegram →
+      // email → владельцу сервиса), а dedupKey гасит повтор на каждый следующий заказ, пока
+      // связь не восстановят — иначе при полном зале владелец получил бы десяток одинаковых.
+      try {
+        const venue = await venueModel.findById(row.payload.venue_id);
+        if (venue) {
+          await venueLifecycle.notifyVenue(pool, venue, {
+            template: 'venue_group_unreachable',
+            payload: { venue_name: venue.name, venue_id: venue.id },
+            dedupKey: `group_unreachable:${venue.id}:${new Date().toISOString().slice(0, 10)}`,
+          });
+        }
+      } catch (alertErr) {
+        console.error('worker: не удалось предупредить владельца о недоступной группе', alertErr.message);
+      }
+      return;
+    }
+
     if (err.code === 403) {
       await telegramUserModel.setBlocked(row.recipient, true).catch(() => {});
       await notificationModel.markSkipped(row.id, 'Пользователь заблокировал бота (403)');

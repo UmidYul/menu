@@ -1,0 +1,207 @@
+<%
+// Ожидает: item, groups (из itemOptionModel.listGroupsForItem), otherItems (позиции этого же
+// заведения, кроме текущей), sourceGroups (группы других позиций — для "скопировать из"),
+// t, csrfToken, enabledLangs, maxGroups, maxOptions.
+// Формы здесь НЕ вложены в форму позиции (это невалидный HTML) — партиал подключается
+// соседним блоком после </form> в модалке редактирования, см. items.ejs.
+const _showEn = enabledLangs && enabledLangs.includes('en');
+%>
+<div class="option-groups">
+  <h4 class="option-groups-title"><%= t('itemOptions.sectionHeading') %></h4>
+  <p class="option-groups-hint"><%= t('itemOptions.sectionHint') %></p>
+
+  <% groups.forEach((group, groupIndex) => { %>
+    <div class="option-group-card">
+      <div class="option-group-head">
+        <div class="option-group-title">
+          <b><%= group.name_ru %></b>
+          <span class="dish-row-tag"><%= t('itemOptions.selection_' + group.selection) %></span>
+          <% if (group.is_required) { %><span class="dish-row-tag"><%= t('itemOptions.requiredBadge') %></span><% } %>
+        </div>
+        <div class="option-group-actions">
+          <form method="POST" action="/admin/item-options/groups/<%= group.id %>/move">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="icon-btn" <%= groupIndex === 0 ? 'disabled' : '' %> aria-label="<%= t('categories.moveUp') %>">
+              <%- include('./icon', { name: 'arrowup', size: 14 }) %>
+            </button>
+          </form>
+          <form method="POST" action="/admin/item-options/groups/<%= group.id %>/move">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="icon-btn" <%= groupIndex === groups.length - 1 ? 'disabled' : '' %> aria-label="<%= t('categories.moveDown') %>">
+              <%- include('./icon', { name: 'arrowdown', size: 14 }) %>
+            </button>
+          </form>
+          <form method="POST" action="/admin/item-options/groups/<%= group.id %>?_method=DELETE"
+                data-confirm="<%= t('itemOptions.confirmDeleteGroup', { name: group.name_ru }) %>">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="icon-btn icon-btn-danger" aria-label="<%= t('common.delete') %>">
+              <%- include('./icon', { name: 'trash', size: 14 }) %>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <ul class="option-list" data-group-id="<%= group.id %>" data-csrf="<%= csrfToken %>">
+        <% group.options.forEach((option, optionIndex) => { %>
+          <li class="option-row <%= option.is_available ? '' : 'is-unavailable' %>" draggable="true" data-option-id="<%= option.id %>">
+            <span class="option-drag-handle" aria-hidden="true"><%- include('./icon', { name: 'arrowupdown', size: 13 }) %></span>
+            <span class="option-row-name">
+              <%= option.name_ru %>
+              <% if (option.is_default) { %><span class="dish-row-tag"><%= t('itemOptions.defaultBadge') %></span><% } %>
+              <% if (!option.is_available) { %><span class="dish-row-tag"><%= t('itemOptions.unavailableBadge') %></span><% } %>
+            </span>
+            <span class="option-row-price">
+              <%= option.price_delta > 0 ? '+' + Number(option.price_delta).toLocaleString('ru-RU') : t('itemOptions.noSurcharge') %>
+            </span>
+            <span class="option-row-actions">
+              <form method="POST" action="/admin/item-options/options/<%= option.id %>/move">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="direction" value="up">
+                <button type="submit" class="icon-btn" <%= optionIndex === 0 ? 'disabled' : '' %> aria-label="<%= t('categories.moveUp') %>">
+                  <%- include('./icon', { name: 'arrowup', size: 12 }) %>
+                </button>
+              </form>
+              <form method="POST" action="/admin/item-options/options/<%= option.id %>/move">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="direction" value="down">
+                <button type="submit" class="icon-btn" <%= optionIndex === group.options.length - 1 ? 'disabled' : '' %> aria-label="<%= t('categories.moveDown') %>">
+                  <%- include('./icon', { name: 'arrowdown', size: 12 }) %>
+                </button>
+              </form>
+              <form method="POST" action="/admin/item-options/options/<%= option.id %>?_method=DELETE"
+                    data-confirm="<%= t('itemOptions.confirmDeleteOption', { name: option.name_ru }) %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="icon-btn icon-btn-danger" aria-label="<%= t('common.delete') %>">
+                  <%- include('./icon', { name: 'trash', size: 12 }) %>
+                </button>
+              </form>
+            </span>
+          </li>
+        <% }) %>
+        <% if (group.options.length === 0) { %>
+          <li class="option-row-empty"><%= t('itemOptions.noOptionsYet') %></li>
+        <% } %>
+      </ul>
+
+      <details class="option-add">
+        <summary><%- include('./icon', { name: 'plus', size: 13 }) %> <%= t('itemOptions.addOptionHeading') %></summary>
+        <form method="POST" action="/admin/item-options/groups/<%= group.id %>/options" class="option-add-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="field-grid">
+            <div class="field">
+              <label><%= t('itemOptions.optionNameRuLabel') %></label>
+              <input type="text" name="name_ru" required maxlength="120">
+            </div>
+            <div class="field">
+              <label><%= t('itemOptions.optionNameUzLabel') %></label>
+              <input type="text" name="name_uz" required maxlength="120">
+            </div>
+          </div>
+          <% if (_showEn) { %>
+            <div class="field">
+              <label><%= t('itemOptions.optionNameEnLabel') %></label>
+              <input type="text" name="name_en" maxlength="120">
+            </div>
+          <% } %>
+          <div class="field">
+            <label><%= t('itemOptions.priceDeltaLabel') %></label>
+            <input type="number" name="price_delta" min="0" step="1" value="0">
+            <div class="hint"><%= t('itemOptions.priceDeltaHint') %></div>
+          </div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" name="is_available" checked> <%= t('itemOptions.isAvailableLabel') %></label>
+            <label><input type="checkbox" name="is_default"> <%= t('itemOptions.isDefaultLabel') %></label>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm"><%= t('common.add') %></button>
+        </form>
+      </details>
+
+      <% if (otherItems.length > 0) { %>
+        <details class="option-add">
+          <summary><%- include('./icon', { name: 'copy', size: 13 }) %> <%= t('itemOptions.applyToItemsHeading') %></summary>
+          <form method="POST" action="/admin/item-options/groups/copy" class="option-add-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="group_id" value="<%= group.id %>">
+            <div class="option-items-picker">
+              <% otherItems.forEach((other) => { %>
+                <label><input type="checkbox" name="target_item_ids" value="<%= other.id %>"> <%= other.name_ru %></label>
+              <% }) %>
+            </div>
+            <button type="submit" class="btn btn-outline btn-sm"><%= t('itemOptions.applyToItemsSubmit') %></button>
+          </form>
+        </details>
+      <% } %>
+    </div>
+  <% }) %>
+
+  <% if (groups.length < maxGroups) { %>
+    <details class="option-add option-add-group">
+      <summary><%- include('./icon', { name: 'plus', size: 14 }) %> <%= t('itemOptions.addGroupHeading') %></summary>
+      <form method="POST" action="/admin/item-options/items/<%= item.id %>/groups" class="option-add-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field-grid">
+          <div class="field">
+            <label><%= t('itemOptions.groupNameRuLabel') %></label>
+            <input type="text" name="name_ru" required maxlength="120" placeholder="<%= t('itemOptions.groupNamePlaceholder') %>">
+          </div>
+          <div class="field">
+            <label><%= t('itemOptions.groupNameUzLabel') %></label>
+            <input type="text" name="name_uz" required maxlength="120">
+          </div>
+        </div>
+        <% if (_showEn) { %>
+          <div class="field">
+            <label><%= t('itemOptions.groupNameEnLabel') %></label>
+            <input type="text" name="name_en" maxlength="120">
+          </div>
+        <% } %>
+        <div class="field">
+          <label><%= t('itemOptions.selectionLabel') %></label>
+          <select name="selection">
+            <option value="single"><%= t('itemOptions.selection_single') %></option>
+            <option value="multiple"><%= t('itemOptions.selection_multiple') %></option>
+          </select>
+          <div class="hint"><%= t('itemOptions.selectionHint') %></div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label><%= t('itemOptions.minSelectLabel') %></label>
+            <input type="number" name="min_select" min="0" step="1" value="0">
+          </div>
+          <div class="field">
+            <label><%= t('itemOptions.maxSelectLabel') %></label>
+            <input type="number" name="max_select" min="1" step="1">
+            <div class="hint"><%= t('itemOptions.maxSelectHint') %></div>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" name="is_required"> <%= t('itemOptions.isRequiredLabel') %></label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><%= t('itemOptions.addGroupSubmit') %></button>
+      </form>
+    </details>
+  <% } else { %>
+    <p class="option-groups-hint"><%= t('itemOptions.groupsLimitReached', { max: maxGroups }) %></p>
+  <% } %>
+
+  <% if (sourceGroups.length > 0 && groups.length < maxGroups) { %>
+    <details class="option-add">
+      <summary><%- include('./icon', { name: 'copy', size: 13 }) %> <%= t('itemOptions.copyFromItemHeading') %></summary>
+      <form method="POST" action="/admin/item-options/groups/copy" class="option-add-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="target_item_ids" value="<%= item.id %>">
+        <div class="field">
+          <label><%= t('itemOptions.copySourceLabel') %></label>
+          <select name="group_id">
+            <% sourceGroups.forEach((source) => { %>
+              <option value="<%= source.id %>"><%= source.itemName %> — <%= source.name_ru %></option>
+            <% }) %>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-outline btn-sm"><%= t('itemOptions.copyFromItemSubmit') %></button>
+      </form>
+    </details>
+  <% } %>
+</div>

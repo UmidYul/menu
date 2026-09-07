@@ -33,12 +33,35 @@
             </div>
           <% } %>
 
-          <% if (groups.length === 0) { %>
-            <p style="color:var(--muted); font-size:13px;"><%= t('items.empty') %></p>
+          <% if (categories.length === 0) { %>
+            <div class="empty-state">
+              <div class="empty-state-icons">
+                <span class="empty-state-icon"><%- include('../partials/icon', { name: 'utensils', size: 22 }) %></span>
+              </div>
+              <h3><%= t('items.emptyNoCategoriesHeading') %></h3>
+              <p><%= t('items.emptyNoCategoriesExplain') %></p>
+              <a href="/admin/categories" class="btn btn-primary">
+                <%- include('../partials/icon', { name: 'arrowright', size: 15 }) %> <%= t('items.emptyGoToCategories') %>
+              </a>
+            </div>
           <% } %>
 
           <% groups.forEach((group) => { %>
-            <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 500; margin: 30px 0 12px;"><%= group.categoryName %></h3>
+            <h3 style="font-family: var(--font-serif); font-size: 20px; font-weight: 500; margin: 30px 0 12px;">
+              <%= group.categoryName %>
+              <% if (group.isDemo) { %><span class="dish-row-tag"><%= t('categories.demoBadge') %></span><% } %>
+            </h3>
+            <% if (group.isGenuinelyEmpty) { %>
+              <div class="empty-state empty-state-category table-card">
+                <div class="empty-state-icons">
+                  <span class="empty-state-icon"><%- include('../partials/icon', { name: 'image', size: 18 }) %></span>
+                </div>
+                <p><%= t('items.emptyCategoryExplain') %></p>
+                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('add-item-modal').showModal()">
+                  <%- include('../partials/icon', { name: 'plus', size: 14 }) %> <%= t('items.emptyCategoryAddButton') %>
+                </button>
+              </div>
+            <% } else { %>
             <div class="table-card" style="margin-bottom: 14px;">
               <% group.items.forEach((item) => { %>
                 <div class="table-row item-row" style="grid-template-columns: 48px 1fr auto 44px 40px;">
@@ -53,8 +76,10 @@
                       <% if (enBadgeEnabled && isUntranslatedToEn(item)) { %>
                         <span class="badge-muted" title="<%= t('items.untranslatedEnBadgeTitle') %>">EN</span>
                       <% } %>
+                      <% if (item.is_demo) { %><span class="dish-row-tag"><%= t('categories.demoBadge') %></span><% } %>
                     </b>
                     <% if (item.description_ru) { %><span><%= item.description_ru %></span><% } %>
+                    <% if (!item.photo_thumb_url) { %><span class="item-photo-hint"><%= t('items.noPhotoHint') %></span><% } %>
                   </div>
                   <strong class="price"><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
                   <form class="inline" method="POST" action="/admin/items/<%= item.id %>/toggle">
@@ -79,6 +104,7 @@
                 </div>
               <% }) %>
             </div>
+            <% } %>
 
             <% group.items.forEach((item) => { %>
               <dialog id="edit-item-<%= item.id %>-modal" class="modal">
@@ -111,14 +137,32 @@
                         old_price: (item.old_price === null || item.old_price === undefined) ? '' : item.old_price,
                         currency: item.currency,
                         tags: item.tags,
+                        weight_value: (item.weight_value === null || item.weight_value === undefined) ? '' : item.weight_value,
+                        weight_unit: item.weight_unit || '',
+                        cooking_time_minutes: (item.cooking_time_minutes === null || item.cooking_time_minutes === undefined) ? '' : item.cooking_time_minutes,
+                        allergens: item.allergens || [],
+                        spicy_level: (item.spicy_level === null || item.spicy_level === undefined) ? '' : item.spicy_level,
+                        is_popular: item.is_popular,
                       };
                     %>
-                    <%- include('../partials/item-form-fields', { v: editValues, t, allowedTags, photoLabel: t('items.photoLabel'), enabledLangs }) %>
+                    <%- include('../partials/item-form-fields', { v: editValues, t, allowedTags, allowedAllergens, weightUnits, maxSpicyLevel, photoLabel: t('items.photoLabel'), enabledLangs }) %>
                     <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('common.save') %></button>
                   </form>
+
+                  <% if (optionError && optionErrorItemId === item.id) { %>
+                    <div class="alert alert-error"><%= t(optionError) %></div>
+                  <% } %>
+                  <%- include('../partials/item-option-groups', {
+                    item,
+                    groups: optionGroupsByItem.get(item.id) || [],
+                    otherItems: allItemsFlat.filter((other) => other.id !== item.id),
+                    sourceGroups: sourceGroupsByItem.filter((s) => s.itemId !== item.id),
+                    t, csrfToken, enabledLangs,
+                    maxGroups: maxOptionGroups, maxOptions: maxOptionsPerGroup,
+                  }) %>
                 </div>
               </dialog>
-              <% if (formTarget === `edit-${item.id}`) { %>
+              <% if (formTarget === `edit-${item.id}` || (optionError && optionErrorItemId === item.id)) { %>
                 <script>document.getElementById('edit-item-<%= item.id %>-modal').showModal();</script>
               <% } %>
             <% }) %>
@@ -149,7 +193,7 @@
                   <% }) %>
                 </select>
               </div>
-              <%- include('../partials/item-form-fields', { v: formValues, t, allowedTags, photoLabel: t('items.photoOptionalLabel'), enabledLangs }) %>
+              <%- include('../partials/item-form-fields', { v: formValues, t, allowedTags, allowedAllergens, weightUnits, maxSpicyLevel, photoLabel: t('items.photoOptionalLabel'), enabledLangs }) %>
               <button type="submit" class="btn btn-primary" style="width:100%;"><%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %></button>
             </form>
           </div>
@@ -160,5 +204,6 @@
       </div>
     </section>
   </div>
+  <script src="/js/option-reorder.js" defer></script>
 </body>
 </html>

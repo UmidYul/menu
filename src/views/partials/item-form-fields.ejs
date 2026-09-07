@@ -93,3 +93,61 @@ const _showEn = enabledLangs && enabledLangs.includes('en');
     <% }) %>
   </div>
 </div>
+
+<%# Расширенные данные (промт 2.2) — в сворачиваемом блоке, чтобы не удлинять основную форму. %>
+<details class="extra-fields">
+  <summary><%= t('items.extraSectionHeading') %></summary>
+
+  <div class="field-grid">
+    <div class="field">
+      <label><%= t('items.weightLabel') %></label>
+      <input type="number" name="weight_value" min="0" step="0.01" value="<%= v.weight_value %>">
+      <div class="hint"><%= t('items.weightHint') %></div>
+    </div>
+    <div class="field">
+      <label><%= t('items.weightUnitLabel') %></label>
+      <select name="weight_unit">
+        <option value=""><%= t('items.weightUnitNone') %></option>
+        <% weightUnits.forEach((unit) => { %>
+          <option value="<%= unit %>" <%= v.weight_unit === unit ? 'selected' : '' %>><%= t('items.weightUnit_' + unit) %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label><%= t('items.cookingTimeLabel') %></label>
+    <input type="number" name="cooking_time_minutes" min="1" step="1" value="<%= v.cooking_time_minutes %>">
+  </div>
+
+  <div class="field">
+    <label><%= t('items.spicyLevelLabel') %></label>
+    <div class="segmented">
+      <% for (let level = 0; level <= maxSpicyLevel; level += 1) { %>
+        <label>
+          <input type="radio" name="spicy_level" value="<%= level %>"
+                 <%= String(v.spicy_level) === String(level) ? 'checked' : '' %>>
+          <span><%= level === 0 ? t('items.spicyLevel_0') : '🌶'.repeat(level) %></span>
+        </label>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="field">
+    <label><%= t('items.allergensLabel') %></label>
+    <div class="checkbox-row">
+      <% allowedAllergens.forEach((allergen) => { %>
+        <label>
+          <input type="checkbox" name="allergens" value="<%= allergen %>" <%= v.allergens.includes(allergen) ? 'checked' : '' %>>
+          <%= t('allergens.' + allergen) %>
+        </label>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="checkbox-row">
+      <label><input type="checkbox" name="is_popular" <%= v.is_popular ? 'checked' : '' %>> <%= t('items.isPopularLabel') %></label>
+    </div>
+  </div>
+</details>

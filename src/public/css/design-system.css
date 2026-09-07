@@ -351,7 +351,7 @@ html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); tr
 @keyframes section-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 .dish-list { display: flex; flex-direction: column; }
-.dish-row { display: flex; align-items: flex-start; gap: 14px; padding-block: 16px; border-bottom: 1px solid var(--border); }
+.dish-row { position: relative; display: flex; align-items: flex-start; gap: 14px; padding-block: 16px; border-bottom: 1px solid var(--border); }
 .dish-list .dish-row:last-child { border-bottom: 0; }
 .dish-row.unavailable { opacity: .55; }
 /* Поиск/фильтр: позиция, переставшая подходить, коротко гаснет вместо мгновенного исчезновения
@@ -366,13 +366,25 @@ html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); tr
 @keyframes media-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .dish-row-body { flex: 1; min-width: 0; }
 .dish-row-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-family: var(--font-serif); font-size: 16px; font-weight: 500; line-height: 1.3; }
+/* Кнопка открытия карточки блюда (промт 2.2): выглядит как название позиции, а её растянутый
+   ::after делает кликабельной всю строку. Блок с ценой и "+" поднят по z-index — его кнопки
+   остаются доступны и продолжают работать по-своему. */
+.dish-row-open { padding: 0; border: 0; background: none; min-height: 0; font: inherit; color: inherit; text-align: left; transition: color 160ms ease; }
+.dish-row-open::after { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+.dish-row:hover .dish-row-open { color: var(--primary-dark); }
+.dish-row-open:focus-visible { outline: none; }
+.dish-row-open:focus-visible::after { outline: 3px solid #d6a08f; outline-offset: -3px; }
+/* Цена сама по себе некликабельна, но лежит выше растянутой кнопки — пропускаем клики сквозь неё,
+   иначе тап по цене был бы единственным местом строки, которое не открывает карточку. */
+.dish-row .dish-price { pointer-events: none; }
 .new-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--primary); color: white; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+.popular-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--sage); color: #5d6d59; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
 .dish-row-description { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dish-row-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
 .dish-row-fact-text { color: var(--muted); font-size: 11px; }
 .dish-row-tag { padding: 2px 7px; border-radius: 5px; background: var(--sage); color: #5d6d59; font-size: 10px; }
 .dish-row-unavailable-note { margin: 6px 0 0; color: var(--primary-dark); font-size: 11px; font-weight: 700; }
-.dish-row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; padding-top: 2px; }
+.dish-row-side { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; padding-top: 2px; }
 
 .dish-price { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .dish-old-price { color: #a29c91; font-size: 11px; text-decoration: line-through; }
@@ -466,6 +478,8 @@ html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); tr
 .footer-social-link { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
 .footer-social-link:hover { background: #f3ede2; border-color: #c9c5ba; color: var(--ink); }
 .menu-footer .working-hours { white-space: pre-line; }
+/* Промт 3.2 — короткая строка о сборе обезличенной статистики, container уже задаёт отступы. */
+.menu-analytics-note { margin: 0; padding-bottom: 14px; color: var(--muted); font-size: 10.5px; text-align: center; }
 .mini-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; border-top: 1px solid var(--border); }
 .mini-footer-brand.brand { flex-shrink: 0; font-size: 15px; }
 .mini-footer-tagline { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; }
@@ -530,6 +544,10 @@ html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); tr
 .item-row-info { min-width: 0; display: grid; gap: 3px; }
 .item-row-info b { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-row-info span { display: block; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-photo-hint { font-style: italic; color: #a29c91 !important; }
+/* .item-row-info span выше метит ЛЮБОЙ вложенный span (не только прямых детей) как block —
+   бейджу "ПРИМЕР" внутри <b> это не подходит, нужен вид маленькой пилюли рядом с текстом. */
+.item-row-info .dish-row-tag { display: inline-block !important; width: auto; white-space: nowrap; vertical-align: middle; }
 .item-row .price { color: var(--primary); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .item-menu { position: relative; }
 .item-menu summary { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); cursor: pointer; list-style: none; }
@@ -561,6 +579,10 @@ html.js-reveal [data-reveal][data-reveal-menu] { transform: translateY(10px); tr
 
 /* modals */
 dialog.modal { width: min(560px, calc(100% - 48px)); padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: 0 24px 55px #6e62531c; color: var(--ink); }
+/* Закрытый диалог прячет стиль браузера (dialog:not([open]) { display: none }), но любой наш
+   display: flex перебивает его — авторские стили всегда сильнее браузерных. Дублируем правило
+   здесь, иначе модалка-шторка остаётся на странице закрытой и перехватывает клики. */
+dialog.modal:not([open]) { display: none; }
 dialog.modal[open] { animation: modal-in .22s cubic-bezier(.22,1,.36,1) both; }
 dialog.modal::backdrop { background: #27251f73; backdrop-filter: blur(2px); }
 dialog.modal[open]::backdrop { animation: backdrop-fade-in 220ms ease; }
@@ -814,3 +836,359 @@ input[type="checkbox"]:focus-visible { outline: 3px solid #d6a08f; outline-offse
   }
   .dish-price { justify-content: flex-start; }
 }
+
+/* черновик: предпросмотр владельцем (промт 1.6) */
+.preview-banner { position: sticky; top: 0; z-index: 50; padding: 9px 16px; background: var(--primary); color: white; text-align: center; font-size: 12px; font-weight: 700; }
+
+/* расширенные поля позиции в админке (промт 2.2) */
+.extra-fields { margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--background); }
+.extra-fields > summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--primary); }
+.extra-fields[open] > summary { margin-bottom: 14px; }
+.segmented { display: flex; gap: 6px; flex-wrap: wrap; }
+.segmented label { flex: 1; min-width: 74px; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label span { display: grid; place-items: center; min-height: 38px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); font-size: 12px; cursor: pointer; }
+.segmented label:has(input:checked) span { border-color: var(--primary); background: #fdf6f3; font-weight: 700; }
+.segmented label:has(input:focus-visible) span { outline: 3px solid #d6a08f; outline-offset: 2px; }
+
+/* выбор опций гостем: модалка, подписи в строке и в корзине (промт 2.1) */
+.dish-row-options-summary { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.dish-price-from { color: var(--muted); font-weight: 400; font-size: 11px; }
+.modal-foot { padding: 14px 24px calc(18px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+.options-submit { width: 100%; justify-content: space-between; }
+.options-submit:disabled { opacity: .45; }
+.options-submit-total { font-weight: 800; }
+.options-modal-media { margin-bottom: 14px; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; background: var(--background); }
+.options-modal-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.options-modal-description { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.option-choice-group { margin-bottom: 18px; }
+.option-choice-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+.option-required-mark { padding: 2px 7px; border-radius: 5px; background: #f7e6e1; color: var(--primary-dark); font-size: 10px; font-weight: 700; }
+.option-choice { display: flex; align-items: center; gap: 10px; padding: 11px 12px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); font-size: 13px; cursor: pointer; }
+.option-choice:has(input:checked) { border-color: var(--primary); background: #fdf6f3; }
+.option-choice:has(input:focus-visible) { outline: 3px solid #d6a08f; outline-offset: 2px; }
+.option-choice.is-unavailable { opacity: .45; cursor: default; }
+.option-choice-input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--primary); }
+.option-choice-name { flex: 1; min-width: 0; }
+.option-choice-price { color: var(--primary); font-weight: 700; white-space: nowrap; }
+.option-group-max-hint { margin: 6px 0 0; color: #ad7a2c; font-size: 11px; }
+.cart-line-options { display: block; color: var(--muted); font-size: 11px; white-space: normal; }
+.cart-line-edit { padding: 0; border: 0; background: none; color: var(--primary); font-size: 11px; text-decoration: underline; min-height: 0; }
+.cart-changed-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 9px; background: var(--sage); color: #4c5e47; font-size: 12px; }
+.cart-empty-note { margin: 0; color: var(--muted); font-size: 13px; }
+.cart-line-name { display: flex; flex-direction: column; gap: 2px; }
+
+@media (max-width: 800px) {
+  /* Модалка выбора опций на телефоне — шторка снизу во всю ширину (промт 2.1); закрывается
+     свайпом вниз (menu-cart.js), кликом по затемнению (modal.js) и Escape (нативный dialog). */
+  dialog.modal-sheet {
+    width: 100%; max-width: 100%; margin: auto auto 0; border-radius: 18px 18px 0 0;
+    max-height: 88vh; display: flex; flex-direction: column;
+  }
+  dialog.modal-sheet .modal-body { flex: 1; max-height: none; }
+}
+
+/* карточка блюда (промт 2.2) */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; white-space: nowrap; clip-path: inset(50%); }
+/* Прокрутка фона под открытой карточкой: position:fixed — единственный вариант, который держит
+   и iOS Safari. Сохранённый scrollY возвращает dish-card.js, иначе страница прыгнет в начало. */
+body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
+
+/* Карточка выше экрана не растёт: фото и подвал с кнопкой не сжимаются, скроллится только тело —
+   так кнопка добавления остаётся закреплённой снизу и при очень длинном описании. */
+.dish-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); overflow: hidden; }
+.dish-card .dish-card-media, .dish-card .dish-card-foot { flex-shrink: 0; }
+.dish-card .dish-card-body { flex: 1; min-height: 0; max-height: none; }
+/* Ограничение высоты висит на обёртке, а не на самом фото: у блока с aspect-ratio max-height
+   ужимает и ширину тоже, и фото переставало быть во всю карточку. Здесь же оно остаётся
+   4:3 и полной ширины, а обёртка просто подрезает его на низких экранах. */
+.dish-card-media { position: relative; max-height: 42vh; overflow: hidden; background: #f3ede2; }
+.dish-card-photo { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #f3ede2; }
+.dish-card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Прогрессивная загрузка: снизу лежит уже скачанное превью (растянутое и размытое), поверх —
+   полная версия, которая проявляется по load. */
+.dish-card-photo-preview { filter: blur(14px); transform: scale(1.08); }
+.dish-card-photo-full { transition: opacity 320ms ease; }
+.dish-card-photo.is-loading .dish-card-photo-full { opacity: 0; }
+.dish-card-photo.is-empty { display: grid; place-items: center; color: var(--muted); }
+/* Позиции больше нет в меню — фото не рисуем совсем, остаётся только полоска с кнопкой закрытия. */
+.dish-card-media.is-blank .dish-card-photo { aspect-ratio: auto; height: 52px; }
+.dish-card-media-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
+.dish-card-action { display: grid; place-items: center; width: 44px; height: 44px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: #27251f73; color: white; backdrop-filter: blur(3px); transition: transform 180ms ease; }
+.dish-card-action:hover, .dish-card-action:focus-visible { transform: scale(1.07); }
+.dish-card-copied { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: #27251f73; color: white; font-size: 11px; backdrop-filter: blur(3px); }
+
+.dish-card-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; font-family: var(--font-serif); font-size: 22px; font-weight: 500; line-height: 1.25; }
+.dish-card-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.dish-card-price strong { font-size: 18px; }
+.dish-card-description { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.dish-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.dish-card-tag { padding: 3px 9px; border-radius: 6px; background: var(--sage); color: #5d6d59; font-size: 11px; }
+.dish-card-spicy { background: #f7e6e1; color: var(--primary-dark); }
+.dish-card-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 14px; color: var(--muted); font-size: 12px; }
+.dish-card-composition, .dish-card-allergens { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+.dish-card-composition b, .dish-card-allergens b { color: var(--ink); }
+.dish-card-unavailable { margin: 12px 0 0; color: var(--primary-dark); font-size: 12px; font-weight: 700; }
+.dish-card-options { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.dish-card-gone { padding: 6px 0 2px; text-align: center; }
+.dish-card-gone-note { margin: 0 0 16px; color: var(--muted); font-size: 13.5px; }
+
+.dish-card-siblings { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.dish-card-siblings-title { margin: 0 0 12px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.dish-card-siblings-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.dish-card-sibling { flex: 0 0 128px; display: flex; flex-direction: column; gap: 5px; padding: 0; border: 0; background: none; text-align: left; min-height: 0; scroll-snap-align: start; }
+.dish-card-sibling-media { display: block; width: 128px; height: 96px; border-radius: 10px; overflow: hidden; background: #f3ede2; }
+.dish-card-sibling-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dish-card-sibling-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.35; }
+.dish-card-sibling-price { color: var(--primary); font-size: 12px; font-weight: 700; }
+
+@media (max-width: 800px) {
+  /* Карточка на телефоне — во весь экран (промт 2.2): inset:0 растягивает диалог по вертикали,
+     тело скроллится внутри, а кнопка добавления остаётся закреплённой снизу. */
+  dialog.modal.dish-card { inset: 0; width: 100%; max-width: 100%; height: auto; max-height: none; margin: 0; border: 0; border-radius: 0; }
+  /* Позиции больше нет — показывать одну строку во весь экран незачем: остаётся низкая шторка. */
+  dialog.modal.dish-card.is-gone { inset: auto 0 0; height: auto; border-radius: 18px 18px 0 0; }
+  .dish-card-photo { aspect-ratio: 3 / 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dish-card-photo-full, .dish-card-action { transition: none !important; }
+  .dish-card-action:hover, .dish-card-action:focus-visible { transform: none !important; }
+}
+
+/* группы опций позиции в админке (промт 2.1) */
+.option-groups { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.option-groups-title { margin: 0 0 4px; font-family: var(--font-serif); font-size: 17px; font-weight: 500; }
+.option-groups-hint { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.option-group-card { margin-bottom: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.option-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.option-group-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.option-group-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.icon-btn { display: grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--paper); color: var(--muted); }
+.icon-btn:hover:not(:disabled) { background: #f3ede2; color: var(--ink); }
+.icon-btn:disabled { opacity: .35; pointer-events: none; }
+.icon-btn-danger:hover:not(:disabled) { background: #f7e6e1; color: var(--primary-dark); }
+.option-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.option-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); font-size: 12px; cursor: grab; }
+.option-row.is-dragging { opacity: .45; }
+.option-row.is-unavailable { opacity: .55; }
+.option-drag-handle { display: inline-flex; color: #b8b3a9; flex-shrink: 0; }
+.option-row-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.option-row-price { color: var(--primary); font-weight: 700; white-space: nowrap; }
+.option-row-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.option-row-empty { padding: 10px; color: var(--muted); font-size: 12px; text-align: center; }
+.option-add { margin-top: 8px; }
+.option-add > summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--primary); padding: 4px 0; }
+.option-add-form { margin-top: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); }
+.option-add-form .field { margin-bottom: 12px; }
+.option-items-picker { display: grid; gap: 6px; max-height: 180px; overflow-y: auto; margin-bottom: 12px; padding: 8px; border: 1px solid var(--border); border-radius: 9px; }
+.option-items-picker label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.option-add-group > summary { font-size: 13px; }
+
+/* онбординг-чеклист на дашборде (промт 1.6) */
+.checklist-card { margin-bottom: 20px; padding: 24px 26px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper); }
+.checklist-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.checklist-toggle-btn { font-size: 11px; min-height: 34px; padding: 0 14px; }
+.checklist-progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.checklist-progress-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.checklist-progress-bar { display: block; position: relative; height: 6px; border-radius: 4px; background: var(--background); overflow: hidden; margin-bottom: 18px; }
+.checklist-progress-fill { display: block; height: 100%; width: 100%; border-radius: 4px; background: var(--primary); transform-origin: left; transition: transform 500ms ease; }
+.checklist-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.checklist-item { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 10px; }
+.checklist-item.is-done { opacity: .55; }
+.checklist-item.is-done .checklist-item-icon { color: #6c9365; }
+.checklist-item.is-current { background: var(--sage); }
+.checklist-item-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--background); color: var(--muted); flex-shrink: 0; }
+.checklist-item.is-current .checklist-item-icon { background: var(--paper); color: var(--primary); }
+.checklist-item-label { flex: 1; font-size: 13px; color: var(--ink); }
+.checklist-item-action { flex-shrink: 0; }
+.checklist-item-hint { font-size: 11px; color: var(--primary-dark); max-width: 220px; text-align: right; }
+.checklist-collapsed-bar { display: flex; align-items: center; gap: 14px; width: 100%; border: 0; background: none; padding: 4px 0; cursor: pointer; font-family: var(--font-sans); color: var(--muted); font-size: 12px; font-weight: 700; text-align: left; }
+.checklist-collapsed-bar .checklist-progress-bar { flex: 1; margin-bottom: 0; }
+
+.btn-sm { min-height: 34px; padding: 0 14px; font-size: 11px; }
+
+@media (max-width: 640px) {
+  .checklist-item { flex-wrap: wrap; }
+  .checklist-item-action { width: 100%; }
+  .checklist-item-action .btn, .checklist-item-action form { width: 100%; }
+  .checklist-item-hint { text-align: left; max-width: none; }
+}
+
+/* богатые пустые состояния категорий/позиций/фото (промт 1.6) */
+.empty-state { padding: 48px 24px; text-align: center; }
+.empty-state-icons { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
+.empty-state-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--sage); color: #5a6a55; }
+.empty-state h3 { margin: 4px 0 8px; font-family: var(--font-serif); font-size: 20px; font-weight: 500; }
+.empty-state p { margin: 0 0 6px; color: var(--muted); font-size: 13px; max-width: 420px; margin-inline: auto; }
+.empty-state-example { font-size: 12px; color: #a29c91; margin-bottom: 20px; }
+.empty-state .btn { margin-top: 4px; }
+.empty-state-category { padding: 32px 20px; }
+.empty-state-category .empty-state-icon { width: 40px; height: 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .checklist-progress-fill { transition: none !important; }
+}
+
+/* аналитика (промт 3.2) */
+.analytics-period-form { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
+.analytics-period-tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); }
+.analytics-period-tab { padding: 8px 16px; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.analytics-period-tab.active { background: var(--primary); color: white; }
+.analytics-period-custom { display: flex; align-items: center; gap: 8px; }
+.analytics-period-custom input[type="date"] { padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); font-family: var(--font-sans); font-size: 12px; color: var(--ink); }
+.analytics-period-custom span { color: var(--muted); }
+
+.analytics-empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 70px 20px; color: var(--muted); text-align: center; }
+.analytics-empty-state p { margin: 0; font-size: 15px; color: var(--ink); }
+.analytics-empty-state small { font-size: 12px; }
+.analytics-empty-note { margin: 0; padding: 20px 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+.analytics-grid { margin-bottom: 20px; }
+.analytics-grid-lists { grid-template-columns: 1fr 1fr; }
+.analytics-grid-breakdowns { grid-template-columns: 1fr 1fr 1fr; }
+.dashboard-card h3 { margin: 0 0 4px; font-family: var(--font-serif); font-size: 17px; font-weight: 500; }
+.analytics-card-hint { margin: 0 0 10px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+.analytics-card-highlight { border-color: #e3b7a4; background: #fdf6f3; }
+
+.analytics-card-head { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.analytics-total { display: flex; align-items: baseline; gap: 8px; }
+.analytics-total b { font-family: var(--font-serif); font-size: 26px; font-weight: 500; }
+.analytics-trend { padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+.analytics-trend.up { background: var(--sage); color: #4c5e47; }
+.analytics-trend.down { background: #f7e6e1; color: var(--primary-dark); }
+
+/* Графики — SVG без библиотек (промт 3.2): бары растут вверх от общей базовой линии, подписи —
+   обычный HTML под графиком (шрифт/переносы там ведут себя лучше, чем в <text> внутри SVG). */
+.analytics-chart { position: relative; margin-top: 10px; }
+.analytics-chart-svg { display: block; width: 100%; height: 110px; overflow: visible; }
+.analytics-bar { fill: #e6b09e; transition: fill 150ms ease; cursor: pointer; }
+.analytics-bar:hover, .analytics-bar:focus-visible { fill: var(--primary); outline: none; }
+.analytics-chart-labels { display: flex; justify-content: space-between; gap: 2px; margin-top: 6px; color: var(--muted); font-size: 9px; }
+.analytics-chart-labels span { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analytics-chart-tooltip { position: absolute; top: -8px; transform: translate(-50%, -100%); padding: 5px 9px; border-radius: 7px; background: var(--ink); color: white; font-size: 11px; font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 2; }
+.analytics-chart-tooltip::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -4px; border: 4px solid transparent; border-top-color: var(--ink); }
+
+.analytics-top-list { list-style: none; margin: 0; padding: 0; counter-reset: analytics-rank; }
+.analytics-top-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.analytics-top-list li:last-child { border-bottom: 0; }
+.analytics-top-list li::before { counter-increment: analytics-rank; content: counter(analytics-rank); flex-shrink: 0; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--background); color: var(--muted); font-size: 10px; font-weight: 700; }
+.analytics-top-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analytics-top-value { flex-shrink: 0; color: var(--primary); font-weight: 700; }
+
+.analytics-breakdown-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
+.analytics-breakdown-row > span:first-child { flex: 0 0 64px; color: var(--muted); }
+.analytics-breakdown-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--background); overflow: hidden; }
+.analytics-breakdown-bar i { display: block; height: 100%; background: var(--primary); border-radius: 4px; }
+.analytics-breakdown-pct { flex: 0 0 34px; text-align: right; font-weight: 700; }
+
+.analytics-settings-card { margin-top: 4px; }
+.analytics-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.analytics-toggle-row:last-child { border-bottom: 0; }
+.analytics-toggle-row b { display: block; font-size: 13px; font-weight: 600; }
+.analytics-toggle-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.analytics-toggle-row .toggle:disabled { opacity: .4; pointer-events: none; }
+
+@media (max-width: 900px) {
+  .analytics-grid-lists, .analytics-grid-breakdowns { grid-template-columns: 1fr; }
+  .analytics-period-form { flex-direction: column; align-items: stretch; }
+  .analytics-period-custom { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analytics-bar { transition: none !important; }
+}
+
+/* столы и QR (промт 2.4) */
+.tables-create-card { margin-bottom: 20px; }
+.tables-create-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+.tables-create-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 160px; }
+.tables-create-field-narrow { flex: 0 0 110px; }
+.tables-create-field span { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.tables-create-field input { padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); font-family: var(--font-sans); font-size: 13px; color: var(--ink); }
+.tables-create-field input:focus { outline: none; border-color: var(--primary); }
+
+.tables-row { grid-template-columns: 1fr auto auto; gap: 12px; }
+.tables-row.is-inactive { opacity: .55; }
+.tables-row-number { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tables-inactive-badge { padding: 2px 7px; border-radius: 5px; background: #f3ede2; color: var(--muted); font-size: 10px; }
+.tables-rename-form { display: flex; align-items: center; gap: 5px; }
+.tables-rename-form input { width: 130px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); font-family: var(--font-sans); font-size: 12px; color: var(--ink); }
+.tables-rename-form input:focus { outline: none; border-color: var(--primary); }
+.tables-row-actions { display: flex; align-items: center; gap: 4px; }
+
+/* лист печати QR — отдельная страница без сайдбара, сетка карточек «одна на стол» */
+.tables-print-body { padding: 24px; background: var(--background); }
+.tables-print-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 900px; margin: 0 auto 22px; }
+.tables-print-toolbar b { display: block; font-size: 15px; }
+.tables-print-toolbar span { color: var(--muted); font-size: 12px; }
+.tables-print-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; max-width: 900px; margin: 0 auto; }
+.tables-print-card { padding: 18px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--paper); text-align: center; break-inside: avoid; }
+.tables-print-card img { width: 100%; max-width: 180px; height: auto; }
+.tables-print-venue { margin-bottom: 8px; color: var(--muted); font-size: 11px; }
+.tables-print-number { margin-top: 8px; font-family: var(--font-serif); font-size: 19px; font-weight: 500; }
+.tables-print-caption { margin-top: 3px; color: var(--muted); font-size: 10.5px; }
+
+@media print {
+  /* Печатается только сетка кодов: панель с кнопкой и фон страницы на бумаге не нужны. */
+  .tables-print-toolbar { display: none; }
+  .tables-print-body { padding: 0; background: white; }
+  .tables-print-card { border-color: #ddd; }
+  .tables-print-grid { max-width: none; gap: 10px; }
+}
+
+@media (max-width: 900px) {
+  .tables-row { grid-template-columns: 1fr; }
+  .tables-rename-form input { width: 100%; }
+}
+
+/* заказ и вызов официанта у гостя (промт 2.4) */
+.order-start-btn { width: 100%; margin-top: 14px; }
+.cart-clear-btn { width: 100%; margin-top: 8px; }
+.order-lines { margin-bottom: 14px; }
+.order-line { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.order-line:last-child { border-bottom: 0; }
+.order-line-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.order-line-options { color: var(--muted); font-size: 11px; }
+.order-line-qty { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.order-line-total { font-weight: 700; white-space: nowrap; }
+.order-total-row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.order-total-row strong { font-size: 17px; }
+.order-field { display: block; margin-top: 14px; }
+.order-field-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.order-field input, .order-field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); font-family: var(--font-sans); font-size: 13px; color: var(--ink); box-sizing: border-box; resize: vertical; }
+.order-field input:focus, .order-field textarea:focus { outline: none; border-color: var(--primary); }
+#orderTableKnown b { font-size: 16px; }
+
+.order-sent { padding: 10px 0 4px; text-align: center; }
+.order-sent-label { display: block; color: var(--muted); font-size: 12px; }
+.order-sent b { display: block; margin-top: 4px; font-family: var(--font-serif); font-size: 34px; font-weight: 500; }
+.order-sent-hint { margin: 10px auto 16px; max-width: 320px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.order-status-row { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--background); font-size: 12.5px; }
+.order-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #d4d0c7; }
+.order-status-dot.is-accepted { background: #d99f3f; }
+.order-status-dot.is-done { background: #7c9b74; }
+.order-status-dot.is-cancelled { background: var(--primary); }
+.order-undelivered { margin: 14px auto 0; max-width: 340px; padding: 10px 12px; border-radius: 9px; background: #f7e6e1; color: var(--primary-dark); font-size: 12px; line-height: 1.5; }
+
+.waiter-options { display: flex; flex-direction: column; gap: 8px; }
+.waiter-option { padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--paper); font-family: var(--font-sans); font-size: 14px; color: var(--ink); text-align: left; }
+.waiter-option:hover { border-color: var(--primary); background: #fdf6f3; }
+/* Плавающая кнопка вызова: над панелью корзины, чтобы они не наезжали друг на друга. */
+.waiter-call-btn { position: fixed; right: 16px; bottom: 88px; z-index: 40; display: grid; place-items: center; width: 52px; height: 52px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--paper); color: var(--primary); box-shadow: 0 8px 22px #6e625321; }
+.waiter-call-btn:hover { background: var(--primary); border-color: var(--primary); color: white; }
+
+@media (max-width: 640px) {
+  .waiter-call-btn { bottom: 84px; width: 48px; height: 48px; }
+}
+
+/* настройки заказов и привязка группы (промт 2.4) */
+.admin-content-narrow { max-width: 760px; }
+.admin-content-narrow .dashboard-card { margin-bottom: 20px; }
+.orders-settings-steps { margin: 10px 0 18px; padding-left: 20px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+.orders-settings-steps li { margin-bottom: 4px; }
+.orders-settings-steps li::marker { color: var(--primary); font-weight: 700; }
+.orders-settings-generate { margin-top: 14px; }
+.orders-settings-copied { display: none; }
+.orders-settings-min-form { display: flex; align-items: end; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.orders-settings-min-form .tables-create-field { flex: 1 1 220px; }

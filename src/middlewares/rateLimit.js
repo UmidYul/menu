@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { sessionHashFromRequest } = require('../services/eventTracking');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -70,10 +71,57 @@ const forgotPasswordAccountLimiter = rateLimit({
   },
 });
 
+// Промт 3.2, /api/events: 500 событий на session_hash в час — не на IP (общий IP-лимитер ниже
+// уже есть отдельно) и не на venue, потому что реальный лимит на злоупотребление — это "один
+// гость с одного устройства/браузера", а session_hash как раз и есть этот гость (тот же IP+UA,
+// та же формула, что и у самих событий — см. src/services/eventTracking.js). 204 без тела —
+// это фоновый sendBeacon, у которого никто не читает ответ.
+const eventsBySessionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => sessionHashFromRequest(req),
+  handler: (req, res) => {
+    res.status(204).end();
+  },
+});
+
+// Общий IP-лимит поверх session-лимита — подстраховка на случай подмены User-Agent на каждый
+// запрос (тогда session_hash каждый раз новый, и лимитер выше его не поймает).
+const eventsByIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 2000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(204).end();
+  },
+});
+
+// Промт 2.4: «Не больше 30 заказов с одного IP в час (заведение с общим Wi-Fi — не занижай)».
+// Лимит по session_hash (3 заказа в час) живёт не здесь, а в самом роуте — он считается по БД,
+// чтобы переживать перезапуск процесса и не расходиться между инстансами.
+const ordersByIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Считаем только успешные попытки создания: отбитые пересчётом/закрытым заведением заказы
+  // не должны съедать лимит гостя, который ни в чём не виноват.
+  skipFailedRequests: true,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'too_many_orders_ip' });
+  },
+});
+
 module.exports = {
+  ordersByIpLimiter,
   loginLimiter,
   loginByAccountLimiter,
   applyLimiter,
   forgotPasswordIpLimiter,
   forgotPasswordAccountLimiter,
+  eventsBySessionLimiter,
+  eventsByIpLimiter,
 };

@@ -1,0 +1,27 @@
+<%
+// Промт 3.2: графики рисуются вручную на SVG, без библиотек. Ожидает:
+// bars: [{ label, value, heightPercent }], id (уникальный для страницы), valueSuffix (необязательно,
+// подпись значения во всплывающей подсказке — "просмотров", "ч" и т.п.), height (px, по умолчанию 120).
+const _h = typeof height !== 'undefined' ? height : 120;
+const _barGap = 3;
+const _barCount = bars.length;
+const _barWidth = _barCount > 0 ? (100 - _barGap * (_barCount - 1)) / _barCount : 0;
+%>
+<div class="analytics-chart" id="<%= id %>">
+  <svg viewBox="0 0 100 <%= _h %>" preserveAspectRatio="none" class="analytics-chart-svg" role="img" aria-label="<%= ariaLabel || '' %>">
+    <% bars.forEach((bar, i) => {
+      const x = i * (_barWidth + _barGap);
+      const barHeight = Math.max(1, (bar.heightPercent / 100) * (_h - 18));
+      const y = (_h - 18) - barHeight;
+    %>
+      <rect class="analytics-bar" x="<%= x %>" y="<%= y %>" width="<%= _barWidth %>" height="<%= barHeight %>"
+        data-label="<%= bar.label %>" data-value="<%= bar.value %><%= valueSuffix || '' %>" tabindex="0">
+        <title><%= bar.label %>: <%= bar.value %><%= valueSuffix || '' %></title>
+      </rect>
+    <% }) %>
+  </svg>
+  <div class="analytics-chart-labels">
+    <% bars.forEach((bar) => { %><span><%= bar.label %></span><% }) %>
+  </div>
+  <div class="analytics-chart-tooltip" hidden></div>
+</div>

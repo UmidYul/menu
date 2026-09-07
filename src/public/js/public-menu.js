@@ -153,6 +153,30 @@ document.documentElement.classList.add('js-reveal');
     });
     if (categoryNav) categoryNav.hidden = searching;
     if (searchEmptyNote) searchEmptyNote.hidden = anyVisible;
+    lastSearchHadResults = anyVisible;
+  }
+
+  // --- отслеживание поиска (промт 3.2) ---------------------------------------------------
+  // Событие на каждое нажатие клавиши было бы бессмысленным шумом (и быстро съело бы лимит
+  // /api/events) — трекаем только "устоявшийся" запрос, через паузу после того, как гость
+  // перестал печатать. search_empty вместо search — отдельный тип события, а не флаг внутри
+  // одного и того же: у промта это "ОТДЕЛЬНО топ запросов без результата" именно потому, что
+  // это самая ценная метрика, её не стоит закапывать в общий список через дополнительный расчёт.
+  var lastSearchHadResults = true;
+  var searchTrackTimer = null;
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      window.clearTimeout(searchTrackTimer);
+      searchTrackTimer = window.setTimeout(function () {
+        var query = searchInput.value.trim();
+        // Проверяем window.eventTracker здесь, а не при подписке на событие выше — порядок
+        // <script defer> в menu.ejs делает event-tracker.js доступным раньше остальных, но
+        // полагаться на порядок тегов не стоит: тут, в отличие от кликов, само создание
+        // подписки происходит в момент выполнения этого файла, а не позже по клику пользователя.
+        if (!query || !window.eventTracker) return;
+        window.eventTracker.track(lastSearchHadResults ? 'search' : 'search_empty', { query: query });
+      }, 600);
+    });
   }
 
   function updateFilterBadge() {
@@ -246,6 +270,9 @@ document.documentElement.classList.add('js-reveal');
     chip.addEventListener('click', function () {
       if (chip.dataset.categoryChip === currentCategoryId) return;
       setActiveCategory(chip.dataset.categoryChip);
+      if (window.eventTracker) {
+        window.eventTracker.track('category_click', { category_id: chip.dataset.categoryId ? Number(chip.dataset.categoryId) : undefined });
+      }
       // После смены вкладки уже скрытый контент выше могло не быть видно — возвращаем
       // пользователя к началу списка, чтобы он сразу увидел новую подборку блюд.
       if (categoryNav) categoryNav.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -262,6 +289,15 @@ document.documentElement.classList.add('js-reveal');
     }
     setActiveCategory(initialId);
   })();
+
+  // --- переключение языка (промт 3.2) -----------------------------------------------------
+  // Обычная ссылка с перезагрузкой страницы — событие успевает уйти по pagehide в
+  // event-tracker.js, отдельно ничего сбрасывать вручную не нужно.
+  document.querySelectorAll('.lang a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (window.eventTracker) window.eventTracker.track('lang_switch', { lang: link.getAttribute('href').replace(/^\?lang=/, '') });
+    });
+  });
 
   // --- статус часов работы (простой парсинг "ЧЧ:ММ–ЧЧ:ММ" из первой строки) -----------------
 

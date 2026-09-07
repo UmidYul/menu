@@ -27,12 +27,14 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
-// Для почасового пересчёта статусов (bot/worker/scheduler.js) — draft/archived не нуждаются
-// в пересчёте (venueLifecycle.computeTargetStatus сам их не трогает), исключаем на уровне SQL,
-// чтобы не гонять пересчёт по заведениям, которые заведомо не изменятся.
+// Для почасового пересчёта статусов (bot/worker/scheduler.js) — archived не нуждается в
+// пересчёте (venueLifecycle.computeTargetStatus его не трогает и переходов из него не бывает),
+// исключаем на уровне SQL. draft раньше тоже исключался по той же причине (computeTargetStatus
+// не трогает и его), но промт 1.6 добавил подсказки от бота именно для застрявших в draft —
+// им нужен этот же почасовой проход, так что draft остаётся в выборке.
 async function listForLifecycleRecalc() {
   const result = await pool.query(
-    `SELECT * FROM venues WHERE status NOT IN ('draft', 'archived')`
+    `SELECT * FROM venues WHERE status <> 'archived'`
   );
   return result.rows;
 }
@@ -53,7 +55,8 @@ async function findPublicBySlug(slug) {
             description_ru, description_uz, description_en, cuisine_ru, cuisine_uz, cuisine_en,
             category_label_ru, category_label_uz, category_label_en,
             district_ru, district_uz, district_en,
-            email, rating, review_count
+            email, rating, review_count,
+            orders_enabled, telegram_chat_id, telegram_chat_broken, min_order_amount
      FROM venues WHERE slug = $1`,
     [slug]
   );
@@ -90,6 +93,85 @@ async function toggleShowPoweredBy(id) {
   return result.rows[0] || null;
 }
 
+// --- привязка Telegram-группы заведения (промт 2.4) ---------------------------------------
+// Это НЕ то же самое, что venues.owner_telegram_id (личный аккаунт владельца из промта 1.5):
+// здесь групповой чат, в который падают заказы и вызовы официанта.
+
+async function linkTelegramChat(venueId, chatId, chatTitle) {
+  const result = await pool.query(
+    `UPDATE venues
+     SET telegram_chat_id = $1, telegram_chat_title = $2, telegram_linked_at = now(), telegram_chat_broken = false
+     WHERE id = $3
+     RETURNING id, name, slug, telegram_chat_id, telegram_chat_title`,
+    [chatId, chatTitle, venueId]
+  );
+  return result.rows[0] || null;
+}
+
+async function unlinkTelegramChat(venueId) {
+  const result = await pool.query(
+    `UPDATE venues
+     SET telegram_chat_id = NULL, telegram_chat_title = NULL, telegram_linked_at = NULL, telegram_chat_broken = false
+     WHERE id = $1 RETURNING id`,
+    [venueId]
+  );
+  return result.rows[0] || null;
+}
+
+// Бот потерял доступ к группе (удалили/разжаловали) — связь помечается разорванной, но
+// chat_id сохраняется: владельцу показывается «переподключите», а не «ничего не привязано».
+async function markTelegramChatBroken(venueId) {
+  await pool.query('UPDATE venues SET telegram_chat_broken = true WHERE id = $1', [venueId]);
+}
+
+// Группу перевели в супергруппу — Telegram сообщает новый chat_id в migrate_to_chat_id,
+// связь при этом не рвётся (промт 2.4, edge case).
+async function updateTelegramChatId(venueId, newChatId) {
+  await pool.query(
+    'UPDATE venues SET telegram_chat_id = $1, telegram_chat_broken = false WHERE id = $2',
+    [newChatId, venueId]
+  );
+}
+
+async function findByTelegramChatId(chatId) {
+  const result = await pool.query('SELECT * FROM venues WHERE telegram_chat_id = $1', [chatId]);
+  return result.rows[0] || null;
+}
+
+async function toggleOrdersEnabled(id) {
+  const result = await pool.query(
+    'UPDATE venues SET orders_enabled = NOT orders_enabled WHERE id = $1 RETURNING id, orders_enabled',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+async function setMinOrderAmount(id, amount) {
+  const result = await pool.query(
+    'UPDATE venues SET min_order_amount = $1 WHERE id = $2 RETURNING id, min_order_amount',
+    [amount, id]
+  );
+  return result.rows[0] || null;
+}
+
+// Промт 3.2, страница аналитики — сам владелец переключает у себя, в отличие от toggleActive/
+// toggleShowPoweredBy выше (те дёргает только суперадмин).
+async function toggleExcludeOwnerViews(id) {
+  const result = await pool.query(
+    'UPDATE venues SET exclude_owner_views = NOT exclude_owner_views WHERE id = $1 RETURNING id, exclude_owner_views',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+async function toggleWeeklySummaryEnabled(id) {
+  const result = await pool.query(
+    'UPDATE venues SET weekly_summary_enabled = NOT weekly_summary_enabled WHERE id = $1 RETURNING id, weekly_summary_enabled',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 async function updateSubscriptionUntil(client, id, subscriptionUntil) {
   const executor = client || pool;
   const result = await executor.query(
@@ -97,6 +179,16 @@ async function updateSubscriptionUntil(client, id, subscriptionUntil) {
     [subscriptionUntil, id]
   );
   return result.rows[0] || null;
+}
+
+// Промт 1.6, чеклист онбординга — оба идемпотентны (COALESCE не перетирает более раннюю дату
+// повторным вызовом, "выполнено" не должно откатываться на более позднее время).
+async function markQrDownloaded(id) {
+  await pool.query('UPDATE venues SET qr_downloaded_at = COALESCE(qr_downloaded_at, now()) WHERE id = $1', [id]);
+}
+
+async function markMenuPreviewed(id) {
+  await pool.query('UPDATE venues SET menu_previewed_at = COALESCE(menu_previewed_at, now()) WHERE id = $1', [id]);
 }
 
 // photo/logo/cover *Url передаются только когда загружен новый файл — если их нет (null),
@@ -156,7 +248,18 @@ module.exports = {
   create,
   toggleActive,
   toggleShowPoweredBy,
+  toggleExcludeOwnerViews,
+  toggleWeeklySummaryEnabled,
+  linkTelegramChat,
+  unlinkTelegramChat,
+  markTelegramChatBroken,
+  updateTelegramChatId,
+  findByTelegramChatId,
+  toggleOrdersEnabled,
+  setMinOrderAmount,
   updateSettings,
   updateRating,
   updateSubscriptionUntil,
+  markQrDownloaded,
+  markMenuPreviewed,
 };

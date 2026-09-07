@@ -7,15 +7,17 @@ const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
 const categoryModel = require('../models/categoryModel');
 const venueModel = require('../models/venueModel');
+const itemOptionModel = require('../models/itemOptionModel');
 const { pickLocalized } = require('../utils/localize');
 const { logAction } = require('../models/adminActionLogModel');
-const { itemSchema, ALLOWED_TAGS } = require('../validators/itemValidators');
+const {
+  itemSchema, ALLOWED_TAGS, ALLOWED_ALLERGENS, WEIGHT_UNITS, MAX_SPICY_LEVEL,
+} = require('../validators/itemValidators');
+const { MAX_GROUPS_PER_ITEM, MAX_OPTIONS_PER_GROUP } = require('../validators/itemOptionValidators');
 const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
 const pgNotify = require('../services/pgNotify');
 
 router.use(requireAuth, venueStatusGate);
-
-const { groupByCategory } = itemModel;
 
 // Список позиций без перевода на EN — считается по уже загруженным данным, без отдельного
 // SQL-запроса (name_en пусто/NULL = не переведено).
@@ -27,10 +29,11 @@ async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
   const role = req.session.admin.role;
 
-  const [items, categories, langSettings] = await Promise.all([
+  const [items, categories, langSettings, optionGroupsByItem] = await Promise.all([
     itemModel.listByVenueGrouped(venueId),
     categoryModel.listByVenue(venueId),
     venueModel.getLangSettings(venueId),
+    itemOptionModel.listGroupsByItemForVenue(venueId),
   ]);
 
   const enabledLangs = (langSettings && langSettings.enabled_langs) || ['ru', 'uz'];
@@ -41,21 +44,53 @@ async function renderList(req, res, status, error, formValues, formTarget) {
   const showOnlyUntranslated = enBadgeEnabled && req.query.untranslated === 'en';
   const visibleItems = showOnlyUntranslated ? items.filter(isUntranslatedToEn) : items;
 
-  // Заголовок категории — на языке интерфейса самой админки (res.locals.lang), а не заведения:
-  // group.categoryNameRu/Uz/En приходят как есть из groupByCategory, здесь только выбор нужного.
-  const groups = groupByCategory(visibleItems).map((group) => ({
-    ...group,
-    categoryName: pickLocalized(
-      { name_ru: group.categoryNameRu, name_uz: group.categoryNameUz, name_en: group.categoryNameEn },
-      'name',
-      res.locals.lang
-    ),
-  }));
+  const hasAnyItem = new Set(items.map((item) => item.category_id));
+  const visibleByCategoryId = new Map();
+  for (const item of visibleItems) {
+    if (!visibleByCategoryId.has(item.category_id)) visibleByCategoryId.set(item.category_id, []);
+    visibleByCategoryId.get(item.category_id).push(item);
+  }
+
+  // Одна карточка на категорию — с позициями (учитывая фильтр EN), с богатым пустым состоянием
+  // (категория реально без единой позиции — промт 1.6), или пропускается вовсе (пуста только
+  // из-за активного фильтра "непереведённые на EN" — это не "добавьте первую позицию").
+  const groups = categories
+    .map((category) => ({
+      categoryId: category.id,
+      categoryName: pickLocalized(category, 'name', res.locals.lang),
+      isDemo: category.is_demo,
+      isGenuinelyEmpty: !hasAnyItem.has(category.id),
+      items: visibleByCategoryId.get(category.id) || [],
+    }))
+    .filter((group) => group.items.length > 0 || group.isGenuinelyEmpty);
+
+  // Для блока групп опций в модалке редактирования (промт 2.1): сами группы позиции,
+  // остальные позиции заведения (куда группу можно применить) и плоский список групп ДРУГИХ
+  // позиций (откуда группу можно скопировать сюда).
+  const sourceGroupsByItem = [];
+  items.forEach((item) => {
+    (optionGroupsByItem.get(item.id) || []).forEach((group) => {
+      sourceGroupsByItem.push({ id: group.id, name_ru: group.name_ru, itemId: item.id, itemName: item.name_ru });
+    });
+  });
+
+  const optionError = typeof req.query.option_error === 'string' ? req.query.option_error : null;
+  const optionErrorItemId = Number(req.query.option_item) || null;
 
   res.status(status || 200).render('admin/items', {
     groups,
+    optionGroupsByItem,
+    sourceGroupsByItem,
+    allItemsFlat: items.map((item) => ({ id: item.id, name_ru: item.name_ru })),
+    maxOptionGroups: MAX_GROUPS_PER_ITEM,
+    maxOptionsPerGroup: MAX_OPTIONS_PER_GROUP,
+    optionError,
+    optionErrorItemId,
     categories,
     allowedTags: ALLOWED_TAGS,
+    allowedAllergens: ALLOWED_ALLERGENS,
+    weightUnits: WEIGHT_UNITS,
+    maxSpicyLevel: MAX_SPICY_LEVEL,
     enabledLangs,
     enBadgeEnabled,
     totalCount,
@@ -63,7 +98,12 @@ async function renderList(req, res, status, error, formValues, formTarget) {
     showOnlyUntranslated,
     isUntranslatedToEn,
     error: error || null,
-    formValues: formValues || { category_id: '', name_ru: '', name_uz: '', name_en: '', description_ru: '', description_uz: '', description_en: '', composition_ru: '', composition_uz: '', composition_en: '', calories: '', price: '', old_price: '', currency: 'UZS', tags: [] },
+    formValues: formValues || {
+      category_id: '', name_ru: '', name_uz: '', name_en: '', description_ru: '', description_uz: '', description_en: '',
+      composition_ru: '', composition_uz: '', composition_en: '', calories: '', price: '', old_price: '',
+      currency: 'UZS', tags: [],
+      weight_value: '', weight_unit: '', cooking_time_minutes: '', allergens: [], spicy_level: '', is_popular: false,
+    },
     formTarget: formTarget || null,
     login: req.session.admin.login,
     role,
@@ -73,7 +113,14 @@ async function renderList(req, res, status, error, formValues, formTarget) {
 
 function readFormValues(body) {
   const tags = body.tags === undefined ? [] : Array.isArray(body.tags) ? body.tags : [body.tags];
+  const allergens = body.allergens === undefined ? [] : Array.isArray(body.allergens) ? body.allergens : [body.allergens];
   return {
+    weight_value: typeof body.weight_value === 'string' ? body.weight_value : '',
+    weight_unit: typeof body.weight_unit === 'string' ? body.weight_unit : '',
+    cooking_time_minutes: typeof body.cooking_time_minutes === 'string' ? body.cooking_time_minutes : '',
+    allergens,
+    spicy_level: typeof body.spicy_level === 'string' ? body.spicy_level : '',
+    is_popular: body.is_popular === 'on',
     category_id: typeof body.category_id === 'string' ? body.category_id : '',
     name_ru: typeof body.name_ru === 'string' ? body.name_ru : '',
     name_uz: typeof body.name_uz === 'string' ? body.name_uz : '',
@@ -176,6 +223,12 @@ router.post('/', requireRole(['venue_admin']), async (req, res, next) => {
       tags: parsed.data.tags,
       photoUrl: photo ? photo.photoUrl : null,
       photoThumbUrl: photo ? photo.photoThumbUrl : null,
+      weightValue: parsed.data.weight_value,
+      weightUnit: parsed.data.weight_unit,
+      cookingTimeMinutes: parsed.data.cooking_time_minutes,
+      allergens: parsed.data.allergens,
+      spicyLevel: parsed.data.spicy_level,
+      isPopular: parsed.data.is_popular,
     });
 
     await logAction(pool, {
@@ -250,6 +303,12 @@ router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
       tags: parsed.data.tags,
       photoUrl: photo ? photo.photoUrl : null,
       photoThumbUrl: photo ? photo.photoThumbUrl : null,
+      weightValue: parsed.data.weight_value,
+      weightUnit: parsed.data.weight_unit,
+      cookingTimeMinutes: parsed.data.cooking_time_minutes,
+      allergens: parsed.data.allergens,
+      spicyLevel: parsed.data.spicy_level,
+      isPopular: parsed.data.is_popular,
     });
 
     if (photo) {

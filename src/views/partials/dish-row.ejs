@@ -7,6 +7,8 @@ const searchName = item.name.toLowerCase();
 const searchDescription = (item.description || '').toLowerCase();
 const plainFacts = [];
 if (typeof categoryName !== 'undefined' && categoryName) plainFacts.push(categoryName);
+// Граммовка нужна гостю прямо в списке, не только в карточке (промт 2.2, п.1).
+if (item.weight) plainFacts.push(item.weight);
 if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesUnit'));
 %>
 <article class="dish-row <%= item.isAvailable ? '' : 'unavailable' %>"
@@ -26,8 +28,12 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
   </div>
   <div class="dish-row-body">
     <h3 class="dish-row-name">
-      <%= item.name %>
+      <%# Карточку открывает настоящая кнопка с названием позиции (промт 2.2): роль и доступное
+          имя достаются клавиатуре и скринридеру, а растянутый ::after делает кликабельной всю
+          строку. Блок с ценой и "+" лежит выше по z-index, поэтому продолжает ловить свои клики. %>
+      <button type="button" class="dish-row-open" data-dish-open="<%= item.id %>"><%= item.name %></button>
       <% if (isNew) { %><span class="new-badge"><%= t('tags.new') %></span><% } %>
+      <% if (item.isPopular) { %><span class="popular-badge"><%= t('publicMenu.cardPopularBadge') %></span><% } %>
     </h3>
     <% if (item.description) { %><p class="dish-row-description"><%= item.description %></p><% } %>
     <% if (plainFacts.length > 0 || extraTags.length > 0) { %>
@@ -36,15 +42,28 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
         <% extraTags.forEach((tag) => { %><span class="dish-row-tag"><%= tag.label %></span><% }) %>
       </div>
     <% } %>
+    <% if (item.optionsSummary) { %>
+      <p class="dish-row-options-summary"><%= item.optionsSummary %></p>
+    <% } %>
     <% if (!item.isAvailable) { %><p class="dish-row-unavailable-note"><%= t('publicMenu.unavailableBadge') %></p><% } %>
   </div>
   <div class="dish-row-side">
     <div class="dish-price">
       <% if (item.oldPrice) { %><s class="dish-old-price"><%= Number(item.oldPrice).toLocaleString('ru-RU') %></s><% } %>
-      <strong><%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %></strong>
+      <strong>
+        <% if (item.priceFrom) { %><span class="dish-price-from"><%= t('publicMenu.priceFrom') %></span> <% } %>
+        <%= Number(item.price).toLocaleString('ru-RU') %> <%= item.currency %>
+      </strong>
       <% if (item.discountPercent) { %><span class="discount-badge">−<%= item.discountPercent %>%</span><% } %>
     </div>
-    <% if (item.isAvailable) { %>
+    <% if (item.isAvailable && item.hasOptions) { %>
+      <%# Позиция с группами опций: "+" открывает модалку выбора, а не кладёт в корзину сразу
+          (промт 2.1). Количество для конкретного набора опций живёт уже внутри строки корзины. %>
+      <button type="button" class="cart-add-btn" data-options-item-id="<%= item.id %>"
+              aria-label="<%= t('publicMenu.addAriaLabelPrefix') %> <%= item.name %>">
+        <%- include('./icon', { name: 'plus', size: 16 }) %>
+      </button>
+    <% } else if (item.isAvailable) { %>
       <div class="cart-control" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-currency="<%= item.currency %>">
         <button type="button" class="cart-add-btn" aria-label="<%= t('publicMenu.addAriaLabelPrefix') %> <%= item.name %>">
           <%- include('./icon', { name: 'plus', size: 16 }) %>
