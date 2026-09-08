@@ -18,6 +18,12 @@ async function renderPage(req, res, { status = 200, error = null, success = null
 
   let venue = null;
   let telegramLinkState = null;
+  // Промт 3.5: официант попадает сюда сразу после приглашения (must_change_password), и
+  // сайдбара админки у него быть не должно. Название заведения при этом нужно и ему — оно
+  // стоит в упрощённой шапке.
+  if (role === 'staff') {
+    venue = await venueModel.findById(venueId);
+  }
   if (role === 'venue_admin') {
     venue = await venueModel.findById(venueId);
     const activeCode = await venueTelegramLinkModel.findActiveByAdmin(req.session.admin.id);
@@ -32,6 +38,7 @@ async function renderPage(req, res, { status = 200, error = null, success = null
 
   res.status(status).render('admin/password', {
     login,
+    displayName: req.session.admin.displayName || login,
     role,
     venue,
     telegramLinkState,

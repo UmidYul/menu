@@ -6,6 +6,7 @@ const { t } = require('../src/i18n');
 const { createBot } = require('./bot');
 const { startNotificationWorker } = require('./worker/notifications');
 const { startLifecycleScheduler } = require('./worker/scheduler');
+const { startDomainScheduler } = require('./worker/domainScheduler');
 
 if (!env.botConfigured) {
   console.error('bot: BOT_TOKEN не задан — процесс бота не может стартовать. Веб-приложение при этом продолжает работать, уведомления будут копиться в очереди со статусом pending.');
@@ -74,6 +75,8 @@ async function main() {
 
   const worker = startNotificationWorker(bot);
   const scheduler = startLifecycleScheduler();
+  // Промт 3.7: свой такт (минута против часа у планировщика подписок) — см. domainScheduler.js.
+  const domainScheduler = startDomainScheduler();
 
   process.on('unhandledRejection', (reason) => {
     const message = reason instanceof Error ? (reason.stack || reason.message) : String(reason);
@@ -89,6 +92,7 @@ async function main() {
     try {
       await worker.stop();
       await scheduler.stop();
+      await domainScheduler.stop();
       if (env.BOT_MODE !== 'webhook') bot.stop(signal);
       await pool.end();
     } catch (err) {

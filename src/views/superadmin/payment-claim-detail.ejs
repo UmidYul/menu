@@ -72,7 +72,7 @@
           <div class="card-header" style="margin-top:24px; margin-bottom:16px;">
             <div><span class="eyebrow">&nbsp;</span><h3>&nbsp;</h3></div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <button type="button" class="btn btn-outline" onclick="document.getElementById('reject-modal').showModal()"><%= t('bot.lead.btnReject') %></button>
+              <button type="button" class="btn btn-outline" data-modal-open="reject-modal"><%= t('bot.lead.btnReject') %></button>
               <form method="POST" action="/superadmin/payment-claims/<%= claim.id %>/confirm">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-primary">
@@ -83,10 +83,10 @@
           </div>
         <% } %>
 
-        <dialog id="reject-modal" class="modal">
+        <dialog id="reject-modal" class="modal" <%= (rejectError) ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('superadmin.leadRejectHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -104,9 +104,6 @@
             </form>
           </div>
         </dialog>
-        <% if (rejectError) { %>
-          <script>document.getElementById('reject-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>

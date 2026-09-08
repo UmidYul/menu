@@ -14,12 +14,14 @@ function baseUrlOf(req) {
 
 router.get('/robots.txt', (req, res) => {
   const base = baseUrlOf(req);
+  // Промт 3.7: на кастомном домене админки и суперадминки нет вовсе — они отсеяны редиректом
+  // (см. middlewares/customDomain.js), и запрещать роботам несуществующие пути незачем.
+  const disallow = req.customDomain ? [] : ['Disallow: /admin', 'Disallow: /superadmin'];
   res.type('text/plain').send(
     [
       'User-agent: *',
       'Allow: /',
-      'Disallow: /admin',
-      'Disallow: /superadmin',
+      ...disallow,
       '',
       `Sitemap: ${base}/sitemap.xml`,
       '',
@@ -41,6 +43,20 @@ function buildAlternateLinks(loc, enabledLangs) {
 router.get('/sitemap.xml', async (req, res, next) => {
   try {
     const base = baseUrlOf(req);
+
+    // Промт 3.7: «sitemap на кастомном домене указывает на него же». Здесь это не только смена
+    // адреса, но и смена СОСТАВА: на своём домене у заведения нет ни лендинга, ни чужих меню —
+    // есть ровно одна страница, его собственная, и живёт она в корне. Отдать тут общий sitemap
+    // сервиса значило бы предложить поисковику обойти сотню адресов, которых на этом домене нет.
+    if (req.customDomain) {
+      const own = await venueModel.findPublicBySlug(req.customDomain.slug);
+      if (!own || !own.is_active) return res.status(404).end();
+      const loc = `${base}/`;
+      const alternates = buildAlternateLinks(loc, own.enabled_langs || ['ru', 'uz']);
+      const ownXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n${alternates}\n  </url>\n</urlset>\n`;
+      return res.type('application/xml').send(ownXml);
+    }
+
     const venues = await venueModel.listActiveSlugs();
 
     const homeUrl = `  <url>\n    <loc>${escapeXml(`${base}/`)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`;
@@ -56,9 +72,9 @@ router.get('/sitemap.xml', async (req, res, next) => {
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
 
-    res.type('application/xml').send(xml);
+    return res.type('application/xml').send(xml);
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

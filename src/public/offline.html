@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Нет соединения</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/design-system.css">
+</head>
+<body>
+  <!--
+    Промт 2.5: офлайн-фолбэк на случай, когда нет ни сети, ни сохранённой копии меню.
+    Обычный статический файл, а не EJS-шаблон: его кладёт в кэш сам service worker при установке,
+    и в момент показа сервер недоступен по определению — отрендерить на нём ничего нельзя.
+    Поэтому и переводы лежат прямо здесь, а нужный выбирается по cookie menu_lang (её ставит
+    страница меню, httpOnly у неё намеренно выключен).
+  -->
+  <main class="offline-page">
+    <span class="offline-icon" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 1l22 22"></path>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </span>
+    <h1 data-ru="Нет соединения" data-uz="Internet yo‘q" data-en="No connection">Нет соединения</h1>
+    <p data-ru="Меню этого заведения ещё не сохранилось на устройстве. Проверьте интернет и попробуйте снова."
+       data-uz="Bu muassasa menyusi qurilmada hali saqlanmagan. Internetni tekshirib, yana urinib ko‘ring."
+       data-en="This venue’s menu has not been saved on your device yet. Check your connection and try again.">
+      Меню этого заведения ещё не сохранилось на устройстве. Проверьте интернет и попробуйте снова.
+    </p>
+    <button type="button" id="offlineRetry" class="btn btn-primary"
+            data-ru="Повторить" data-uz="Qayta urinish" data-en="Retry">Повторить</button>
+  </main>
+
+  <script src="/js/offline.js" defer></script>
+</body>
+</html>

@@ -136,11 +136,11 @@
               <img class="qr-image" src="/admin/qr.png" alt="QR" width="120" height="120">
               <div>
                 <p><%= t('dashboard.qrScanHintLine1') %><br><%= t('dashboard.qrScanHintLine2') %></p>
-                <button type="button" class="btn btn-outline" id="shareQrBtn" data-url="/menu/<%= venue.slug %>">
+                <button type="button" class="btn btn-outline" id="shareQrBtn" data-share-button data-share-url="/menu/<%= venue.slug %>" data-share-note="qrCopiedNote">
                   <%- include('../partials/icon', { name: 'share', size: 15 }) %>
                   <%= t('dashboard.shareButton') %>
                 </button>
-                <span id="qrCopiedNote" class="copied" style="display:none;"><%= t('dashboard.linkCopied') %></span>
+                <span id="qrCopiedNote" class="copied" hidden><%= t('dashboard.linkCopied') %></span>
               </div>
             </div>
           </div>
@@ -211,26 +211,6 @@
       </div>
     </section>
   </div>
-
-  <script>
-    (function () {
-      var btn = document.getElementById('shareQrBtn');
-      var note = document.getElementById('qrCopiedNote');
-      if (!btn) return;
-      btn.addEventListener('click', function () {
-        var url = window.location.origin + btn.dataset.url;
-        if (navigator.share) {
-          navigator.share({ title: document.title, url: url }).catch(function () {});
-          return;
-        }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(function () {
-            note.style.display = 'inline-flex';
-            setTimeout(function () { note.style.display = 'none'; }, 2000);
-          });
-        }
-      });
-    })();
-  </script>
+  <script src="/js/share-button.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('domains.heading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'domain', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('domains.heading'), lang, currentPath: '/admin/domain', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('domains.heading') %></h1>
+          </div>
+        </div>
+
+        <% if (error) { %><div class="alert alert-error"><%= t(error) %></div><% } %>
+        <% if (notice) { %><div class="alert alert-success"><%= t(notice) %></div><% } %>
+
+        <% if (!domainsConfigured) { %>
+          <div class="alert alert-error"><%= t('domains.notConfigured') %></div>
+        <% } %>
+
+        <% domains.forEach((d) => { %>
+          <%
+          // Класс индикатора статуса — те же три состояния, что у подписки и заведений:
+          // работает / в процессе / не работает. Новых значений цвета не заводим.
+          const _statusClass = d.status === 'active' ? 'status'
+            : (d.status === 'failed' || d.status === 'disabled' ? 'status off' : 'status warn');
+          %>
+          <div class="dashboard-card domain-card">
+            <div class="domain-card-head">
+              <div class="domain-card-title">
+                <b><%= d.display %></b>
+                <span class="badge-muted"><%= d.is_primary ? t('domains.primaryBadge') : t('domains.aliasBadge') %></span>
+              </div>
+              <span class="<%= _statusClass %>"><i></i> <%= t('domains.status_' + d.status) %></span>
+            </div>
+
+            <%# Промт: «Каждый статус объясняется человеческим языком: что сделано, что осталось,
+                сколько обычно занимает. „pending“ без объяснения — гарантированный вопрос
+                в поддержку». %>
+            <p class="analytics-card-hint domain-explain"><%= t('domains.explain_' + d.status) %></p>
+
+            <% if (d.lastErrorKey && d.status !== 'active') { %>
+              <p class="domain-last-error"><%= t(d.lastErrorKey) %></p>
+            <% } %>
+
+            <dl class="domain-meta">
+              <div><dt><%= t('domains.addedAt') %></dt><dd><%= new Date(d.created_at).toLocaleDateString('ru-RU') %></dd></div>
+              <div>
+                <dt><%= t('domains.lastCheckAt') %></dt>
+                <dd><%= d.last_check_at ? new Date(d.last_check_at).toLocaleString('ru-RU') : t('domains.lastCheckNever') %></dd>
+              </div>
+            </dl>
+
+            <%# Что видно в DNS сейчас против того, что ожидается. Показывается только пока
+                домен не заработал: у активного сравнивать нечего. %>
+            <% if (d.inspection) { %>
+              <div class="domain-dns">
+                <h4><%= t('domains.seenHeading') %></h4>
+                <table class="domain-dns-table">
+                  <tbody>
+                    <tr>
+                      <th><%= t('domains.seenCname') %></th>
+                      <td><%= d.inspection.cnames.length ? d.inspection.cnames.join(', ') : t('domains.seenNothing') %></td>
+                      <td class="domain-dns-verdict">
+                        <% if (cnameTarget) { %>
+                          <span class="<%= d.inspection.cnames.includes(cnameTarget) ? 'status' : 'status off' %>"><i></i>
+                            <%= d.inspection.cnames.includes(cnameTarget) ? t('domains.seenMatches') : t('domains.seenMismatch') %>
+                          </span>
+                        <% } %>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><%= t('domains.seenA') %></th>
+                      <td><%= d.inspection.ips.length ? d.inspection.ips.join(', ') : t('domains.seenNothing') %></td>
+                      <td class="domain-dns-verdict">
+                        <% if (serverIp) { %>
+                          <span class="<%= d.inspection.ips.includes(serverIp) ? 'status' : 'status off' %>"><i></i>
+                            <%= d.inspection.ips.includes(serverIp) ? t('domains.seenMatches') : t('domains.seenMismatch') %>
+                          </span>
+                        <% } %>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><%= t('domains.seenTxt', { name: d.inspection.expectedTxtName }) %></th>
+                      <td><%= d.inspection.txtValues.length ? d.inspection.txtValues.join(', ') : t('domains.seenNothing') %></td>
+                      <td class="domain-dns-verdict">
+                        <span class="<%= d.inspection.ownershipProven ? 'status' : 'status off' %>"><i></i>
+                          <%= d.inspection.ownershipProven ? t('domains.seenMatches') : t('domains.seenMismatch') %>
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="domain-dns">
+                <h4><%= t('domains.dnsHeading') %></h4>
+                <p class="analytics-card-hint"><%= t('domains.dnsIntro') %></p>
+
+                <h5 class="domain-dns-step"><%= t('domains.dnsPointHeading') %></h5>
+                <p class="analytics-card-hint"><%= t('domains.dnsPointHint') %></p>
+                <% if (!cnameTarget && !serverIp) { %>
+                  <p class="domain-last-error"><%= t('domains.dnsNoTarget') %></p>
+                <% } else { %>
+                  <table class="domain-dns-table">
+                    <thead>
+                      <tr>
+                        <th><%= t('domains.dnsRecordType') %></th>
+                        <th><%= t('domains.dnsRecordName') %></th>
+                        <th><%= t('domains.dnsRecordValue') %></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% if (cnameTarget) { %>
+                        <tr><td>CNAME</td><td><code><%= d.domain %></code></td><td><code><%= cnameTarget %></code></td></tr>
+                      <% } %>
+                      <% if (serverIp) { %>
+                        <tr><td>A</td><td><code><%= d.domain %></code></td><td><code><%= serverIp %></code></td></tr>
+                      <% } %>
+                    </tbody>
+                  </table>
+                <% } %>
+
+                <h5 class="domain-dns-step"><%= t('domains.dnsOwnHeading') %></h5>
+                <p class="analytics-card-hint"><%= t('domains.dnsOwnHint') %></p>
+                <table class="domain-dns-table">
+                  <thead>
+                    <tr>
+                      <th><%= t('domains.dnsRecordType') %></th>
+                      <th><%= t('domains.dnsRecordName') %></th>
+                      <th><%= t('domains.dnsRecordValue') %></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>TXT</td>
+                      <td><code><%= d.inspection.expectedTxtName %></code></td>
+                      <td><code><%= d.verification_token %></code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <div class="domain-actions">
+              <% if (d.status === 'active') { %>
+                <a href="https://<%= d.domain %>" target="_blank" rel="noopener" class="btn btn-outline">
+                  <%- include('../partials/icon', { name: 'externallink', size: 15 }) %>
+                  <%= t('domains.openLink') %>
+                </a>
+              <% } %>
+              <% if (d.status === 'failed') { %>
+                <form method="POST" action="/admin/domain/<%= d.id %>/retry" class="domain-action-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-primary"><%= t('domains.retryButton') %></button>
+                </form>
+              <% } else { %>
+                <form method="POST" action="/admin/domain/<%= d.id %>/check" class="domain-action-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-outline"><%= t('domains.checkNowButton') %></button>
+                </form>
+              <% } %>
+              <form method="POST" action="/admin/domain/<%= d.id %>/disable" class="domain-action-form"
+                    data-confirm="<%= t('domains.disableConfirm', { domain: d.display }) %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-outline domain-disable"><%= t('domains.disableButton') %></button>
+              </form>
+            </div>
+          </div>
+        <% }) %>
+
+        <%# Форма добавления скрыта, когда оба адреса уже заняты: предлагать действие, которое
+            гарантированно упрётся в ограничение, незачем. %>
+        <% if (domains.length < 2 && domainsConfigured) { %>
+          <div class="dashboard-card">
+            <h3><%= domains.length === 0 ? t('domains.heading') : t('domains.addLabel') %></h3>
+            <p class="analytics-card-hint"><%= t('domains.hint') %></p>
+            <form method="POST" action="/admin/domain" class="domain-add-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <label class="domain-add-field">
+                <span><%= t('domains.addLabel') %></span>
+                <input type="text" name="domain" value="<%= formValue %>"
+                       placeholder="<%= t('domains.addPlaceholder') %>" autocomplete="off" spellcheck="false" required>
+                <small><%= t('domains.addHint') %></small>
+              </label>
+              <% if (suggestion) { %>
+                <label class="domain-add-check">
+                  <input type="checkbox" name="with_www" value="1">
+                  <span>
+                    <b><%= t('domains.addWwwLabel', { domain: suggestionDisplay }) %></b>
+                    <small><%= t('domains.addWwwHint') %></small>
+                  </span>
+                </label>
+              <% } else if (domains.length === 0) { %>
+                <label class="domain-add-check">
+                  <input type="checkbox" name="with_www" value="1" checked>
+                  <span>
+                    <b><%= t('domains.addWwwLabel', { domain: 'www.…' }) %></b>
+                    <small><%= t('domains.addWwwHint') %></small>
+                  </span>
+                </label>
+              <% } %>
+              <button type="submit" class="btn btn-primary"><%= t('domains.addButton') %></button>
+            </form>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -2,7 +2,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
 const venueModel = require('../models/venueModel');
@@ -72,7 +72,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 // булевым флагом): если позже что-то из уже выполненного перестанет быть выполненным,
 // текущий doneCount окажется МЕНЬШЕ сохранённого, и onboarding.isCollapsedByCookie разожмёт
 // блок заново, даже не читая эту куку как "false" — см. комментарий в src/services/onboarding.js.
-router.post('/checklist-collapse', requireRole(['venue_admin']), async (req, res, next) => {
+router.post('/checklist-collapse', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const venueResult = await pool.query('SELECT * FROM venues WHERE id = $1', [req.session.admin.venueId]);
     const venue = venueResult.rows[0];
@@ -88,7 +88,7 @@ router.post('/checklist-collapse', requireRole(['venue_admin']), async (req, res
   }
 });
 
-router.post('/checklist-expand', requireRole(['venue_admin']), (req, res) => {
+router.post('/checklist-expand', requireVenueRole(['owner', 'manager']), (req, res) => {
   res.clearCookie(CHECKLIST_COOKIE);
   res.redirect('/admin');
 });
@@ -96,7 +96,7 @@ router.post('/checklist-expand', requireRole(['venue_admin']), (req, res) => {
 // Единственный способ увидеть публичную страницу черновика — см. изменения в publicMenu.js
 // (показывает draft только владельцу этого же заведения). Помечает пункт чеклиста "Проверить
 // меню" и сразу уводит на реальную страницу, отдельного превью-шаблона не заводим.
-router.get('/preview-menu', requireRole(['venue_admin']), async (req, res, next) => {
+router.get('/preview-menu', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const venueResult = await pool.query('SELECT slug FROM venues WHERE id = $1', [req.session.admin.venueId]);
     const venue = venueResult.rows[0];
@@ -112,7 +112,7 @@ router.get('/preview-menu', requireRole(['venue_admin']), async (req, res, next)
 // Публикация — только из draft, только если чеклист готовности пройден (проверяется ещё раз
 // на сервере: чеклист в шаблоне — подсказка, а не единственная защита от "успели убрать
 // категорию во второй вкладке, пока эта форма была открыта").
-router.post('/publish', requireRole(['venue_admin']), async (req, res, next) => {
+router.post('/publish', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const venueId = req.session.admin.venueId;
     const venueResult = await pool.query('SELECT * FROM venues WHERE id = $1', [venueId]);
@@ -169,7 +169,7 @@ router.post('/publish', requireRole(['venue_admin']), async (req, res, next) => 
 // превью на дашборде дёргает этот же роут БЕЗ параметра при каждой загрузке страницы, и
 // помечать qr_downloaded_at на каждый такой показ было бы неверно — пункт чеклиста должен
 // отражать осознанное "скачал", а не "открыл кабинет и увидел картинку".
-router.get('/qr.png', requireRole(['venue_admin']), async (req, res, next) => {
+router.get('/qr.png', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const venueResult = await pool.query('SELECT slug FROM venues WHERE id = $1', [req.session.admin.venueId]);
     const venue = venueResult.rows[0];

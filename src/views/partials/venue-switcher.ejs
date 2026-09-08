@@ -1,0 +1,50 @@
+<%
+// Промт 3.6: «если заведение одно — просто название без выпадающего списка; если несколько —
+// выпадающий список с поиском». Список и активное заведение кладёт в res.locals
+// middlewares/activeVenue.js, поэтому партиалу ничего передавать не нужно.
+// Ожидает из res.locals: venues, activeVenue; из шаблона: currentPath, t, csrfToken.
+const _venues = typeof venues !== 'undefined' ? venues : [];
+const _active = typeof activeVenue !== 'undefined' ? activeVenue : null;
+// Поиск нужен не всегда: при трёх точках он только мешает. Порог — когда список перестаёт
+// умещаться в голове целиком.
+const _withSearch = _venues.length > 6;
+%>
+<% if (_active) { %>
+  <% if (_venues.length < 2) { %>
+    <span class="venue-switcher-single"><%= _active.name %></span>
+  <% } else { %>
+    <details class="item-menu venue-switcher">
+      <summary class="venue-switcher-btn">
+        <%- include('./icon', { name: 'store', size: 15 }) %>
+        <span class="venue-switcher-name"><%= _active.name %></span>
+        <%- include('./icon', { name: 'arrowdown', size: 14 }) %>
+      </summary>
+      <div class="item-menu-panel venue-switcher-panel">
+        <% if (_withSearch) { %>
+          <input type="search" class="venue-switcher-search" data-venue-search
+                 placeholder="<%= t('venues.searchPlaceholder') %>" aria-label="<%= t('venues.searchPlaceholder') %>" autocomplete="off">
+        <% } %>
+        <%# Каждое заведение — отдельная форма: переключение меняет состояние сессии, а такое
+            делается POST-ом с CSRF-токеном, не ссылкой. redirect возвращает на тот же раздел
+            (маршрут сам проверит, что это свой путь). %>
+        <% _venues.forEach((venue) => { %>
+          <form method="POST" action="/admin/switch-venue" class="venue-switcher-form" data-venue-row data-venue-name="<%= venue.name.toLowerCase() %>">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="venue_id" value="<%= venue.id %>">
+            <input type="hidden" name="redirect" value="<%= currentPath %>">
+            <button type="submit" class="venue-switcher-option <%= venue.id === _active.id ? 'is-active' : '' %>">
+              <span class="venue-switcher-check">
+                <% if (venue.id === _active.id) { %><%- include('./icon', { name: 'check', size: 13 }) %><% } %>
+              </span>
+              <span class="venue-switcher-option-name"><%= venue.name %></span>
+              <%# Роль показывается, потому что она разная в разных точках: человек должен
+                  понимать, почему в одном заведении есть подписка, а в другом нет. %>
+              <span class="venue-switcher-role"><%= t('venues.role_' + venue.role) %></span>
+            </button>
+          </form>
+        <% }) %>
+        <p class="venue-switcher-empty" data-venue-empty hidden><%= t('venues.searchEmpty') %></p>
+      </div>
+    </details>
+  <% } %>
+<% } %>

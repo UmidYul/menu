@@ -56,7 +56,10 @@ async function findPublicBySlug(slug) {
             category_label_ru, category_label_uz, category_label_en,
             district_ru, district_uz, district_en,
             email, rating, review_count,
-            orders_enabled, telegram_chat_id, telegram_chat_broken, min_order_amount
+            orders_enabled, telegram_chat_id, telegram_chat_broken, min_order_amount,
+            reviews_enabled, reviews_prompt_delay_sec, reviews_threshold,
+            google_review_url, yandex_review_url,
+            timezone, menu_version, pwa_icons_token
      FROM venues WHERE slug = $1`,
     [slug]
   );
@@ -172,6 +175,52 @@ async function toggleWeeklySummaryEnabled(id) {
   return result.rows[0] || null;
 }
 
+// Промт 3.3. Как и toggleExcludeOwnerViews выше — переключает сам владелец у себя
+// на /admin/reviews, а не суперадмин.
+async function toggleReviewsEnabled(id) {
+  const result = await pool.query(
+    'UPDATE venues SET reviews_enabled = NOT reviews_enabled WHERE id = $1 RETURNING id, reviews_enabled',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+async function updateReviewsSettings(id, {
+  google_review_url: googleReviewUrl,
+  yandex_review_url: yandexReviewUrl,
+  reviews_prompt_delay_sec: promptDelaySec,
+  reviews_threshold: threshold,
+}) {
+  const result = await pool.query(
+    `UPDATE venues
+     SET google_review_url = $1, yandex_review_url = $2,
+         reviews_prompt_delay_sec = $3, reviews_threshold = $4
+     WHERE id = $5
+     RETURNING id, google_review_url, yandex_review_url, reviews_prompt_delay_sec, reviews_threshold`,
+    [googleReviewUrl, yandexReviewUrl, promptDelaySec, threshold, id]
+  );
+  return result.rows[0] || null;
+}
+
+// Промт 2.5. Токен-префикс имён сгенерированных иконок PWA. Пишется при загрузке логотипа
+// и при ленивом догоне в routes/publicPwa.js.
+async function updatePwaIconsToken(id, token) {
+  const result = await pool.query(
+    'UPDATE venues SET pwa_icons_token = $1 WHERE id = $2 RETURNING id, pwa_icons_token',
+    [token, id]
+  );
+  return result.rows[0] || null;
+}
+
+// Промт 2.3. Часовой пояс заведения — правит только суперадмин (см. routes/superadmin.js).
+async function updateTimezone(id, timezone) {
+  const result = await pool.query(
+    'UPDATE venues SET timezone = $1 WHERE id = $2 RETURNING id, slug, timezone',
+    [timezone, id]
+  );
+  return result.rows[0] || null;
+}
+
 async function updateSubscriptionUntil(client, id, subscriptionUntil) {
   const executor = client || pool;
   const result = await executor.query(
@@ -257,6 +306,10 @@ module.exports = {
   findByTelegramChatId,
   toggleOrdersEnabled,
   setMinOrderAmount,
+  toggleReviewsEnabled,
+  updateReviewsSettings,
+  updateTimezone,
+  updatePwaIconsToken,
   updateSettings,
   updateRating,
   updateSubscriptionUntil,

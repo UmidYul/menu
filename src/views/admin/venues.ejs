@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= activeVenue.name %> — <%= t('venues.allHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+<%
+// Промт 3.6, раздел 4: сводный экран сети. venues/activeVenue кладёт в res.locals
+// middlewares/activeVenue.js, но таблица берёт СВОЙ список (с цифрами) из локальной
+// переменной venues, которую передал маршрут, — он перекрывает одноимённую из res.locals.
+const VENUE_STATUS_BADGE_CLASS = { draft: 'status off', trial: 'status', active: 'status', grace: 'status warn', suspended: 'status off', archived: 'status off' };
+// Заведения, из которых можно копировать: все, кроме того, в которое копируем.
+const copySources = venues.filter((venue) => venue.id !== activeVenue.id);
+%>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'allVenues', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: activeVenue.name, section: t('venues.allHeading'), lang, currentPath: '/admin/venues', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= t('venues.allSubtitle') %></span>
+            <h1><%= t('venues.allHeading') %></h1>
+          </div>
+        </div>
+
+        <% if (copiedItems > 0) { %>
+          <div class="alert alert-success"><%= t('venues.copyDone', { categories: copiedCategories, items: copiedItems }) %></div>
+        <% } %>
+        <% if (copyError) { %>
+          <div class="alert alert-error"><%= t(copyError) %></div>
+        <% } %>
+
+        <div class="super-stats">
+          <div><span><%= t('venues.statVenues') %></span><b><%= venues.length %></b></div>
+          <div><span><%= t('venues.statTotalViews') %></span><b><%= totalViews %></b></div>
+          <%# Стоп-лист по всей сети — единственная цифра здесь, требующая действия прямо сейчас:
+              позиция, снятая с продажи вчера и забытая, не продаётся и сегодня. %>
+          <div><span><%= t('venues.colStopped') %></span><b><%= venues.reduce((sum, venue) => sum + venue.stopped_count, 0) %></b></div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-heading">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('venues.allHeading') %></h3></div>
+          </div>
+
+          <%# Заголовок таблицы скрыт на узких экранах: там строка перестраивается в карточку,
+              и колонки подписаны сами (data-label в CSS). %>
+          <div class="venues-summary-row venues-summary-head" aria-hidden="true">
+            <span><%= t('venues.colVenue') %></span>
+            <span><%= t('venues.colRole') %></span>
+            <span><%= t('venues.colSubscription') %></span>
+            <span><%= t('venues.colUntil') %></span>
+            <span><%= t('venues.colViews') %></span>
+            <span><%= t('venues.colItems') %></span>
+            <span><%= t('venues.colStopped') %></span>
+            <span><%= t('venues.colLinks') %></span>
+          </div>
+
+          <% venues.forEach((venue) => { %>
+            <div class="venues-summary-row <%= venue.id === activeVenue.id ? 'is-active' : '' %>">
+              <span class="venues-summary-name">
+                <b><%= venue.name %></b>
+                <small><%= venue.slug %></small>
+              </span>
+              <span class="venues-summary-role"><%= t('venues.role_' + venue.role) %></span>
+              <span>
+                <span class="<%= VENUE_STATUS_BADGE_CLASS[venue.status] || 'status' %>"><i></i> <%= t('subscription.status.' + venue.status) %></span>
+              </span>
+              <%# Для пробного периода дата окончания — своя (trial_ends_on), а не дата подписки:
+                  подписки у такого заведения ещё нет вовсе. %>
+              <span class="venues-summary-until">
+                <% const until = venue.status === 'trial' ? venue.trial_ends_on : venue.subscription_until; %>
+                <%= until || t('subscription.untilNone') %>
+              </span>
+              <span class="venues-summary-num"><%= venue.views_week %></span>
+              <span class="venues-summary-num"><%= venue.item_count %></span>
+              <%# Ноль в стоп-листе — обычное состояние и подсвечивать его нечем; ненулевое
+                  число владелец должен замечать, поэтому оно выделяется. %>
+              <span class="venues-summary-num <%= venue.stopped_count > 0 ? 'is-warn' : '' %>"><%= venue.stopped_count %></span>
+              <span class="venues-summary-links">
+                <a href="/menu/<%= venue.slug %>" target="_blank" rel="noopener" class="btn btn-outline btn-compact">
+                  <%- include('../partials/icon', { name: 'eye', size: 14 }) %>
+                  <%= t('venues.openMenu') %>
+                </a>
+                <%# «Быстрая ссылка на админку» — это переключение активного заведения, а значит
+                    POST с CSRF-токеном, а не ссылка: GET не должен менять состояние сессии.
+                    Для роли staff в этой точке кабинета нет — ведём сразу на стоп-лист,
+                    иначе staffAccess перебросил бы туда же лишним шагом. %>
+                <% if (venue.id === activeVenue.id) { %>
+                  <a href="/admin" class="btn btn-outline btn-compact">
+                    <%- include('../partials/icon', { name: 'grid', size: 14 }) %>
+                    <%= t('venues.openAdmin') %>
+                  </a>
+                <% } else { %>
+                  <form method="POST" action="/admin/switch-venue" class="inline">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="hidden" name="venue_id" value="<%= venue.id %>">
+                    <input type="hidden" name="redirect" value="<%= venue.role === 'staff' ? '/admin/stoplist' : '/admin' %>">
+                    <button type="submit" class="btn btn-outline btn-compact">
+                      <%- include('../partials/icon', { name: 'grid', size: 14 }) %>
+                      <%= t('venues.openAdmin') %>
+                    </button>
+                  </form>
+                <% } %>
+              </span>
+            </div>
+          <% }) %>
+        </div>
+
+        <div class="dashboard-card">
+          <h3><%= t('venues.totalViewsHeading') %></h3>
+          <%- include('../partials/analytics-bar-chart', {
+            id: 'venuesTotalViews',
+            bars: viewsChart.map((bar) => ({ label: bar.label, value: bar.count, heightPercent: bar.heightPercent })),
+            valueSuffix: '',
+            ariaLabel: t('venues.totalViewsHeading'),
+            height: 140,
+          }) %>
+        </div>
+
+        <%# --- Промт 3.6, раздел 5: копирование меню --------------------------------------- %>
+        <div class="dashboard-card">
+          <h3><%= t('venues.copyHeading') %></h3>
+          <p class="analytics-card-hint"><%= t('venues.copyTargetNote', { name: activeVenue.name }) %></p>
+          <p class="analytics-card-hint"><%= t('venues.copyHint') %></p>
+
+          <%# Предпросмотр — обычный GET-запрос той же страницы: он ничего не меняет, его можно
+              обновить и на него можно сослаться. %>
+          <form method="GET" action="/admin/venues" class="venue-copy-form">
+            <label class="venue-copy-field">
+              <span><%= t('venues.copySourceLabel') %></span>
+              <select name="source_venue_id" required>
+                <option value=""><%= t('venues.copySelectPlaceholder') %></option>
+                <% copySources.forEach((venue) => { %>
+                  <option value="<%= venue.id %>" <%= copyParams.sourceVenueId === venue.id ? 'selected' : '' %>><%= venue.name %></option>
+                <% }) %>
+              </select>
+            </label>
+
+            <label class="venue-copy-check">
+              <input type="checkbox" name="with_photos" value="1" <%= copyParams.withPhotos ? 'checked' : '' %>>
+              <span>
+                <b><%= t('venues.copyWithPhotos') %></b>
+                <small><%= t('venues.copyWithPhotosHint') %></small>
+              </span>
+            </label>
+
+            <label class="venue-copy-check">
+              <input type="checkbox" name="with_prices" value="1" <%= copyParams.withPrices ? 'checked' : '' %>>
+              <span>
+                <b><%= t('venues.copyWithPrices') %></b>
+                <small><%= t('venues.copyWithPricesHint') %></small>
+              </span>
+            </label>
+
+            <button type="submit" class="btn btn-outline"><%= t('venues.copyPreviewButton') %></button>
+          </form>
+
+          <% if (copyPreview) { %>
+            <%
+            const previewSource = venues.find((venue) => venue.id === copyParams.sourceVenueId);
+            %>
+            <div class="venue-copy-preview">
+              <p><%= t('venues.copyPreview', { categories: copyPreview.categories, items: copyPreview.items }) %></p>
+              <%# Само копирование — POST: оно меняет данные, и после него нужен PRG.
+                  Параметры дублируются скрытыми полями, чтобы копировалось ровно то, что
+                  показал предпросмотр, а не то, что осталось в форме выше. %>
+              <form method="POST" action="/admin/venues/copy" class="inline"
+                    data-confirm="<%= t('venues.copyConfirm', { name: previewSource ? previewSource.name : '' }) %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="source_venue_id" value="<%= copyParams.sourceVenueId %>">
+                <input type="hidden" name="with_photos" value="<%= copyParams.withPhotos ? '1' : '0' %>">
+                <input type="hidden" name="with_prices" value="<%= copyParams.withPrices ? '1' : '0' %>">
+                <button type="submit" class="btn btn-primary">
+                  <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                  <%= t('venues.copyButton') %>
+                </button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </section>
+  </div>
+  <%# Подтверждение копирования вешает confirm-submit.js, график — analytics-charts.js;
+      оба уже подключены в head-assets/ниже, отдельного скрипта этой странице не нужно. %>
+  <script src="/js/analytics-charts.js" defer></script>
+</body>
+</html>

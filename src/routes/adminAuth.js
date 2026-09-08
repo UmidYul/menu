@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 
 const router = express.Router();
 const adminModel = require('../models/adminModel');
+const adminVenueModel = require('../models/adminVenueModel');
 const venueModel = require('../models/venueModel');
 const passwordResetTokenModel = require('../models/passwordResetTokenModel');
 const notificationModel = require('../models/notificationModel');
@@ -102,9 +103,34 @@ router.post('/login', loginLimiter, loginByAccountLimiter, async (req, res, next
       });
     }
 
-    if (admin.role !== 'superadmin' && admin.venue_is_active === false) {
+    // Промт 3.6. Доступ к заведениям берётся из admin_venues, а не из устаревшей admins.venue_id.
+    // Заведений может быть несколько — активным становится первое, а дальше решает переключатель
+    // (см. middlewares/activeVenue.js: он же на каждый запрос перепроверяет доступ).
+    const venues = admin.role === 'superadmin' ? [] : await adminVenueModel.listForAdmin(admin.id);
+    const firstVenue = venues[0] || null;
+
+    // Edge case промта 3.6: администратор без единого заведения. Впустить его можно — понятную
+    // страницу покажет resolveActiveVenue; отказывать во входе неверно, иначе человек не сможет
+    // ни сменить пароль, ни выйти.
+    if (admin.role !== 'superadmin' && firstVenue && firstVenue.is_active === false) {
       return res.status(403).render('admin/login', {
         error: t('login.errorVenueDisabled'),
+        login,
+      });
+    }
+
+    // Промт 3.5, edge case: заведение в suspended — вход персонала запрещён с понятным
+    // сообщением. Владелец при этом входить обязан: приостановка снимается оплатой, а оплатить
+    // он может только изнутри кабинета.
+    // Промт 3.6: «персонал» определяется ролью в заведении, а не типом аккаунта, — и проверять
+    // надо ВСЕ доступные заведения: если человек только staff и все его точки приостановлены,
+    // делать ему внутри нечего, а если хоть где-то он owner или manager — пускаем.
+    const hasUsableVenue = venues.some((venue) => (
+      venue.role !== 'staff' || (venue.status !== 'suspended' && venue.status !== 'archived')
+    ));
+    if (admin.role !== 'superadmin' && venues.length > 0 && !hasUsableVenue) {
+      return res.status(403).render('admin/login', {
+        error: t('login.errorStaffVenueSuspended'),
         login,
       });
     }
@@ -115,9 +141,14 @@ router.post('/login', loginLimiter, loginByAccountLimiter, async (req, res, next
       req.session.admin = {
         id: admin.id,
         login: admin.login,
+        // Промт 3.5: в зале человека зовут по имени, а не по логину — «выключил Азиз, 14:20».
+        displayName: admin.display_name || null,
         role: admin.role,
-        venueId: admin.venue_id,
-        venueSlug: admin.venue_slug || null,
+        // Промт 3.6: venueId — АКТИВНОЕ заведение, а не единственное. Полный список и роль
+        // в активном выставляет resolveActiveVenue на каждый запрос по свежим данным из БД.
+        venueId: firstVenue ? firstVenue.id : null,
+        venueSlug: firstVenue ? firstVenue.slug : null,
+        venueRole: firstVenue ? firstVenue.role : null,
         mustChangePassword: admin.must_change_password === true,
       };
 
@@ -128,6 +159,12 @@ router.post('/login', loginLimiter, loginByAccountLimiter, async (req, res, next
         }
         if (admin.must_change_password) {
           return res.redirect('/admin/password');
+        }
+        // Официанту в общем кабинете делать нечего — он туда и не пройдёт (белый список
+        // маршрутов), поэтому сразу отправляем на его единственный рабочий экран.
+        // Роль берётся из активного заведения (промт 3.6), а не из типа аккаунта.
+        if (firstVenue && firstVenue.role === 'staff') {
+          return res.redirect('/admin/stoplist');
         }
         return res.redirect('/admin');
       });

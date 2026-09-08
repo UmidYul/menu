@@ -16,6 +16,10 @@ const SOCIAL_REFERER_HOSTS = ['instagram.com', 't.me', 'telegram.org', 'facebook
 
 function detectSource(req) {
   if (req.query.src === 'qr') return 'qr';
+  // Промт 2.5: start_url манифеста несёт ?src=pwa — заходы из установленного на домашний экран
+  // приложения видно отдельно. Проверяется до реферера: у запуска с домашнего экрана его нет,
+  // и без этой ветки такой заход считался бы 'direct'.
+  if (req.query.src === 'pwa') return 'pwa';
   const referer = req.get('referer') || req.get('referrer') || '';
   if (!referer) return 'direct';
   try {

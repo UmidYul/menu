@@ -15,7 +15,7 @@
       <b><%= venue.name %></b>
       <span><%= t('tables.printHint') %></span>
     </div>
-    <button type="button" class="btn btn-primary" onclick="window.print()"><%= t('tables.printButton') %></button>
+    <button type="button" class="btn btn-primary" data-print><%= t('tables.printButton') %></button>
   </div>
 
   <% if (tables.length === 0) { %>

@@ -5,6 +5,8 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
+const reviewModel = require('../models/reviewModel');
+const availability = require('../services/availability');
 const adminModel = require('../models/adminModel');
 const paymentModel = require('../models/paymentModel');
 const notificationModel = require('../models/notificationModel');
@@ -13,6 +15,7 @@ const { logAction, listRecent } = require('../models/adminActionLogModel');
 const { createVenueSchema, venueRatingSchema } = require('../validators/venueValidators');
 const { extendSubscriptionSchema, PAYMENT_METHODS, PERIOD_MONTHS } = require('../validators/paymentValidators');
 const { siteSettingsSchema } = require('../validators/siteSettingsValidators');
+const { venueTimezoneSchema } = require('../validators/scheduleValidators');
 const pgNotify = require('../services/pgNotify');
 const siteSettingsCache = require('../services/siteSettingsCache');
 const venueLifecycle = require('../services/venueLifecycle');
@@ -211,6 +214,39 @@ router.post('/venues/:id/toggle-powered-by', async (req, res, next) => {
   }
 });
 
+// Промт 3.3: рядом с полями ручного рейтинга суперадмин должен видеть, используются ли они
+// сейчас вообще, и какое значение реально стоит в карточке заведения. Правило — то же, что в
+// src/routes/publicMenu.js:resolveRating; здесь оно только пересказывается человеку.
+function buildRatingSourceInfo(venue, reviewStats) {
+  const internalActive = Boolean(venue.reviews_enabled)
+    && reviewStats.count >= reviewModel.MIN_REVIEWS_FOR_RATING
+    && reviewStats.average !== null;
+  return {
+    ratingSourceInternal: internalActive,
+    ratingInternalStats: reviewStats,
+    ratingMinReviews: reviewModel.MIN_REVIEWS_FOR_RATING,
+  };
+}
+
+// Промт 2.3. Подсказки для поля часового пояса: короткий список зон, реально встречающихся
+// у наших заведений, плюс UTC как явный «сервер как есть». Полный список из Intl сюда не тащим —
+// это datalist, а не справочник: любую валидную зону можно ввести руками, проверит валидатор.
+const COMMON_TIMEZONES = [
+  'Asia/Tashkent', 'Asia/Samarkand', 'Asia/Almaty', 'Asia/Bishkek', 'Asia/Dushanbe',
+  'Asia/Ashgabat', 'Europe/Moscow', 'UTC',
+];
+
+// «Сейчас у заведения столько-то» — чтобы суперадмин видел результат сразу, не гадая по
+// названию зоны, правильная ли она.
+function buildTimezoneInfo(venue) {
+  const now = availability.venueNow(venue.timezone);
+  return {
+    timezoneFormValue: venue.timezone || availability.DEFAULT_TIMEZONE,
+    commonTimezones: COMMON_TIMEZONES,
+    venueLocalTime: availability.secondsToTime(now.seconds),
+  };
+}
+
 function buildRatingFormValues(venue) {
   return {
     rating: venue.rating === null || venue.rating === undefined ? '' : String(venue.rating),
@@ -251,7 +287,10 @@ router.get('/venues/:id', async (req, res, next) => {
       });
     }
 
-    const payments = await paymentModel.listByVenue(id);
+    const [payments, reviewStats] = await Promise.all([
+      paymentModel.listByVenue(id),
+      reviewModel.ratingStats(id),
+    ]);
 
     res.render('superadmin/venue-detail', {
       venue,
@@ -263,6 +302,9 @@ router.get('/venues/:id', async (req, res, next) => {
       formValues: buildExtendFormValues({}),
       ratingError: null,
       ratingFormValues: buildRatingFormValues(venue),
+      ...buildRatingSourceInfo(venue, reviewStats),
+      ...buildTimezoneInfo(venue),
+      timezoneError: null,
     });
   } catch (err) {
     next(err);
@@ -292,7 +334,10 @@ router.post('/venues/:id/rating', async (req, res, next) => {
 
     const parsed = venueRatingSchema.safeParse(req.body);
     if (!parsed.success) {
-      const payments = await paymentModel.listByVenue(id);
+      const [payments, reviewStats] = await Promise.all([
+        paymentModel.listByVenue(id),
+        reviewModel.ratingStats(id),
+      ]);
       return res.status(400).render('superadmin/venue-detail', {
         venue,
         payments,
@@ -306,6 +351,9 @@ router.post('/venues/:id/rating', async (req, res, next) => {
           rating: typeof req.body.rating === 'string' ? req.body.rating : '',
           review_count: typeof req.body.review_count === 'string' ? req.body.review_count : '',
         },
+        ...buildRatingSourceInfo(venue, reviewStats),
+        ...buildTimezoneInfo(venue),
+        timezoneError: null,
       });
     }
 
@@ -327,6 +375,71 @@ router.post('/venues/:id/rating', async (req, res, next) => {
     res.redirect(`/superadmin/venues/${id}`);
   } catch (err) {
     next(err);
+  }
+});
+
+// Промт 2.3. Часовой пояс заведения — по нему считается расписание доступности. Правит только
+// суперадмин: это защита от неверно настроенного сервера, а не настройка владельца.
+router.post('/venues/:id/timezone', async (req, res, next) => {
+  const { t } = res.locals;
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).render('errors/message', {
+        title: t('superadmin.notFoundInvalidId'),
+        message: t('superadmin.notFoundInvalidIdMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    const venue = await venueModel.findById(id);
+    if (!venue) {
+      return res.status(404).render('errors/message', {
+        title: t('superadmin.notFoundVenue'),
+        message: t('superadmin.notFoundVenueMessage'),
+        backUrl: '/superadmin/venues',
+      });
+    }
+
+    const parsed = venueTimezoneSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const [payments, reviewStats] = await Promise.all([
+        paymentModel.listByVenue(id),
+        reviewModel.ratingStats(id),
+      ]);
+      return res.status(400).render('superadmin/venue-detail', {
+        venue,
+        payments,
+        subscriptionStatus: computeSubscriptionStatus(venue.subscription_until),
+        login: req.session.admin.login,
+        role: req.session.admin.role,
+        error: null,
+        formValues: buildExtendFormValues({}),
+        ratingError: null,
+        ratingFormValues: buildRatingFormValues(venue),
+        ...buildRatingSourceInfo(venue, reviewStats),
+        ...buildTimezoneInfo(venue),
+        // Введённое значение возвращаем в поле как есть, чтобы суперадмин увидел свою опечатку.
+        timezoneFormValue: typeof req.body.timezone === 'string' ? req.body.timezone : '',
+        timezoneError: t(parsed.error.issues[0].message),
+      });
+    }
+
+    const updated = await venueModel.updateTimezone(id, parsed.data.timezone);
+    await logAction(pool, {
+      adminId: req.session.admin.id,
+      venueId: id,
+      actionType: 'update',
+      entityType: 'venue',
+      entityId: id,
+      details: { timezone: updated.timezone },
+    });
+
+    // Сброс кэша обязателен: расписание в отрисованной странице посчитано по СТАРОЙ зоне.
+    await pgNotify.publishMenuChange(id);
+    return res.redirect(`/superadmin/venues/${id}`);
+  } catch (err) {
+    return next(err);
   }
 });
 
@@ -549,6 +662,7 @@ function toSiteSettingsFormValues(settings) {
     payment_instructions_ru: settings.payment_instructions_ru || '',
     payment_instructions_uz: settings.payment_instructions_uz || '',
     payment_instructions_en: settings.payment_instructions_en || '',
+    print_domain: settings.print_domain || '',
   };
 }
 
@@ -559,6 +673,7 @@ function readRawSiteSettingsValues(body) {
     'about_ru', 'about_uz', 'offer_url', 'privacy_url',
     'payment_card_number', 'payment_card_holder', 'payment_bank_name',
     'payment_instructions_ru', 'payment_instructions_uz', 'payment_instructions_en',
+    'print_domain',
   ];
   const values = {};
   keys.forEach((key) => {
@@ -617,6 +732,7 @@ router.post('/site-settings', async (req, res, next) => {
       paymentInstructionsRu: parsed.data.payment_instructions_ru,
       paymentInstructionsUz: parsed.data.payment_instructions_uz,
       paymentInstructionsEn: parsed.data.payment_instructions_en,
+      printDomain: parsed.data.print_domain,
     });
 
     await logAction(pool, {

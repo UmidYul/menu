@@ -12,7 +12,23 @@
     "migrate": "node-pg-migrate --envPath .env",
     "migrate:up": "node-pg-migrate up --envPath .env",
     "migrate:down": "node-pg-migrate down --envPath .env",
-    "seed": "node --env-file=.env seed/seed.js"
+    "seed": "node --env-file=.env seed/seed.js",
+    "check:availability": "node scripts/check-availability.js",
+    "check:staff-access": "node scripts/check-staff-access.js",
+    "check:sw": "node scripts/check-sw.js",
+    "build:icons": "node scripts/build-service-icons.js",
+    "check:idor": "node scripts/check-idor.js",
+    "check:error-alerts": "node scripts/check-error-alerts.js",
+    "check:all": "npm run check:availability && npm run check:sw && npm run check:error-alerts && npm run check:staff-access && npm run check:idor && npm run check:venue-isolation && npm run check:venue-writes && npm run check:venue-network && npm run check:domain-dns && npm run check:custom-domains && npm run check:backup",
+    "check:venue-isolation": "node scripts/check-venue-isolation.js",
+    "check:venue-network": "node scripts/check-venue-network.js",
+    "check:venue-writes": "node scripts/check-venue-scoped-writes.js",
+    "check:domain-dns": "node scripts/check-domain-dns.js",
+    "check:custom-domains": "node scripts/check-custom-domains.js",
+    "check:backup": "bash scripts/check-backup.sh",
+    "backup": "bash scripts/backup.sh",
+    "backup:verify": "bash scripts/verify-backup.sh",
+    "restore": "bash scripts/restore.sh"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -21,13 +37,14 @@
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "exceljs": "^4.4.0",
-    "express": "^4.21.1",
+    "express": "^4.22.2",
     "express-rate-limit": "^7.4.1",
     "express-session": "^1.18.1",
     "helmet": "^8.3.0",
     "method-override": "^3.0.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^9.0.6",
+    "pdfkit": "^0.20.2",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.3",
@@ -39,5 +56,10 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "overrides": {
+    "body-parser": "^1.20.6",
+    "qs": "^6.15.4",
+    "uuid": "^11.1.1"
   }
 }

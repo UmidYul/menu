@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venueName %> — <%= t('staff.stoplistHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body class="staff-body">
+  <div class="staff-shell">
+    <%- include('../partials/staff-header', {
+      active: 'stoplist', venueName, displayName, ordersEnabled, lang, t, csrfToken,
+    }) %>
+
+    <%# Панель поиска и фильтра залипает: официант листает длинный список одной рукой, и
+        возвращаться наверх, чтобы что-то найти, ему негде. %>
+    <div class="stoplist-toolbar">
+      <div class="search-field">
+        <span class="search-field-icon" aria-hidden="true"><%- include('../partials/icon', { name: 'search', size: 17 }) %></span>
+        <input type="search" id="stoplistSearch" class="search-field-input" placeholder="<%= t('staff.searchPlaceholder') %>" aria-label="<%= t('staff.searchPlaceholder') %>" autocomplete="off">
+      </div>
+      <div class="stoplist-toolbar-row">
+        <label class="stoplist-filter">
+          <input type="checkbox" id="stoplistOnlyUnavailable">
+          <span><%= t('staff.filterOnlyUnavailable') %> <b id="stoplistUnavailableCount"><%= unavailableCount %></b></span>
+        </label>
+        <%# Утреннее действие одной кнопкой. Подтверждение — обязательно: промахнуться пальцем
+            и вернуть в продажу всё, что вчера закончилось, слишком легко. %>
+        <button type="button" id="stoplistRestoreAll" class="btn btn-outline stoplist-restore-btn"
+                data-confirm-text="<%= t('staff.restoreAllConfirm') %>">
+          <%- include('../partials/icon', { name: 'check', size: 15 }) %>
+          <%= t('staff.restoreAll') %>
+        </button>
+      </div>
+    </div>
+
+    <%# Полоса состояния соединения: при потере сети официант должен понимать, что его тап
+        не сохранился, а не думать, что всё прошло (промт требует обработать оффлайн явно). %>
+    <div id="stoplistBanner" class="stoplist-banner" hidden role="status" aria-live="polite">
+      <span id="stoplistBannerText"></span>
+      <button type="button" id="stoplistRetry" class="stoplist-banner-retry" hidden><%= t('staff.retry') %></button>
+    </div>
+
+    <main class="stoplist-list" id="stoplistList">
+      <% if (rows.length === 0) { %>
+        <p class="empty-note"><%= t('staff.listEmpty') %></p>
+      <% } %>
+      <% rows.forEach((row) => { %>
+        <article class="stoplist-row" data-stoplist-row
+                 data-item-id="<%= row.id %>"
+                 data-search="<%= (row.name + ' ' + row.categoryName).toLowerCase() %>"
+                 data-available="<%= row.isAvailable ? '1' : '0' %>">
+          <div class="stoplist-row-main">
+            <div class="stoplist-row-media">
+              <% if (row.photoThumbUrl) { %>
+                <img src="<%= row.photoThumbUrl %>" alt="" loading="lazy">
+              <% } else { %>
+                <span aria-hidden="true">🍽️</span>
+              <% } %>
+            </div>
+            <div class="stoplist-row-text">
+              <b class="stoplist-row-name"><%= row.name %></b>
+              <span class="stoplist-row-meta">
+                <%= row.categoryName %> · <%= row.price.toLocaleString('ru-RU') %> <%= row.currency %>
+              </span>
+              <%# «Выключил Азиз, 14:20» — чтобы в зале не гадали, почему позиции нет. %>
+              <span class="stoplist-row-note" data-note><%
+                if (row.lastToggleBy && row.lastToggleAt) {
+                  %><%= t('staff.turnedOffBy', {
+                    name: row.lastToggleBy,
+                    time: row.lastToggleAt.toISOString().slice(11, 16),
+                  }) %><%
+                }
+              %></span>
+            </div>
+            <%# Переключатель — настоящий checkbox: работает с клавиатуры, читается скринридером
+                и не требует JS, чтобы иметь состояние. Отправку берёт на себя stoplist.js. %>
+            <label class="stoplist-switch">
+              <input type="checkbox" data-item-toggle="<%= row.id %>" <%= row.isAvailable ? 'checked' : '' %>
+                     aria-label="<%= t('staff.toggleAriaLabel', { name: row.name }) %>">
+              <span class="stoplist-switch-track"><span class="stoplist-switch-knob"></span></span>
+            </label>
+          </div>
+
+          <% if (row.options.length > 0) { %>
+            <div class="stoplist-options">
+              <% row.options.forEach((option) => { %>
+                <div class="stoplist-option" data-option-row data-option-id="<%= option.id %>" data-available="<%= option.isAvailable ? '1' : '0' %>">
+                  <span class="stoplist-option-name"><%= option.groupName %>: <%= option.name %></span>
+                  <label class="stoplist-switch stoplist-switch-small">
+                    <input type="checkbox" data-option-toggle="<%= option.id %>" <%= option.isAvailable ? 'checked' : '' %>
+                           aria-label="<%= t('staff.toggleAriaLabel', { name: option.groupName + ': ' + option.name }) %>">
+                    <span class="stoplist-switch-track"><span class="stoplist-switch-knob"></span></span>
+                  </label>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </article>
+      <% }) %>
+      <p class="empty-note" id="stoplistEmptyFilter" hidden><%= t('staff.filterEmpty') %></p>
+    </main>
+  </div>
+
+  <script type="application/json" id="stoplistLabels">
+    <%- JSON.stringify({
+      csrf: csrfToken,
+      offline: t('staff.errorOffline'),
+      failed: t('staff.errorSaveFailed'),
+      notFound: t('staff.errorGone'),
+      restoreConfirm: t('staff.restoreAllConfirm'),
+      restoreDone: t('staff.restoreAllDone'),
+      turnedOffBy: t('staff.turnedOffBy', { name: '__NAME__', time: '__TIME__' }),
+    }).replace(/</g, '\\u003c') %>
+  </script>
+  <script src="/js/stoplist.js" defer></script>
+</body>
+</html>

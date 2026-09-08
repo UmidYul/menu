@@ -29,7 +29,7 @@
         <div class="table-card">
           <div class="table-heading">
             <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.heading') %></h3></div>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('add-venue-modal').showModal()">
+            <button type="button" class="btn btn-primary" data-modal-open="add-venue-modal">
               <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('common.add') %>
             </button>
           </div>
@@ -58,10 +58,10 @@
           <% }) %>
         </div>
 
-        <dialog id="add-venue-modal" class="modal">
+        <dialog id="add-venue-modal" class="modal" <%= (formTarget === 'add' && error) ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('superadmin.addHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -110,9 +110,6 @@
             </form>
           </div>
         </dialog>
-        <% if (formTarget === 'add' && error) { %>
-          <script>document.getElementById('add-venue-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>

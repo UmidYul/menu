@@ -1,8 +1,13 @@
 <%
 // Ожидает: crumb, section, lang, currentPath, venueSlug (опционально)
+// Переключатель заведений (промт 3.6) берёт venues/activeVenue из res.locals — их выставляет
+// middlewares/activeVenue.js на каждый запрос к кабинету.
 %>
 <header class="admin-top">
-  <div><span class="crumb"><%= crumb %> / </span><b><%= section %></b></div>
+  <div class="admin-top-left">
+    <div><span class="crumb"><%= crumb %> / </span><b><%= section %></b></div>
+    <%- include('./venue-switcher', { currentPath, t, csrfToken }) %>
+  </div>
   <div class="admin-top-actions">
     <div class="lang">
       <a href="/admin/lang?lang=ru&redirect=<%= encodeURIComponent(currentPath) %>" class="<%= lang === 'ru' ? 'active' : '' %>">RU</a>

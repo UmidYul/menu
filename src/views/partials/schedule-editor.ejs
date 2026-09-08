@@ -1,0 +1,130 @@
+<%
+// Промт 2.3. Общий редактор расписания для категории и для позиции.
+// Ожидает: targetType ('category' | 'item'), targetId, rules, availableNow, warnings (массив
+// ключей), maxRules, error (ключ словаря или null), t, csrfToken.
+//
+// Формы внутри намеренно НЕ вложены в форму категории/позиции — вложенные <form> запрещены
+// в HTML. Партиал всегда подключается рядом с основной формой, а не внутри неё.
+const base = `/admin/schedules/${targetType}/${targetId}`;
+const hasRules = rules.length > 0;
+const weekdays = [1, 2, 3, 4, 5, 6, 7];
+// Пресеты только заполняют поля формы добавления, дальше владелец правит руками (промт).
+const presets = [
+  { key: 'breakfast', days: [1, 2, 3, 4, 5], from: '08:00', to: '11:00' },
+  { key: 'lunch', days: [1, 2, 3, 4, 5], from: '12:00', to: '15:00' },
+  { key: 'weekend', days: [6, 7], from: '10:00', to: '23:00' },
+  { key: 'evening', days: [1, 2, 3, 4, 5, 6, 7], from: '18:00', to: '02:00' },
+];
+%>
+<div class="schedule-editor" data-schedule-editor>
+  <div class="schedule-editor-head">
+    <b><%= t('schedules.blockHeading') %></b>
+    <%# «Сейчас доступно / сейчас недоступно» — мгновенная проверка для владельца (промт, п.4).
+        Считается на сервере в часовом поясе заведения, как и для гостя. %>
+    <span class="schedule-status <%= availableNow ? 'is-available' : 'is-unavailable' %>">
+      <%= availableNow ? t('schedules.statusAvailable') : t('schedules.statusUnavailable') %>
+    </span>
+  </div>
+
+  <% if (error) { %><div class="alert alert-error"><%= t(error) %></div><% } %>
+  <% warnings.forEach((warning) => { %>
+    <div class="alert alert-warning"><%= t('schedules.warning_' + warning) %></div>
+  <% }) %>
+
+  <div class="schedule-mode">
+    <%# «Доступно всегда» — это отсутствие правил, отдельного флага в схеме нет. Кнопка удаляет
+        все интервалы, поэтому спрашиваем подтверждение, только если удалять есть что. %>
+    <form method="POST" action="<%= base %>/clear" class="schedule-mode-form"
+          <%= hasRules ? `data-confirm="${t('schedules.clearConfirm')}"` : '' %>>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="schedule-mode-btn <%= hasRules ? '' : 'is-active' %>" <%= hasRules ? '' : 'disabled' %>>
+        <%= t('schedules.modeAlways') %>
+      </button>
+    </form>
+    <span class="schedule-mode-btn <%= hasRules ? 'is-active' : '' %>" aria-hidden="<%= hasRules ? 'false' : 'true' %>">
+      <%= t('schedules.modeScheduled') %>
+    </span>
+  </div>
+
+  <%# У позиции своих интервалов нет, но её категория работает по расписанию — владелец должен
+      видеть, чему позиция сейчас подчиняется. Как только у позиции появится свой интервал, он
+      ПОЛНОСТЬЮ заменит расписание категории, а не дополнит его. %>
+  <% if (!hasRules && typeof inheritedLabel !== 'undefined' && inheritedLabel) { %>
+    <p class="hint schedule-inherited"><%= t('schedules.inheritedFromCategory', { schedule: inheritedLabel }) %></p>
+  <% } %>
+
+  <% if (hasRules) { %>
+    <ul class="schedule-list">
+      <% rules.forEach((rule) => { %>
+        <li class="schedule-rule <%= rule.is_active ? '' : 'is-off' %>">
+          <form method="POST" action="/admin/schedules/<%= rule.id %>?_method=PATCH" class="schedule-rule-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="schedule-days">
+              <% weekdays.forEach((day) => { %>
+                <label class="schedule-day-chip">
+                  <input type="checkbox" name="days" value="<%= day %>" <%= (rule.days || []).map(Number).includes(day) ? 'checked' : '' %>>
+                  <span><%= t('schedules.weekdayShort_' + day) %></span>
+                </label>
+              <% }) %>
+            </div>
+            <div class="schedule-times">
+              <input type="time" name="time_from" value="<%= String(rule.time_from).slice(0, 5) %>" required aria-label="<%= t('schedules.timeFromLabel') %>">
+              <span aria-hidden="true">–</span>
+              <input type="time" name="time_to" value="<%= String(rule.time_to).slice(0, 5) %>" required aria-label="<%= t('schedules.timeToLabel') %>">
+              <button type="submit" class="btn btn-outline btn-small"><%= t('common.save') %></button>
+            </div>
+          </form>
+          <div class="schedule-rule-actions">
+            <form method="POST" action="/admin/schedules/<%= rule.id %>/toggle">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-outline btn-small">
+                <%= rule.is_active ? t('schedules.turnOff') : t('schedules.turnOn') %>
+              </button>
+            </form>
+            <form method="POST" action="/admin/schedules/<%= rule.id %>?_method=DELETE"
+                  data-confirm="<%= t('schedules.deleteConfirm') %>">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-outline btn-small schedule-delete-btn" aria-label="<%= t('common.delete') %>">
+                <%- include('./icon', { name: 'trash', size: 14 }) %>
+              </button>
+            </form>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+
+  <% if (rules.length < maxRules) { %>
+    <form method="POST" action="<%= base %>" class="schedule-add-form" data-schedule-add>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="schedule-presets">
+        <span class="schedule-presets-label"><%= t('schedules.presetsLabel') %></span>
+        <% presets.forEach((preset) => { %>
+          <button type="button" class="schedule-preset-btn"
+                  data-preset-days="<%= preset.days.join(',') %>"
+                  data-preset-from="<%= preset.from %>"
+                  data-preset-to="<%= preset.to %>">
+            <%= t('schedules.preset_' + preset.key) %>
+          </button>
+        <% }) %>
+      </div>
+      <div class="schedule-days">
+        <% weekdays.forEach((day) => { %>
+          <label class="schedule-day-chip">
+            <input type="checkbox" name="days" value="<%= day %>">
+            <span><%= t('schedules.weekdayShort_' + day) %></span>
+          </label>
+        <% }) %>
+      </div>
+      <div class="schedule-times">
+        <input type="time" name="time_from" value="08:00" required aria-label="<%= t('schedules.timeFromLabel') %>">
+        <span aria-hidden="true">–</span>
+        <input type="time" name="time_to" value="11:00" required aria-label="<%= t('schedules.timeToLabel') %>">
+        <button type="submit" class="btn btn-primary btn-small"><%= t('schedules.addInterval') %></button>
+      </div>
+      <p class="hint"><%= t('schedules.overnightHint') %></p>
+    </form>
+  <% } else { %>
+    <p class="hint"><%= t('schedules.maxRulesHint', { max: maxRules }) %></p>
+  <% } %>
+</div>

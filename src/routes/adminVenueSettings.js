@@ -1,16 +1,18 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { venueSettingsSchema } = require('../validators/venueSettingsValidators');
-const { saveItemPhoto, deleteItemPhotoFiles } = require('../services/photoService');
+const {
+  saveItemPhoto, deleteItemPhotoFiles, saveVenuePwaIcons, deleteVenuePwaIcons,
+} = require('../services/photoService');
 const pgNotify = require('../services/pgNotify');
 
-router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
+router.use(requireAuth, requireVenueRole(['owner', 'manager']), venueStatusGate);
 
 function toFormValues(venue) {
   return {
@@ -116,8 +118,14 @@ router.post('/', async (req, res, next) => {
 
     let logo = null;
     let cover = null;
+    // Промт 2.5: иконки PWA генерируются из логотипа ПРИ ЗАГРУЗКЕ, а не на каждый запрос
+    // манифеста — гость ставит на домашний экран иконку заведения, а не сервиса.
+    let pwaIconsToken = null;
     try {
-      if (logoFile) logo = await saveItemPhoto(venueId, logoFile.buffer);
+      if (logoFile) {
+        logo = await saveItemPhoto(venueId, logoFile.buffer);
+        pwaIconsToken = await saveVenuePwaIcons(venueId, logoFile.buffer);
+      }
       if (coverFile) cover = await saveItemPhoto(venueId, coverFile.buffer);
     } catch (err) {
       if (err.message === 'IMAGE_PROCESSING_FAILED') {
@@ -163,6 +171,12 @@ router.post('/', async (req, res, next) => {
       coverThumbUrl: cover ? cover.photoThumbUrl : null,
     });
 
+    if (pwaIconsToken) {
+      await venueModel.updatePwaIconsToken(venueId, pwaIconsToken);
+      // Старые иконки удаляются ПОСЛЕ записи нового токена: упади процесс между этими шагами,
+      // в БД останется рабочий старый набор, а не ссылка на удалённые файлы.
+      await deleteVenuePwaIcons(venueId, venue.pwa_icons_token);
+    }
     if (logo) await deleteItemPhotoFiles(venue.logo_url, venue.logo_thumb_url);
     if (cover) await deleteItemPhotoFiles(venue.cover_url, venue.cover_thumb_url);
 

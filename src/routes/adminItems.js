@@ -1,13 +1,15 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
 const categoryModel = require('../models/categoryModel');
 const venueModel = require('../models/venueModel');
 const itemOptionModel = require('../models/itemOptionModel');
+const scheduleModel = require('../models/availabilityScheduleModel');
+const availability = require('../services/availability');
 const { pickLocalized } = require('../utils/localize');
 const { logAction } = require('../models/adminActionLogModel');
 const {
@@ -29,11 +31,15 @@ async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
   const role = req.session.admin.role;
 
-  const [items, categories, langSettings, optionGroupsByItem] = await Promise.all([
+  const [items, categories, langSettings, optionGroupsByItem, schedules, venue] = await Promise.all([
     itemModel.listByVenueGrouped(venueId),
     categoryModel.listByVenue(venueId),
     venueModel.getLangSettings(venueId),
     itemOptionModel.listGroupsByItemForVenue(venueId),
+    // Промт 2.3: расписания всего заведения одним запросом — на странице позиций их может
+    // понадобиться столько же, сколько строк в меню.
+    scheduleModel.listByVenue(venueId),
+    venueModel.findById(venueId),
   ]);
 
   const enabledLangs = (langSettings && langSettings.enabled_langs) || ['ru', 'uz'];
@@ -77,6 +83,42 @@ async function renderList(req, res, status, error, formValues, formTarget) {
   const optionError = typeof req.query.option_error === 'string' ? req.query.option_error : null;
   const optionErrorItemId = Number(req.query.option_item) || null;
 
+  // Промт 2.3. Для каждой позиции: её собственные интервалы, «сейчас доступно» и предупреждения.
+  // Если своих интервалов нет, а у категории они есть — показываем, чему позиция подчиняется:
+  // как только у позиции появится свой интервал, он ПОЛНОСТЬЮ заменит расписание категории.
+  const { byCategory: rulesByCategory, byItem: rulesByItem } = scheduleModel.groupByEntity(schedules);
+  const now = availability.venueNow(venue && venue.timezone);
+  const dayShortNames = [1, 2, 3, 4, 5, 6, 7].map((day) => res.locals.t(`schedules.weekdayShort_${day}`));
+  const scheduleStateByItem = new Map();
+
+  items.forEach((item) => {
+    const ownRules = rulesByItem.get(item.id) || [];
+    const categoryRules = rulesByCategory.get(item.category_id) || [];
+    const effectiveRules = ownRules.length > 0 ? ownRules : categoryRules;
+    const inherited = ownRules.length === 0 && categoryRules.length > 0
+      ? availability.describeRules(categoryRules, dayShortNames)
+        .map((part) => {
+          const period = part.allDay
+            ? res.locals.t('schedules.allDay')
+            : res.locals.t('schedules.timeRange', { from: part.from, to: part.to });
+          return part.allWeek ? period : `${part.days} ${period}`;
+        })
+        .join(' · ')
+      : null;
+
+    scheduleStateByItem.set(item.id, {
+      rules: ownRules,
+      availableNow: availability.isAvailableNow(effectiveRules, now),
+      warnings: availability.scheduleWarnings(ownRules, { isAvailable: item.is_available }),
+      inheritedLabel: inherited,
+    });
+  });
+
+  const scheduleError = typeof req.query.schedule_error === 'string' && req.query.schedule_error.startsWith('schedules.')
+    ? req.query.schedule_error
+    : null;
+  const scheduleErrorItemId = Number(req.query.schedule_item) || null;
+
   res.status(status || 200).render('admin/items', {
     groups,
     optionGroupsByItem,
@@ -86,6 +128,10 @@ async function renderList(req, res, status, error, formValues, formTarget) {
     maxOptionsPerGroup: MAX_OPTIONS_PER_GROUP,
     optionError,
     optionErrorItemId,
+    scheduleStateByItem,
+    scheduleError,
+    scheduleErrorItemId,
+    maxScheduleRules: scheduleModel.MAX_RULES_PER_ENTITY,
     categories,
     allowedTags: ALLOWED_TAGS,
     allowedAllergens: ALLOWED_ALLERGENS,
@@ -166,7 +212,7 @@ async function loadOwnItemOr404(req, res) {
   return item;
 }
 
-router.get('/', requireRole(['venue_admin']), async (req, res, next) => {
+router.get('/', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     await renderList(req, res);
   } catch (err) {
@@ -175,7 +221,7 @@ router.get('/', requireRole(['venue_admin']), async (req, res, next) => {
 });
 
 // uploadItemPhoto применяется уровнем выше, в app.js (до csrfProtection — см. комментарий там).
-router.post('/', requireRole(['venue_admin']), async (req, res, next) => {
+router.post('/', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   const { t } = res.locals;
   try {
     if (req.uploadError) {
@@ -247,7 +293,7 @@ router.post('/', requireRole(['venue_admin']), async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
+router.patch('/:id', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   const { t } = res.locals;
   try {
     const item = await loadOwnItemOr404(req, res);
@@ -285,7 +331,7 @@ router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
     const before = { name_ru: item.name_ru, name_uz: item.name_uz, price: item.price, category_id: item.category_id };
     const oldPhotoUrl = item.photo_url;
     const oldPhotoThumbUrl = item.photo_thumb_url;
-    const updated = await itemModel.update(item.id, {
+    const updated = await itemModel.update(item.id, venueId, {
       categoryId: parsed.data.category_id,
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
@@ -311,6 +357,11 @@ router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
       isPopular: parsed.data.is_popular,
     });
 
+    // null означает «строка не подошла под venue_id в самом UPDATE» — то есть позицию увели
+    // из этого заведения между проверкой и записью. Старое фото при этом не трогаем: оно
+    // всё ещё принадлежит живой позиции.
+    if (!updated) return res.status(404).render('errors/403');
+
     if (photo) {
       await deleteItemPhotoFiles(oldPhotoUrl, oldPhotoThumbUrl);
     }
@@ -334,12 +385,15 @@ router.patch('/:id', requireRole(['venue_admin']), async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireRole(['venue_admin']), async (req, res, next) => {
+router.delete('/:id', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const item = await loadOwnItemOr404(req, res);
     if (!item) return;
 
-    await itemModel.remove(item.id);
+    // Файлы удаляются только если строка действительно ушла: venue_id теперь в самом DELETE,
+    // и «не наша позиция» здесь выглядит как null, а не как исключение.
+    const removed = await itemModel.remove(item.id, req.session.admin.venueId);
+    if (!removed) return res.status(404).render('errors/403');
     await deleteItemPhotoFiles(item.photo_url, item.photo_thumb_url);
 
     await logAction(pool, {
@@ -358,12 +412,13 @@ router.delete('/:id', requireRole(['venue_admin']), async (req, res, next) => {
   }
 });
 
-router.post('/:id/toggle', requireRole(['venue_admin']), async (req, res, next) => {
+router.post('/:id/toggle', requireVenueRole(['owner', 'manager']), async (req, res, next) => {
   try {
     const item = await loadOwnItemOr404(req, res);
     if (!item) return;
 
-    const updated = await itemModel.toggleAvailability(item.id);
+    const updated = await itemModel.toggleAvailability(item.id, req.session.admin.venueId);
+    if (!updated) return res.status(404).render('errors/403');
 
     await logAction(pool, {
       adminId: req.session.admin.id,

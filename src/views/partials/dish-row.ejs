@@ -4,6 +4,11 @@ const isNew = item.tags.some((tag) => tag.key === 'new');
 const extraTags = item.tags.filter((tag) => tag.key !== 'new');
 const filterTags = extraTags.map((tag) => tag.key).join(',');
 const searchName = item.name.toLowerCase();
+// Промт 2.3. Две РАЗНЫЕ причины, по которым позицию нельзя заказать, и подписи у них разные:
+// isAvailable — ручной рубильник владельца («нет в наличии»), availableNow — расписание
+// («доступно с 8:00 до 11:00»). Кнопка добавления не работает в обоих случаях.
+const outOfSchedule = item.availableNow === false;
+const canOrder = item.isAvailable && !outOfSchedule;
 const searchDescription = (item.description || '').toLowerCase();
 const plainFacts = [];
 if (typeof categoryName !== 'undefined' && categoryName) plainFacts.push(categoryName);
@@ -11,12 +16,12 @@ if (typeof categoryName !== 'undefined' && categoryName) plainFacts.push(categor
 if (item.weight) plainFacts.push(item.weight);
 if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesUnit'));
 %>
-<article class="dish-row <%= item.isAvailable ? '' : 'unavailable' %>"
+<article class="dish-row <%= canOrder ? '' : 'unavailable' %> <%= outOfSchedule ? 'out-of-schedule' : '' %>"
   data-dish-row
   data-name="<%= searchName %>"
   data-description="<%= searchDescription %>"
   data-price="<%= item.price %>"
-  data-available="<%= item.isAvailable ? '1' : '0' %>"
+  data-available="<%= canOrder ? '1' : '0' %>"
   data-tags="<%= filterTags %>"
   <% if (typeof reveal !== 'undefined' && reveal) { %>data-reveal data-reveal-menu data-reveal-delay="<%= revealDelay %>"<% } %>>
   <div class="dish-row-media">
@@ -45,7 +50,13 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
     <% if (item.optionsSummary) { %>
       <p class="dish-row-options-summary"><%= item.optionsSummary %></p>
     <% } %>
-    <% if (!item.isAvailable) { %><p class="dish-row-unavailable-note"><%= t('publicMenu.unavailableBadge') %></p><% } %>
+    <%# Расписание важнее ручного рубильника в подписи: если позиция и снята с продажи, и вне
+        расписания, гостю полезнее узнать, что она бывает по утрам, чем что её нет сейчас. %>
+    <% if (outOfSchedule && item.scheduleLabel) { %>
+      <p class="dish-row-schedule-note"><%= t('schedules.availableAt', { schedule: item.scheduleLabel }) %></p>
+    <% } else if (!item.isAvailable) { %>
+      <p class="dish-row-unavailable-note"><%= t('publicMenu.unavailableBadge') %></p>
+    <% } %>
   </div>
   <div class="dish-row-side">
     <div class="dish-price">
@@ -56,14 +67,14 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
       </strong>
       <% if (item.discountPercent) { %><span class="discount-badge">−<%= item.discountPercent %>%</span><% } %>
     </div>
-    <% if (item.isAvailable && item.hasOptions) { %>
+    <% if (canOrder && item.hasOptions) { %>
       <%# Позиция с группами опций: "+" открывает модалку выбора, а не кладёт в корзину сразу
           (промт 2.1). Количество для конкретного набора опций живёт уже внутри строки корзины. %>
       <button type="button" class="cart-add-btn" data-options-item-id="<%= item.id %>"
               aria-label="<%= t('publicMenu.addAriaLabelPrefix') %> <%= item.name %>">
         <%- include('./icon', { name: 'plus', size: 16 }) %>
       </button>
-    <% } else if (item.isAvailable) { %>
+    <% } else if (canOrder) { %>
       <div class="cart-control" data-item-id="<%= item.id %>" data-item-name="<%= item.name %>" data-item-price="<%= item.price %>" data-item-currency="<%= item.currency %>">
         <button type="button" class="cart-add-btn" aria-label="<%= t('publicMenu.addAriaLabelPrefix') %> <%= item.name %>">
           <%- include('./icon', { name: 'plus', size: 16 }) %>
@@ -75,7 +86,7 @@ if (item.calories) plainFacts.push(item.calories + ' ' + t('publicMenu.caloriesU
         </div>
       </div>
     <% } else { %>
-      <button type="button" class="cart-add-btn" disabled aria-label="<%= t('publicMenu.unavailableBadge') %>">
+      <button type="button" class="cart-add-btn" disabled aria-label="<%= outOfSchedule ? t('schedules.outOfScheduleAriaLabel') : t('publicMenu.unavailableBadge') %>">
         <%- include('./icon', { name: 'plus', size: 16 }) %>
       </button>
     <% } %>

@@ -142,6 +142,16 @@
               </div>
             </div>
 
+            <h3 style="font-family: var(--font-serif); font-size: 18px; font-weight: 500; margin: 26px 0 6px;"><%= t('siteSettings.sectionPrintHeading') %></h3>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="print_domain"><%= t('siteSettings.printDomainLabel') %></label>
+                <input type="text" id="print_domain" name="print_domain" value="<%= formValues.print_domain %>" placeholder="menuva.uz">
+                <small class="field-hint"><%= t('siteSettings.printDomainHint') %></small>
+              </div>
+            </div>
+
             <button type="submit" class="btn btn-primary" style="margin-top:14px;"><%= t('siteSettings.submit') %></button>
           </form>
         </div>

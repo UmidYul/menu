@@ -1,7 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
@@ -22,7 +22,7 @@ function buildPeriodQuery(period) {
 // аналитика read-only (не редактирует меню) и должна оставаться доступной даже suspended/
 // archived заведению: это как раз тот момент, когда владельцу может быть особенно важно
 // посмотреть, что было ДО приостановки, чтобы решить, платить ли за возобновление.
-router.use(requireAuth, requireRole(['venue_admin']));
+router.use(requireAuth, requireVenueRole(['owner', 'manager']));
 
 router.get('/', async (req, res, next) => {
   try {

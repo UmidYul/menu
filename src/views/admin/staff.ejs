@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('nav.staff') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'staff', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: t('nav.staff'), section: t('staff.listHeading'), lang, currentPath: '/admin/staff', venueSlug, t }) %>
+      <div class="admin-content admin-content-narrow">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= t('staff.counter', { count: activeCount, max: maxStaff }) %></span>
+            <h1><%= t('nav.staff') %></h1>
+          </div>
+        </div>
+
+        <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+        <%# Ссылка входа и временный пароль показываются РОВНО ОДИН РАЗ, сразу после создания:
+            в БД лежит только их хеш, восстановить их потом невозможно. %>
+        <% if (invite) { %>
+          <div class="dashboard-card staff-invite-card">
+            <h3><%= t('staff.inviteHeading', { name: invite.name }) %></h3>
+            <% if (invite.url) { %>
+              <p class="analytics-card-hint"><%= t('staff.inviteHint') %></p>
+              <div class="wifi-field">
+                <span class="wifi-field-label"><%= t('staff.inviteLinkLabel') %></span>
+                <div class="wifi-field-value wifi-field-value-password">
+                  <span id="staff-invite-link"><%= invite.url %></span>
+                  <button type="button" class="wifi-copy-btn" data-copy-target="staff-invite-link" data-copy-note="staff-invite-copied" aria-label="<%= t('common.copy') %>">
+                    <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                  </button>
+                </div>
+              </div>
+              <span id="staff-invite-copied" class="copied" hidden><%- include('../partials/icon', { name: 'check', size: 13 }) %> <%= t('staff.copied') %></span>
+            <% } %>
+            <% if (invite.password) { %>
+              <p class="analytics-card-hint"><%= t('staff.resetHint') %></p>
+              <div class="wifi-field">
+                <span class="wifi-field-label"><%= t('staff.tempPasswordLabel') %></span>
+                <div class="wifi-field-value wifi-field-value-password">
+                  <span id="staff-temp-password"><%= invite.password %></span>
+                  <button type="button" class="wifi-copy-btn" data-copy-target="staff-temp-password" data-copy-note="staff-password-copied" aria-label="<%= t('common.copy') %>">
+                    <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
+                  </button>
+                </div>
+              </div>
+              <span id="staff-password-copied" class="copied" hidden><%- include('../partials/icon', { name: 'check', size: 13 }) %> <%= t('staff.copied') %></span>
+            <% } %>
+          </div>
+        <% } %>
+
+        <div class="dashboard-card">
+          <h3><%= t('staff.addHeading') %></h3>
+          <form method="POST" action="/admin/staff" class="staff-add-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="field-grid">
+              <div class="field">
+                <label for="staff_display_name"><%= t('staff.nameLabel') %></label>
+                <input type="text" id="staff_display_name" name="display_name" maxlength="80" placeholder="<%= t('staff.namePlaceholder') %>" required>
+              </div>
+              <div class="field">
+                <label for="staff_login"><%= t('staff.loginLabel') %></label>
+                <input type="text" id="staff_login" name="login" maxlength="40" placeholder="<%= t('staff.loginPlaceholder') %>" required>
+                <div class="hint"><%= t('staff.loginHint') %></div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="staff_password"><%= t('staff.passwordLabel') %></label>
+              <input type="text" id="staff_password" name="password" minlength="8" maxlength="72" autocomplete="off">
+              <div class="hint"><%= t('staff.passwordHint') %></div>
+            </div>
+            <button type="submit" class="btn btn-primary" <%= activeCount >= maxStaff ? 'disabled' : '' %>>
+              <%- include('../partials/icon', { name: 'plus', size: 15 }) %>
+              <%= t('staff.addButton') %>
+            </button>
+            <% if (activeCount >= maxStaff) { %>
+              <div class="hint"><%= t('staff.errorLimitReached', { max: maxStaff }) %></div>
+            <% } %>
+          </form>
+        </div>
+
+        <div class="dashboard-card">
+          <h3><%= t('staff.listHeading') %></h3>
+          <% if (staff.length === 0) { %>
+            <p class="empty-note"><%= t('staff.listEmptyOwner') %></p>
+          <% } else { %>
+            <div class="staff-list">
+              <% staff.forEach((member) => { %>
+                <article class="staff-item <%= member.is_active ? '' : 'is-inactive' %>">
+                  <div class="staff-item-main">
+                    <b><%= member.display_name || member.login %></b>
+                    <span class="staff-item-login"><%= member.login %></span>
+                    <span class="staff-item-status">
+                      <% if (!member.is_active) { %><%= t('staff.statusInactive') %><%
+                         } else if (member.must_change_password) { %><%= t('staff.statusPending') %><%
+                         } else { %><%= t('staff.statusActive') %><% } %>
+                    </span>
+                  </div>
+                  <div class="staff-item-actions">
+                    <form method="POST" action="/admin/staff/<%= member.id %>/invite">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn btn-outline btn-small" <%= member.is_active ? '' : 'disabled' %>>
+                        <%- include('../partials/icon', { name: 'link', size: 14 }) %>
+                        <%= t('staff.inviteButton') %>
+                      </button>
+                    </form>
+                    <form method="POST" action="/admin/staff/<%= member.id %>/reset-password"
+                          data-confirm="<%= t('staff.resetConfirm', { name: member.display_name || member.login }) %>">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn btn-outline btn-small" <%= member.is_active ? '' : 'disabled' %>>
+                        <%- include('../partials/icon', { name: 'key', size: 14 }) %>
+                        <%= t('staff.resetButton') %>
+                      </button>
+                    </form>
+                    <%# Удаления нет вовсе: admin_action_logs.admin_id стоит на ON DELETE RESTRICT
+                        именно затем, чтобы история действий уволенного осталась читаемой. %>
+                    <form method="POST" action="/admin/staff/<%= member.id %>/toggle-active"
+                          data-confirm="<%= member.is_active ? t('staff.deactivateConfirm', { name: member.display_name || member.login }) : '' %>">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn btn-outline btn-small">
+                        <%= member.is_active ? t('staff.deactivateButton') : t('staff.activateButton') %>
+                      </button>
+                    </form>
+                  </div>
+                </article>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="/js/copy-button.js" defer></script>
+</body>
+</html>

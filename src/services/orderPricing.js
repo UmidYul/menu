@@ -1,5 +1,7 @@
 const itemModel = require('../models/itemModel');
 const itemOptionModel = require('../models/itemOptionModel');
+const availabilityScheduleModel = require('../models/availabilityScheduleModel');
+const availability = require('./availability');
 const { pickLocalized } = require('../utils/localize');
 
 // Промт 2.4: «Сервер ПЕРЕСЧИТЫВАЕТ сумму по актуальным ценам и доступности. Если что-то
@@ -12,10 +14,17 @@ const { pickLocalized } = require('../utils/localize');
 // Результат: { ok, lines, total, problems } — problems непустой означает «не отправляем,
 // показываем гостю, что именно изменилось».
 async function recomputeOrder(venue, lang, submittedItems) {
-  const [rows, groupsByItem] = await Promise.all([
+  const [rows, groupsByItem, schedules] = await Promise.all([
     itemModel.listByVenueGrouped(venue.id),
     itemOptionModel.listGroupsByItemForVenue(venue.id),
+    availabilityScheduleModel.listByVenue(venue.id),
   ]);
+
+  // Промт 2.3. Без этой проверки гость, положивший завтрак в корзину в 10:59, отправляет заказ
+  // в 11:05 — и кухня получает то, чего в это время нет. Промт 2.3 про заказы не говорит, но
+  // промт 2.4 требует пересчёта «по актуальным ценам И ДОСТУПНОСТИ», а расписание — ровно она.
+  const now = availability.venueNow(venue.timezone);
+  const { byCategory: rulesByCategory, byItem: rulesByItem } = availabilityScheduleModel.groupByEntity(schedules);
 
   const itemsById = new Map(rows.map((row) => [row.id, row]));
   const problems = [];
@@ -39,6 +48,15 @@ async function recomputeOrder(venue, lang, submittedItems) {
 
     if (!item.is_available) {
       problems.push({ type: 'item_unavailable', itemId: item.id, name: itemName });
+      continue;
+    }
+
+    // Расписание позиции полностью заменяет расписание категории — то же правило, что и при
+    // рендере меню (см. src/routes/publicMenu.js).
+    const ownRules = rulesByItem.get(item.id) || [];
+    const effectiveRules = ownRules.length > 0 ? ownRules : (rulesByCategory.get(item.category_id) || []);
+    if (!availability.isAvailableNow(effectiveRules, now)) {
+      problems.push({ type: 'item_out_of_schedule', itemId: item.id, name: itemName });
       continue;
     }
 

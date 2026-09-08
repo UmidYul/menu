@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= t('venues.noAccessTitle') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <%# Промт 3.6, edge case: «Администратор потерял доступ ко всем заведениям — при входе показать
+      понятную страницу, а не пустую админку и не ошибку». Кнопка выхода обязательна: без неё
+      человек застревает на этой странице, потому что все остальные разделы ему закрыты. %>
+  <div class="message-shell">
+    <div class="message-card">
+      <div class="brand" style="justify-content:center; margin-bottom:24px;"><%- include('../partials/brand', { compact: true }) %></div>
+      <h1><%= t('venues.noAccessTitle') %></h1>
+      <p><%= t('venues.noAccessMessage', { login }) %></p>
+      <form method="POST" action="/admin/logout">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-outline">
+          <%- include('../partials/icon', { name: 'logout', size: 15 }) %>
+          <%= t('common.logout') %>
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

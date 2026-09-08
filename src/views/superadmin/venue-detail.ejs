@@ -29,7 +29,7 @@
         <div class="form-card">
           <div class="card-header">
             <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.subscriptionHeading') %></h3></div>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('extend-modal').showModal()">
+            <button type="button" class="btn btn-primary" data-modal-open="extend-modal">
               <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('superadmin.extendButton') %>
             </button>
           </div>
@@ -69,7 +69,46 @@
               </div>
             </div>
             <div class="hint" style="margin-bottom:16px;"><%= t('superadmin.ratingHint') %></div>
+            <%# Промт 3.3: пояснение, когда эти поля вообще используются, и что стоит в карточке
+                сейчас. Правило одно на весь проект — см. publicMenu.js:resolveRating. %>
+            <div class="hint" style="margin-bottom:16px;">
+              <% if (ratingSourceInternal) { %>
+                <%= t('superadmin.ratingSourceInternal', {
+                  average: ratingInternalStats.average.toFixed(1),
+                  count: ratingInternalStats.count,
+                }) %>
+              <% } else { %>
+                <%= t('superadmin.ratingSourceManual', {
+                  min: ratingMinReviews,
+                  count: ratingInternalStats.count,
+                }) %>
+              <% } %>
+            </div>
             <button type="submit" class="btn btn-primary"><%= t('superadmin.ratingSubmit') %></button>
+          </form>
+        </div>
+
+        <%# Промт 2.3. Часовой пояс — настройка уровня сервиса, а не владельца: это защита от
+            неверно настроенного сервера, по ней считается расписание доступности категорий
+            и позиций. В кабинете заведения его нет намеренно. %>
+        <div class="form-card" style="margin-top:20px;">
+          <div class="card-header">
+            <div><span class="eyebrow">&nbsp;</span><h3><%= t('superadmin.timezoneHeading') %></h3></div>
+          </div>
+          <% if (timezoneError) { %>
+            <div class="alert alert-error" style="margin-top:16px;"><%= timezoneError %></div>
+          <% } %>
+          <form method="POST" action="/superadmin/venues/<%= venue.id %>/timezone" style="margin-top:16px;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="field">
+              <label for="timezone"><%= t('superadmin.timezoneLabel') %></label>
+              <input type="text" id="timezone" name="timezone" value="<%= timezoneFormValue %>" placeholder="Asia/Tashkent" list="timezone-suggestions">
+              <datalist id="timezone-suggestions">
+                <% commonTimezones.forEach((zone) => { %><option value="<%= zone %>"></option><% }) %>
+              </datalist>
+            </div>
+            <div class="hint" style="margin-bottom:16px;"><%= t('superadmin.timezoneHint', { now: venueLocalTime }) %></div>
+            <button type="submit" class="btn btn-primary"><%= t('common.save') %></button>
           </form>
         </div>
 
@@ -92,10 +131,10 @@
           <% }) %>
         </div>
 
-        <dialog id="extend-modal" class="modal">
+        <dialog id="extend-modal" class="modal" <%= (error) ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('superadmin.extendHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -136,17 +175,17 @@
                 <label><%= t('superadmin.periodLabel') %></label>
                 <div class="radio-row">
                   <label>
-                    <input type="radio" name="period_mode" value="preset" <%= formValues.period_mode === 'preset' ? 'checked' : '' %> onchange="document.getElementById('preset-period-field').style.display='block'; document.getElementById('manual-period-field').style.display='none';">
+                    <input type="radio" name="period_mode" value="preset" <%= formValues.period_mode === 'preset' ? 'checked' : '' %> data-toggle-show="preset-period-field" data-toggle-hide="manual-period-field">
                     <%= t('superadmin.periodPresetLabel') %>
                   </label>
                   <label>
-                    <input type="radio" name="period_mode" value="manual" <%= formValues.period_mode === 'manual' ? 'checked' : '' %> onchange="document.getElementById('preset-period-field').style.display='none'; document.getElementById('manual-period-field').style.display='block';">
+                    <input type="radio" name="period_mode" value="manual" <%= formValues.period_mode === 'manual' ? 'checked' : '' %> data-toggle-show="manual-period-field" data-toggle-hide="preset-period-field">
                     <%= t('superadmin.periodManualLabel') %>
                   </label>
                 </div>
               </div>
 
-              <div class="field" id="preset-period-field" style="<%= formValues.period_mode === 'manual' ? 'display:none;' : '' %>">
+              <div class="field" id="preset-period-field" <%= formValues.period_mode === 'manual' ? 'hidden' : '' %>>
                 <div class="radio-row">
                   <label><input type="radio" name="period_months" value="1" <%= formValues.period_months === '1' ? 'checked' : '' %>> <%= t('superadmin.period1') %></label>
                   <label><input type="radio" name="period_months" value="3" <%= formValues.period_months === '3' ? 'checked' : '' %>> <%= t('superadmin.period3') %></label>
@@ -154,7 +193,7 @@
                 </div>
               </div>
 
-              <div class="field" id="manual-period-field" style="<%= formValues.period_mode === 'manual' ? '' : 'display:none;' %>">
+              <div class="field" id="manual-period-field" <%= formValues.period_mode === 'manual' ? '' : 'hidden' %>>
                 <label for="manual_until"><%= t('superadmin.manualUntilLabel') %></label>
                 <input type="date" id="manual_until" name="manual_until" value="<%= formValues.manual_until %>">
               </div>
@@ -163,9 +202,6 @@
             </form>
           </div>
         </dialog>
-        <% if (error) { %>
-          <script>document.getElementById('extend-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>

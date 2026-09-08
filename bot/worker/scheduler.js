@@ -1,5 +1,6 @@
 const { pool } = require('../../src/config/db');
 const venueModel = require('../../src/models/venueModel');
+const reviewModel = require('../../src/models/reviewModel');
 const onboardingModel = require('../../src/models/onboardingModel');
 const notificationModel = require('../../src/models/notificationModel');
 const venueLifecycle = require('../../src/services/venueLifecycle');
@@ -182,6 +183,11 @@ async function checkWeeklyAnalyticsSummary(venue, today) {
   const lang = venue.lang_default || 'ru';
 
   const summary = await analyticsDashboard.buildWeeklySummary(venue, weekStart, weekEnd);
+  // Промт 3.3. Границы недели — календарные даты (UTC), а created_at у отзыва — момент времени,
+  // поэтому верхняя граница берётся полуоткрытой: [weekStart, weekEnd + 1 день).
+  const reviews = venue.reviews_enabled
+    ? await reviewModel.countByPeriod(venue.id, weekStart, addDaysUTC(weekEnd, 1))
+    : { count: 0, average: null };
 
   await notificationModel.enqueue(pool, {
     channel: 'telegram',
@@ -193,6 +199,8 @@ async function checkWeeklyAnalyticsSummary(venue, today) {
       trend_percent: summary.trendPercent,
       top_dishes: summary.topDishes,
       top_empty_searches: summary.topEmptySearches,
+      reviews_count: reviews.count,
+      reviews_average: reviews.average === null ? null : reviews.average.toFixed(1),
     },
     lang,
     // Ключ по началу недели (не по номеру недели ISO — тот же результат, но без отдельной

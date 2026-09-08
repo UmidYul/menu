@@ -1,3 +1,4 @@
+const path = require('path');
 const { z } = require('zod');
 const { SERVICE_NAME } = require('./constants');
 
@@ -57,13 +58,62 @@ if (!appBaseUrl) {
   console.warn('env: APP_BASE_URL не задан — ссылки в письмах и в боте будут некорректны.');
 }
 
+// Промт 4.2. Каталог структурированных логов и токен подробного health-check.
+// LOG_DIR по умолчанию — ./logs рядом с проектом: работает и в разработке, и под pm2.
+// HEALTH_TOKEN не задан — /health/detailed доступен ТОЛЬКО с localhost (см. routes/health.js):
+// открывать наружу сведения о диске, памяти и очередях без пароля нельзя.
+const logDir = process.env.LOG_DIR || path.join(__dirname, '..', '..', 'logs');
+const healthToken = process.env.HEALTH_TOKEN || null;
+// Путь к файлу состояния бэкапов — его пишет скрипт бэкапа (промт 4.1, ещё не сделан).
+// Не задан — health-check честно сообщает «бэкапы не настроены», а не рисует зелёный статус.
+const backupStateFile = process.env.BACKUP_STATE_FILE || null;
+
+// Промт 3.7. Свой домен заведения.
+//
+// SERVICE_HOST — собственный хост сервиса. Это ОПОРНАЯ точка всей маршрутизации по хосту:
+// «Host не совпал с ним» и означает «это кастомный домен». Выводится из APP_BASE_URL, чтобы
+// не заводить вторую правду о том, где живёт сервис, но переопределяется явно — в проде
+// APP_BASE_URL может указывать на www, а служебным считается голый домен.
+//
+// Пустое значение (APP_BASE_URL не задан и SERVICE_HOST не задан) выключает маршрутизацию
+// по хосту целиком: без знания собственного адреса отличить свой хост от чужого нельзя,
+// и безопаснее не пытаться, чем угадывать.
+function hostOf(url) {
+  if (!url) return '';
+  try {
+    return new URL(url).host.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+const serviceHost = (process.env.SERVICE_HOST || '').trim().toLowerCase() || hostOf(appBaseUrl);
+if (isProduction && !serviceHost) {
+  console.warn('env: SERVICE_HOST и APP_BASE_URL не заданы — свои домены заведений работать не будут.');
+}
+
+// Что владелец должен прописать у регистратора. CNAME предпочтительнее (переезд сервера
+// не потребует от заведений менять DNS), A-запись — запасной путь для зон, где CNAME на корне
+// не поддерживается. Инструкция в админке показывает оба, поэтому обе переменные опциональны
+// по отдельности, но без хотя бы одной инструкция получится пустой.
+const customDomainCnameTarget = (process.env.CUSTOM_DOMAIN_CNAME_TARGET || '').trim().toLowerCase() || serviceHost;
+const serverIpv4 = (process.env.SERVER_IPV4 || '').trim() || null;
+
 module.exports = {
   DATABASE_URL: process.env.DATABASE_URL,
+  LOG_DIR: logDir,
+  HEALTH_TOKEN: healthToken,
+  BACKUP_STATE_FILE: backupStateFile,
   SESSION_SECRET: process.env.SESSION_SECRET,
   PORT: port,
   NODE_ENV: nodeEnv,
   isProduction,
   APP_BASE_URL: appBaseUrl,
+
+  // Промт 3.7
+  SERVICE_HOST: serviceHost,
+  CUSTOM_DOMAIN_CNAME_TARGET: customDomainCnameTarget,
+  SERVER_IPV4: serverIpv4,
+  customDomainsConfigured: Boolean(serviceHost),
 
   SMTP_HOST: process.env.SMTP_HOST || null,
   SMTP_PORT: Number(process.env.SMTP_PORT) || 587,

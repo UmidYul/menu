@@ -119,6 +119,20 @@ async function countOptionsInGroup(groupId) {
   return result.rows[0].count;
 }
 
+// Промт 3.6: «каждый запрос к данным обязан фильтровать по activeVenueId В SQL».
+// Ни у групп, ни у вариантов своей venue_id нет — заведение достаётся через цепочку
+// group -> item -> category. Условия вынесены в константы: они повторяются в каждой мутации,
+// и переписывать эту цепочку заново на каждом запросе — верный способ однажды её сократить.
+const GROUP_IN_VENUE = `item_id IN (
+  SELECT i.id FROM items i JOIN categories c ON c.id = i.category_id WHERE c.venue_id = $2
+)`;
+const OPTION_IN_VENUE = `group_id IN (
+  SELECT g.id FROM item_option_groups g
+  JOIN items i ON i.id = g.item_id
+  JOIN categories c ON c.id = i.category_id
+  WHERE c.venue_id = $2
+)`;
+
 async function createGroup(itemId, { nameRu, nameUz, nameEn, selection, isRequired, minSelect, maxSelect }, client) {
   const executor = client || pool;
   const nextOrder = await executor.query(
@@ -137,19 +151,23 @@ async function createGroup(itemId, { nameRu, nameUz, nameEn, selection, isRequir
   return result.rows[0];
 }
 
-async function updateGroup(id, { nameRu, nameUz, nameEn, selection, isRequired, minSelect, maxSelect }) {
+async function updateGroup(id, venueId, { nameRu, nameUz, nameEn, selection, isRequired, minSelect, maxSelect }) {
   const result = await pool.query(
     `UPDATE item_option_groups
-     SET name_ru = $2, name_uz = $3, name_en = $4, selection = $5, is_required = $6, min_select = $7, max_select = $8
-     WHERE id = $1
+     SET name_ru = $3, name_uz = $4, name_en = $5, selection = $6, is_required = $7, min_select = $8, max_select = $9
+     WHERE id = $1 AND ${GROUP_IN_VENUE}
      RETURNING ${GROUP_FIELDS}`,
-    [id, nameRu, nameUz, nameEn || null, selection, isRequired, minSelect, maxSelect]
+    [id, venueId, nameRu, nameUz, nameEn || null, selection, isRequired, minSelect, maxSelect]
   );
   return result.rows[0] || null;
 }
 
-async function removeGroup(id) {
-  await pool.query('DELETE FROM item_option_groups WHERE id = $1', [id]);
+async function removeGroup(id, venueId) {
+  const result = await pool.query(
+    `DELETE FROM item_option_groups WHERE id = $1 AND ${GROUP_IN_VENUE} RETURNING id`,
+    [id, venueId]
+  );
+  return result.rows[0] || null;
 }
 
 async function listGroupsPlainForItem(itemId) {
@@ -160,9 +178,11 @@ async function listGroupsPlainForItem(itemId) {
   return result.rows;
 }
 
-async function swapGroupOrder(client, groupA, groupB) {
-  await client.query('UPDATE item_option_groups SET sort_order = $1 WHERE id = $2', [groupB.sort_order, groupA.id]);
-  await client.query('UPDATE item_option_groups SET sort_order = $1 WHERE id = $2', [groupA.sort_order, groupB.id]);
+async function swapGroupOrder(client, venueId, groupA, groupB) {
+  // $1 — новый порядок, $2 — venue_id (его ждёт GROUP_IN_VENUE), $3 — id группы.
+  const sql = `UPDATE item_option_groups SET sort_order = $1 WHERE id = $3 AND ${GROUP_IN_VENUE}`;
+  await client.query(sql, [groupB.sort_order, venueId, groupA.id]);
+  await client.query(sql, [groupA.sort_order, venueId, groupB.id]);
 }
 
 async function createOption(groupId, { nameRu, nameUz, nameEn, priceDelta, isAvailable, isDefault }, client) {
@@ -185,19 +205,23 @@ async function createOption(groupId, { nameRu, nameUz, nameEn, priceDelta, isAva
   return result.rows[0];
 }
 
-async function updateOption(id, { nameRu, nameUz, nameEn, priceDelta, isAvailable, isDefault }) {
+async function updateOption(id, venueId, { nameRu, nameUz, nameEn, priceDelta, isAvailable, isDefault }) {
   const result = await pool.query(
     `UPDATE item_options
-     SET name_ru = $2, name_uz = $3, name_en = $4, price_delta = $5, is_available = $6, is_default = $7
-     WHERE id = $1
+     SET name_ru = $3, name_uz = $4, name_en = $5, price_delta = $6, is_available = $7, is_default = $8
+     WHERE id = $1 AND ${OPTION_IN_VENUE}
      RETURNING ${OPTION_FIELDS}`,
-    [id, nameRu, nameUz, nameEn || null, priceDelta, isAvailable, isDefault]
+    [id, venueId, nameRu, nameUz, nameEn || null, priceDelta, isAvailable, isDefault]
   );
   return result.rows[0] || null;
 }
 
-async function removeOption(id) {
-  await pool.query('DELETE FROM item_options WHERE id = $1', [id]);
+async function removeOption(id, venueId) {
+  const result = await pool.query(
+    `DELETE FROM item_options WHERE id = $1 AND ${OPTION_IN_VENUE} RETURNING id`,
+    [id, venueId]
+  );
+  return result.rows[0] || null;
 }
 
 // Перетаскивание вариантов (drag & drop в админке) — приходит готовый порядок id.

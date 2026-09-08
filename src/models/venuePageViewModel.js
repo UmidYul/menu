@@ -21,6 +21,32 @@ function computeTrend(current, previous) {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+// Раскладывает строки (viewed_on, view_count) по семи дням, включая дни без просмотров.
+// Отдельной функцией, потому что этим пользуются два экрана: дашборд одного заведения и сводка
+// сети (промт 3.6). Логика «от какой полуночи считать дни» должна быть у них одна: разъедься
+// она, и суммы на двух экранах перестанут сходиться на границе суток.
+function buildDailyBuckets(rows) {
+  // viewed_on приходит сырой строкой 'YYYY-MM-DD' (см. config/db.js) — используем как есть, без Date.
+  const countsByDate = new Map(rows.map((row) => [row.viewed_on, row.view_count]));
+
+  // Дни считаем от UTC-полуночи — так же, как CURRENT_DATE в recordView (сессия БД в UTC),
+  // чтобы бакет "сегодня" совпадал с тем днём, куда реально пишутся просмотры.
+  const now = new Date();
+  const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const date = new Date(todayUtcMidnight - i * 86400000);
+    days.push({ date, count: countsByDate.get(date.toISOString().slice(0, 10)) || 0 });
+  }
+
+  const maxCount = Math.max(1, ...days.map((d) => d.count));
+  return days.map((d) => ({
+    label: d.date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+    count: d.count,
+    heightPercent: Math.max(6, Math.round((d.count / maxCount) * 100)),
+  }));
+}
+
 async function getStats(venueId) {
   const [totalsResult, dailyResult] = await Promise.all([
     pool.query(
@@ -42,29 +68,12 @@ async function getStats(venueId) {
   ]);
 
   const { this_month: totalThisMonth, last_month: totalLastMonth } = totalsResult.rows[0];
-  // viewed_on приходит сырой строкой 'YYYY-MM-DD' (см. config/db.js) — используем как есть, без Date.
-  const countsByDate = new Map(dailyResult.rows.map((row) => [row.viewed_on, row.view_count]));
-
-  // Дни считаем от UTC-полуночи — так же, как CURRENT_DATE в recordView (сессия БД в UTC),
-  // чтобы бакет "сегодня" совпадал с тем днём, куда реально пишутся просмотры.
-  const days = [];
-  const todayUtcMidnight = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
-  for (let i = 6; i >= 0; i -= 1) {
-    const date = new Date(todayUtcMidnight - i * 86400000);
-    const key = date.toISOString().slice(0, 10);
-    days.push({ date, count: countsByDate.get(key) || 0 });
-  }
-  const maxCount = Math.max(1, ...days.map((d) => d.count));
 
   return {
     totalThisMonth,
     trend: computeTrend(totalThisMonth, totalLastMonth),
-    daily: days.map((d) => ({
-      label: d.date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-      count: d.count,
-      heightPercent: Math.max(6, Math.round((d.count / maxCount) * 100)),
-    })),
+    daily: buildDailyBuckets(dailyResult.rows),
   };
 }
 
-module.exports = { recordView, getStats };
+module.exports = { recordView, getStats, buildDailyBuckets };

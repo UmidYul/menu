@@ -89,22 +89,22 @@
                   <button type="submit" class="btn btn-outline"><%= t('superadmin.leadBtnContact') %></button>
                 </form>
               <% } %>
-              <button type="button" class="btn btn-outline" onclick="document.getElementById('reject-modal').showModal()"><%= t('superadmin.leadBtnReject') %></button>
-              <form method="POST" action="/superadmin/leads/<%= lead.id %>/spam" onsubmit="return confirm('<%= t('superadmin.leadBtnSpam') %>?');">
+              <button type="button" class="btn btn-outline" data-modal-open="reject-modal"><%= t('superadmin.leadBtnReject') %></button>
+              <form method="POST" action="/superadmin/leads/<%= lead.id %>/spam" data-confirm="<%= t('superadmin.leadBtnSpam') %>?">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-outline"><%= t('superadmin.leadBtnSpam') %></button>
               </form>
-              <button type="button" class="btn btn-primary" onclick="document.getElementById('approve-modal').showModal()">
+              <button type="button" class="btn btn-primary" data-modal-open="approve-modal">
                 <%- include('../partials/icon', { name: 'check', size: 15 }) %> <%= t('superadmin.leadBtnApprove') %>
               </button>
             </div>
           </div>
         <% } %>
 
-        <dialog id="approve-modal" class="modal">
+        <dialog id="approve-modal" class="modal" <%= (approveError) ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('superadmin.leadApproveHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -149,14 +149,11 @@
             <% } %>
           </div>
         </dialog>
-        <% if (approveError) { %>
-          <script>document.getElementById('approve-modal').showModal();</script>
-        <% } %>
 
-        <dialog id="reject-modal" class="modal">
+        <dialog id="reject-modal" class="modal" <%= (rejectError) ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('superadmin.leadRejectHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -174,9 +171,6 @@
             </form>
           </div>
         </dialog>
-        <% if (rejectError) { %>
-          <script>document.getElementById('reject-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>

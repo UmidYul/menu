@@ -1,0 +1,38 @@
+<%
+// Промт 3.5: «Никакого сайдбара админки — упрощённая шапка, чтобы официант не блуждал
+// по разделам». Здесь ровно то, куда официанту вообще можно: стоп-лист, вызовы (если у
+// заведения включены заказы), свой пароль и выход.
+// Ожидает: active ('stoplist' | 'calls' | 'password'), venueName, displayName, ordersEnabled,
+// lang, t, csrfToken.
+const _ordersEnabled = typeof ordersEnabled !== 'undefined' && ordersEnabled;
+%>
+<header class="staff-header">
+  <div class="staff-header-top">
+    <div class="staff-header-venue">
+      <span class="staff-header-eyebrow"><%= venueName %></span>
+      <b><%= displayName %></b>
+    </div>
+    <form method="POST" action="/admin/logout" class="staff-logout-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="staff-logout-btn" aria-label="<%= t('common.logout') %>">
+        <%- include('./icon', { name: 'logout', size: 18 }) %>
+      </button>
+    </form>
+  </div>
+  <nav class="staff-tabs" aria-label="<%= t('staff.navAriaLabel') %>">
+    <a href="/admin/stoplist" class="staff-tab <%= active === 'stoplist' ? 'is-active' : '' %>">
+      <%- include('./icon', { name: 'list', size: 16 }) %>
+      <%= t('staff.tabStoplist') %>
+    </a>
+    <% if (_ordersEnabled) { %>
+      <a href="/admin/calls" class="staff-tab <%= active === 'calls' ? 'is-active' : '' %>">
+        <%- include('./icon', { name: 'bell', size: 16 }) %>
+        <%= t('staff.tabCalls') %>
+      </a>
+    <% } %>
+    <a href="/admin/password" class="staff-tab <%= active === 'password' ? 'is-active' : '' %>">
+      <%- include('./icon', { name: 'key', size: 16 }) %>
+      <%= t('staff.tabPassword') %>
+    </a>
+  </nav>
+</header>

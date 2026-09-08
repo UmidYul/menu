@@ -50,6 +50,18 @@ const siteSettingsSchema = z.object({
   about_uz: optionalText(600),
   offer_url: optionalUrl,
   privacy_url: optionalUrl,
+  // Домен для печатных макетов (промт 3.4): владелец пишет его так, как он будет напечатан —
+  // «menuva.uz», без схемы и слэшей. Схему принимаем и срезаем сами, чтобы ввод «https://...»
+  // не превращался в мусор на бумаге.
+  print_domain: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v || '').replace(/^https?:\/\//i, '').replace(/\/+$/, ''))
+    .transform((v) => v || null)
+    .refine((v) => v === null || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v), {
+      message: 'siteSettings.errorInvalidDomain',
+    }),
   payment_card_number: optionalText(30),
   payment_card_holder: optionalText(100),
   payment_bank_name: optionalText(100),

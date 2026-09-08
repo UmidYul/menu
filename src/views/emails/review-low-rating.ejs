@@ -1,0 +1,20 @@
+<%
+// payload: { venue_name, rating, comment, contact, table_number }, t, siteSettings, escapeHtml, appBaseUrl
+// Письмо-фолбэк для заведений без привязанного Telegram владельца: notifyVenue уходит на почту
+// заведения (см. src/services/venueLifecycle.js). Содержание то же, что в telegram-варианте.
+const lines = [
+  `<p>${escapeHtml(t('bot.reviews.lowHeading', { venueName: payload.venue_name, rating: payload.rating }))}</p>`,
+];
+if (payload.table_number) {
+  lines.push(`<p>${escapeHtml(t('bot.reviews.tableLine', { table: payload.table_number }))}</p>`);
+}
+lines.push(payload.comment
+  ? `<p>${escapeHtml(t('bot.reviews.commentLine', { comment: payload.comment }))}</p>`
+  : `<p>${escapeHtml(t('bot.reviews.noComment'))}</p>`);
+if (payload.contact) {
+  lines.push(`<p>${escapeHtml(t('bot.reviews.contactLine', { contact: payload.contact }))}</p>`);
+}
+lines.push(`<p><a href="${escapeHtml(appBaseUrl)}/admin/reviews">${escapeHtml(t('bot.reviews.openButton'))}</a></p>`);
+const bodyHtml = lines.join('\n');
+%>
+<%- include('./layout', { title: t('bot.reviews.lowSubject', { venueName: payload.venue_name, rating: payload.rating }), bodyHtml, siteSettings }) %>

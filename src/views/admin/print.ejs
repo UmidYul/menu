@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('nav.print') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'print', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.print'), lang, currentPath: '/admin/print', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.print') %></h1>
+          </div>
+        </div>
+
+        <% if (isDraft) { %>
+          <div class="alert alert-error"><%= t('print.draftWarning') %></div>
+        <% } %>
+        <% if (unsupported.length > 0) { %>
+          <div class="alert alert-error"><%= t('print.unsupportedChars', { chars: unsupported.join(' ') }) %></div>
+        <% } %>
+
+        <div class="print-grid">
+          <%# Карточки макетов. data-* читает print.js: он собирает из них query для
+              предпросмотра и скачивания, чтобы обе кнопки всегда шли с одними настройками. %>
+          <div class="print-layouts" id="printLayouts">
+            <% layouts.forEach((layout, i) => { %>
+              <button type="button" class="print-layout <%= i === 0 ? 'active' : '' %>"
+                      data-layout="<%= layout.id %>" data-per-table="<%= layout.perTable ? '1' : '' %>">
+                <span class="print-layout-thumb print-thumb-<%= layout.id %>"></span>
+                <span class="print-layout-name"><%= t('print.layout_' + layout.id.replace(/-/g, '_')) %></span>
+                <span class="print-layout-size">
+                  <%= layout.widthMm %>×<%= layout.heightMm %> <%= t('print.mm') %><% if (layout.perPage) { %> · <%= t('print.perPage', { count: layout.perPage }) %><% } %>
+                </span>
+              </button>
+            <% }) %>
+          </div>
+
+          <div class="dashboard-card print-settings">
+            <h3><%= t('print.settingsHeading') %></h3>
+
+            <div class="print-field">
+              <span class="print-field-label"><%= t('print.langsLabel') %></span>
+              <div class="print-checks" id="printLangs">
+                <% enabledLangs.forEach((code, i) => { %>
+                  <label class="print-check">
+                    <input type="checkbox" name="langs" value="<%= code %>" <%= i === 0 ? 'checked' : '' %>>
+                    <span><%= t('analytics.langName.' + code) %></span>
+                  </label>
+                <% }) %>
+              </div>
+              <small class="print-hint"><%= t('print.langsHint') %></small>
+            </div>
+
+            <div class="print-field">
+              <label class="print-check">
+                <input type="checkbox" id="printLogo" <%= venue.logo_url && venue.logo_url.startsWith('/uploads/') ? '' : 'disabled' %>>
+                <span><%= t('print.showLogo') %></span>
+              </label>
+              <% if (!venue.logo_url || !venue.logo_url.startsWith('/uploads/')) { %>
+                <small class="print-hint"><%= t('print.noLogoHint') %></small>
+              <% } %>
+              <label class="print-check">
+                <input type="checkbox" id="printContacts" checked>
+                <span><%= t('print.showContacts') %></span>
+              </label>
+            </div>
+
+            <div class="print-field" id="printTablesField" hidden>
+              <span class="print-field-label"><%= t('print.tablesRangeLabel') %></span>
+              <% if (tablesCount === 0) { %>
+                <small class="print-hint"><%= t('print.noTablesHint') %></small>
+              <% } else { %>
+                <div class="print-range">
+                  <input type="number" id="printFrom" min="1" max="<%= tablesCount %>" value="1">
+                  <span>—</span>
+                  <input type="number" id="printTo" min="1" max="<%= tablesCount %>" value="<%= tablesCount %>">
+                </div>
+                <small class="print-hint"><%= t('print.tablesRangeHint', { count: tablesCount }) %></small>
+              <% } %>
+            </div>
+
+            <div class="print-actions">
+              <button type="button" class="btn btn-outline" id="printPreviewBtn"><%= t('print.previewButton') %></button>
+              <a class="btn btn-primary" id="printDownloadBtn" href="#"><%= t('print.downloadButton') %></a>
+            </div>
+
+            <%# Технические подписи — то, что владелец должен передать в типографию или
+                выставить в диалоге печати (промт 3.4, раздел «Настройки перед скачиванием»). %>
+            <ul class="print-tech">
+              <li id="printTechSize"></li>
+              <li><%= t('print.techScale') %></li>
+              <li><%= t('print.techPaper') %></li>
+              <li id="printTechBleed"></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="print-preview-modal" class="modal">
+    <div class="modal-head">
+      <h3><%= t('print.previewHeading') %></h3>
+      <button type="button" class="modal-close" data-modal-close>
+        <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="print-preview-stage" id="printPreviewStage"></div>
+      <p class="print-hint" id="printPreviewNote"></p>
+    </div>
+  </dialog>
+
+  <script type="application/json" id="printLabels">
+    <%- JSON.stringify({
+      size: t('print.techSizeTemplate', { w: '__W__', h: '__H__' }),
+      bleed: t('print.techBleed'),
+      noBleed: t('print.techNoBleed'),
+      previewNote: t('print.previewNote'),
+      previewFailed: t('print.previewFailed'),
+    }).replace(/</g, '\\u003c') %>
+  </script>
+  <script src="/js/print.js" defer></script>
+</body>
+</html>

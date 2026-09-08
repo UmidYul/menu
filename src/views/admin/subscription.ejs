@@ -103,7 +103,7 @@
                     <span class="wifi-field-label"><%= t('subscription.cardNumberLabel') %></span>
                     <div class="wifi-field-value wifi-field-value-password">
                       <span id="subCardNumber"><%= siteSettings.payment_card_number %></span>
-                      <button type="button" class="wifi-copy-btn" data-target="subCardNumber" data-note="subCardCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
+                      <button type="button" class="wifi-copy-btn" data-copy-target="subCardNumber" data-copy-note="subCardCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
                         <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
                       </button>
                     </div>
@@ -119,7 +119,7 @@
                     <span class="wifi-field-label"><%= t('subscription.amountLabel') %></span>
                     <div class="wifi-field-value wifi-field-value-password">
                       <span id="subAmountValue" data-prices="<%= JSON.stringify(periodOptions.map((o) => ({ months: o.months, price: o.price }))) %>"><%= (periodOptions.find((o) => o.months === Number(selectedMonths)) || periodOptions[1]).price.toLocaleString('ru-RU') %></span>
-                      <button type="button" class="wifi-copy-btn" data-target="subAmountValue" data-note="subAmountCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
+                      <button type="button" class="wifi-copy-btn" data-copy-target="subAmountValue" data-copy-note="subAmountCopiedNote" aria-label="<%= t('subscription.copyButton') %>" title="<%= t('subscription.copyButton') %>">
                         <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
                       </button>
                     </div>
@@ -130,8 +130,8 @@
                     <p style="margin:14px 0 0; font-size:13px; color:var(--muted); white-space:pre-line;"><%= instructions %></p>
                   <% } %>
 
-                  <span id="subCardCopiedNote" class="copied" style="display:none; margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.cardNumberCopied') %></span>
-                  <span id="subAmountCopiedNote" class="copied" style="display:none; margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.amountCopied') %></span>
+                  <span id="subCardCopiedNote" class="copied" hidden style="margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.cardNumberCopied') %></span>
+                  <span id="subAmountCopiedNote" class="copied" hidden style="margin-top:8px;"><%- include('../partials/icon', { name: 'check', size: 14 }) %> <%= t('subscription.amountCopied') %></span>
                 <% } else { %>
                   <p style="font-size:13px; color:var(--muted);"><%= t('subscription.noPaymentDetailsConfigured') %></p>
                 <% } %>
@@ -174,34 +174,7 @@
       </div>
     </section>
   </div>
-
-  <script>
-    (function () {
-      var monthRadios = document.querySelectorAll('input[name="months"]');
-      var amountEl = document.getElementById('subAmountValue');
-      if (amountEl) {
-        var prices = JSON.parse(amountEl.dataset.prices || '[]');
-        monthRadios.forEach(function (radio) {
-          radio.addEventListener('change', function () {
-            var match = prices.find(function (p) { return String(p.months) === radio.value; });
-            if (match) amountEl.textContent = match.price.toLocaleString('ru-RU');
-          });
-        });
-      }
-
-      document.querySelectorAll('.wifi-copy-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var valueEl = document.getElementById(btn.dataset.target);
-          var note = document.getElementById(btn.dataset.note);
-          if (!valueEl || !navigator.clipboard || !navigator.clipboard.writeText) return;
-          navigator.clipboard.writeText(valueEl.textContent.trim()).then(function () {
-            if (!note) return;
-            note.style.display = 'inline-flex';
-            setTimeout(function () { note.style.display = 'none'; }, 2000);
-          });
-        });
-      });
-    })();
-  </script>
+  <script src="/js/subscription-price.js" defer></script>
+  <script src="/js/copy-button.js" defer></script>
 </body>
 </html>

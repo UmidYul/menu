@@ -1,7 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const siteSettingsCache = require('../services/siteSettingsCache');
 const paymentClaimModel = require('../models/paymentClaimModel');
@@ -14,7 +14,7 @@ const env = require('../config/env');
 const { GRACE_DAYS } = require('../services/venueLifecycle');
 const { todayUTC, parseDateOnly, diffDaysUTC } = require('../utils/dateOnly');
 
-router.use(requireAuth, requireRole(['venue_admin']));
+router.use(requireAuth, requireVenueRole(['owner']));
 
 function buildPeriodOptions() {
   return CLAIM_MONTHS.map((months) => ({

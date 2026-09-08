@@ -115,7 +115,42 @@ const ordersByIpLimiter = rateLimit({
   },
 });
 
+// Промт 3.3: «лимит 20 отзывов с одного IP в сутки (заведение с общим Wi-Fi)». Порог намеренно
+// не низкий — за одним общим Wi-Fi сидит весь зал. Ограничение «один отзыв в 30 дней на гостя»
+// живёт отдельно, в БД по session_hash: IP у зала общий, а гость — конкретный.
+const reviewsByIpLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipFailedRequests: true,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'too_many_reviews_ip' });
+  },
+});
+
+// Промт 3.7, раздел 4: «кнопка „Проверить сейчас“ (лимит 1 раз в минуту)».
+//
+// Ключ — заведение, а не IP: у сети из десяти точек владелец один и IP один, и лимит по IP
+// не давал бы ему проверить второй домен, пока не пройдёт минута после первого. Лимитируется
+// именно то, что дорого, — обращение к DNS от имени конкретного домена.
+//
+// Ответ — редирект с флагом, а не 429: это обычная форма в кабинете, и человек должен увидеть
+// объяснение на своей странице, а не страницу ошибки. Сам текст подставит шаблон по ключу.
+const domainCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `venue:${(req.session && req.session.admin && req.session.admin.venueId) || 'anon'}`,
+  handler: (req, res) => {
+    res.redirect('/admin/domain?error=domains.checkNowTooOften');
+  },
+});
+
 module.exports = {
+  domainCheckLimiter,
+  reviewsByIpLimiter,
   ordersByIpLimiter,
   loginLimiter,
   loginByAccountLimiter,

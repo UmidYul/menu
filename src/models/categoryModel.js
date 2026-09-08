@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 
 async function listByVenue(venueId) {
   const result = await pool.query(
-    'SELECT id, venue_id, name_ru, name_uz, name_en, sort_order, is_demo FROM categories WHERE venue_id = $1 ORDER BY sort_order, id',
+    'SELECT id, venue_id, name_ru, name_uz, name_en, sort_order, is_demo, schedule_hidden_mode FROM categories WHERE venue_id = $1 ORDER BY sort_order, id',
     [venueId]
   );
   return result.rows;
@@ -15,6 +15,7 @@ async function listByVenue(venueId) {
 async function listByVenueWithCounts(venueId) {
   const result = await pool.query(
     `SELECT c.id, c.venue_id, c.name_ru, c.name_uz, c.name_en, c.sort_order, c.is_demo,
+            c.schedule_hidden_mode,
             COUNT(i.id)::int AS item_count,
             COUNT(i.id) FILTER (WHERE i.is_demo = false)::int AS real_item_count
      FROM categories c
@@ -61,22 +62,30 @@ async function removeDemoCategories(client, venueId) {
   await executor.query('DELETE FROM categories WHERE venue_id = $1 AND is_demo = true', [venueId]);
 }
 
-async function update(id, { nameRu, nameUz, nameEn }) {
+// Промт 3.6: venue_id входит в WHERE самих мутаций, а не проверяется только отдельным SELECT'ом
+// у вызывающего кода. Разница видна ровно тогда, когда она важна: форма пришла из вкладки,
+// открытой в другом заведении сети, — такая строка просто не найдётся, и вернётся null.
+async function update(id, venueId, { nameRu, nameUz, nameEn, scheduleHiddenMode }) {
   const result = await pool.query(
-    `UPDATE categories SET name_ru = $1, name_uz = $2, name_en = $3 WHERE id = $4
-     RETURNING id, venue_id, name_ru, name_uz, name_en, sort_order`,
-    [nameRu, nameUz, nameEn || null, id]
+    `UPDATE categories SET name_ru = $1, name_uz = $2, name_en = $3, schedule_hidden_mode = $4
+     WHERE id = $5 AND venue_id = $6
+     RETURNING id, venue_id, name_ru, name_uz, name_en, sort_order, schedule_hidden_mode`,
+    [nameRu, nameUz, nameEn || null, scheduleHiddenMode, id, venueId]
   );
   return result.rows[0] || null;
 }
 
-async function remove(id) {
-  await pool.query('DELETE FROM categories WHERE id = $1', [id]);
+async function remove(id, venueId) {
+  const result = await pool.query(
+    'DELETE FROM categories WHERE id = $1 AND venue_id = $2 RETURNING id',
+    [id, venueId]
+  );
+  return result.rows[0] || null;
 }
 
-async function swapOrder(client, categoryA, categoryB) {
-  await client.query('UPDATE categories SET sort_order = $1 WHERE id = $2', [categoryB.sort_order, categoryA.id]);
-  await client.query('UPDATE categories SET sort_order = $1 WHERE id = $2', [categoryA.sort_order, categoryB.id]);
+async function swapOrder(client, venueId, categoryA, categoryB) {
+  await client.query('UPDATE categories SET sort_order = $1 WHERE id = $2 AND venue_id = $3', [categoryB.sort_order, categoryA.id, venueId]);
+  await client.query('UPDATE categories SET sort_order = $1 WHERE id = $2 AND venue_id = $3', [categoryA.sort_order, categoryB.id, venueId]);
 }
 
 module.exports = {

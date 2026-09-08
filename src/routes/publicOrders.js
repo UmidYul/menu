@@ -96,9 +96,12 @@ router.post('/:slug', async (req, res, next) => {
     // Пересчёт по актуальному меню — цены и доступность берутся из БД, не из тела запроса.
     const priced = await orderPricing.recomputeOrder(venue, lang, parsed.data.items);
     if (!priced.ok) {
+      // Промт 2.3: «блюдо кончилось» и «блюдо сейчас не по расписанию» — разные новости для
+      // гостя. Общее «меню изменилось» на завтраке в час дня выглядит как поломка сайта.
+      const outOfSchedule = priced.problems.some((problem) => problem.type === 'item_out_of_schedule');
       return res.status(409).json({
         error: 'cart_changed',
-        message: tt('orders.errorCartChanged'),
+        message: outOfSchedule ? tt('schedules.errorCartOutOfSchedule') : tt('orders.errorCartChanged'),
         problems: priced.problems,
         total: priced.total,
       });

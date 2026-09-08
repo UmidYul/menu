@@ -18,7 +18,7 @@
 
         <form method="GET" action="/superadmin/logs" class="field-grid" style="max-width:560px; margin-bottom:20px;">
           <div class="field" style="margin-bottom:0;">
-            <select name="venue_id" onchange="this.form.submit()">
+            <select name="venue_id" data-submit-on-change>
               <option value=""><%= t('superadmin.logsFilterAllVenues') %></option>
               <% venues.forEach((venue) => { %>
                 <option value="<%= venue.id %>" <%= String(filterVenueId) === String(venue.id) ? 'selected' : '' %>><%= venue.name %></option>
@@ -26,7 +26,7 @@
             </select>
           </div>
           <div class="field" style="margin-bottom:0;">
-            <select name="action_type" onchange="this.form.submit()">
+            <select name="action_type" data-submit-on-change>
               <option value=""><%= t('superadmin.logsFilterAllActions') %></option>
               <% actionTypeOptions.forEach((option) => { %>
                 <option value="<%= option.value %>" <%= filterActionType === option.value ? 'selected' : '' %>><%= option.label %></option>

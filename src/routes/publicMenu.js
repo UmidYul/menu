@@ -7,8 +7,11 @@ const itemOptionModel = require('../models/itemOptionModel');
 const venuePageViewModel = require('../models/venuePageViewModel');
 const venueTableModel = require('../models/venueTableModel');
 const menuEventModel = require('../models/menuEventModel');
+const reviewModel = require('../models/reviewModel');
+const availabilityScheduleModel = require('../models/availabilityScheduleModel');
 const eventTracking = require('../services/eventTracking');
 const menuCache = require('../services/menuCache');
+const availability = require('../services/availability');
 const { t, SUPPORTED_LANGS, DEFAULT_LANG } = require('../i18n');
 const { pickLocalized } = require('../utils/localize');
 const { SERVICE_NAME } = require('../config/constants');
@@ -101,8 +104,28 @@ function buildLangSwitcherOptions(enabledLangs) {
   }));
 }
 
+// Промт 3.3, раздел 3. Источник рейтинга ровно один — либо внутренние оценки гостей, либо
+// ручное значение суперадмина; складывать их нельзя. Внутренние побеждают, только когда сбор
+// включён И оценок набралось не меньше MIN_REVIEWS_FOR_RATING: на двух-трёх оценках среднее
+// говорит больше о том, кто первым нажал звезду, чем о заведении.
+// Значение попадает в кэшируемый HTML — это допустимо: оно одинаково для всех гостей, а TTL
+// кэша 5 минут (см. services/menuCache.js) достаточно, чтобы среднее подтянулось. Специально
+// сбрасывать кэш на каждый отзыв не станем: на людном заведении это обнуляло бы кэш постоянно.
+function resolveRating(venue, reviewStats) {
+  const manual = {
+    rating: venue.rating === null || venue.rating === undefined ? null : Number(venue.rating),
+    reviewCount: venue.review_count === null || venue.review_count === undefined ? null : Number(venue.review_count),
+    ratingSource: 'manual',
+  };
+
+  if (!venue.reviews_enabled || !reviewStats) return manual;
+  if (reviewStats.count < reviewModel.MIN_REVIEWS_FOR_RATING || reviewStats.average === null) return manual;
+
+  return { rating: reviewStats.average, reviewCount: reviewStats.count, ratingSource: 'internal' };
+}
+
 // Общие для всей страницы меню заведения поля (профиль, контакты, wifi, футер).
-function buildVenueInfo(venue, lang) {
+function buildVenueInfo(venue, lang, reviewStats) {
   return {
     venueName: venue.name,
     venueSlug: venue.slug,
@@ -120,14 +143,20 @@ function buildVenueInfo(venue, lang) {
     // в кэшируемый HTML. Приём заказов требует и включённого переключателя, и живой привязки
     // к Telegram-группе: без группы заказ некуда отправить, и кнопку показывать незачем.
     ordersAvailable: Boolean(venue.orders_enabled && venue.telegram_chat_id && !venue.telegram_chat_broken),
+    // Промт 3.3. Тоже признак уровня заведения — «включён ли сбор отзывов вообще». Показывать
+    // ли приглашение ИМЕННО ЭТОМУ гостю (не прошло ли 30 дней с его прошлого отзыва) решает
+    // /review/:slug/context: такое в кэшируемый HTML зашивать нельзя.
+    reviewsAvailable: Boolean(venue.reviews_enabled),
+    // Промт 2.5. Версия меню уходит в service worker и версионирует его HTML-кэш: смена
+    // menu_version — это и есть «меню изменилось», старая копия больше не годится.
+    menuVersion: venue.menu_version,
     logoUrl: venue.logo_thumb_url || null,
     coverUrl: venue.cover_url || null,
     description: pickLocalized(venue, 'description', lang),
     cuisine: pickLocalized(venue, 'cuisine', lang),
     categoryLabel: pickLocalized(venue, 'category_label', lang),
     district: pickLocalized(venue, 'district', lang),
-    rating: venue.rating === null || venue.rating === undefined ? null : Number(venue.rating),
-    reviewCount: venue.review_count === null || venue.review_count === undefined ? null : Number(venue.review_count),
+    ...resolveRating(venue, reviewStats),
   };
 }
 
@@ -139,8 +168,8 @@ function buildMetaDescription(venue, tt) {
 
 // JSON-LD (schema.org/Restaurant) — только из реально заполненных полей заведения, без
 // придуманных данных.
-function buildRestaurantJsonLd(venue, baseUrl, lang) {
-  const menuUrl = `${baseUrl}/menu/${venue.slug}`;
+function buildRestaurantJsonLd(venue, baseUrl, lang, effectiveRating, menuPath) {
+  const menuUrl = `${baseUrl}${menuPath}`;
   const data = {
     '@context': 'https://schema.org',
     '@type': 'Restaurant',
@@ -156,10 +185,12 @@ function buildRestaurantJsonLd(venue, baseUrl, lang) {
   }
   const cuisine = pickLocalized(venue, 'cuisine', lang);
   if (cuisine) data.servesCuisine = cuisine;
-  if (venue.rating !== null && venue.rating !== undefined) {
-    data.aggregateRating = { '@type': 'AggregateRating', ratingValue: Number(venue.rating) };
-    if (venue.review_count !== null && venue.review_count !== undefined) {
-      data.aggregateRating.reviewCount = Number(venue.review_count);
+  // Рейтинг в разметке — тот же самый, что нарисован на странице (промт 3.3: два источника
+  // никогда не смешиваются), иначе поисковик увидел бы одно число, а гость — другое.
+  if (effectiveRating.rating !== null) {
+    data.aggregateRating = { '@type': 'AggregateRating', ratingValue: effectiveRating.rating };
+    if (effectiveRating.reviewCount !== null) {
+      data.aggregateRating.reviewCount = effectiveRating.reviewCount;
     }
   }
   const sameAs = [venue.instagram_url, venue.telegram_url].filter(Boolean);
@@ -172,9 +203,27 @@ function buildRestaurantJsonLd(venue, baseUrl, lang) {
 // заведения, независимо от того, какой из /menu/:slug или /menu/:slug/:categoryId запросили.
 const OG_LOCALES = { ru: 'ru_RU', uz: 'uz_UZ', en: 'en_US' };
 
-function buildSeoInfo(venue, req, lang, tt) {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  const bareMenuUrl = `${baseUrl}/menu/${venue.slug}`;
+// Промт 3.7: «Канонический URL, hreflang, OG и sitemap на кастомном домене указывают на него же,
+// а не на основной домен, иначе поисковики склеят страницы неправильно».
+//
+// Всё держится на одной паре значений: baseUrl (по какому хосту пришли) и menuPath (чем является
+// адрес меню на этом хосте). На своём домене меню живёт в КОРНЕ — путь '/', а не '/menu/<slug>';
+// оставить там путь сервиса значило бы объявить каноническим адрес, которого на этом домене нет.
+// Обе величины вычисляются здесь один раз и расходятся во все теги разом, чтобы canonical и
+// hreflang физически не могли разъехаться между собой.
+function menuUrlPartsFor(req, venue) {
+  if (req.customDomain && req.customDomain.venueId === venue.id) {
+    // Основной домен пары, а не тот, по которому пришли: у алиаса с www canonical обязан
+    // указывать на основной, иначе две версии страницы конкурируют друг с другом.
+    const host = req.customDomain.isPrimary ? req.customDomain.domain : req.get('host');
+    return { baseUrl: `${req.protocol}://${host}`, menuPath: '/' };
+  }
+  return { baseUrl: `${req.protocol}://${req.get('host')}`, menuPath: `/menu/${venue.slug}` };
+}
+
+function buildSeoInfo(venue, req, lang, tt, effectiveRating) {
+  const { baseUrl, menuPath } = menuUrlPartsFor(req, venue);
+  const bareMenuUrl = `${baseUrl}${menuPath}`;
   const enabledLangs = venue.enabled_langs || ['ru', 'uz'];
   return {
     baseUrl,
@@ -186,7 +235,7 @@ function buildSeoInfo(venue, req, lang, tt) {
       ...SUPPORTED_LANGS.filter((l) => enabledLangs.includes(l)).map((l) => ({ lang: l, href: `${bareMenuUrl}?lang=${l}` })),
       { lang: 'x-default', href: bareMenuUrl },
     ],
-    restaurantJsonLd: buildRestaurantJsonLd(venue, baseUrl, lang),
+    restaurantJsonLd: buildRestaurantJsonLd(venue, baseUrl, lang, effectiveRating, menuPath),
     serviceName: SERVICE_NAME,
   };
 }
@@ -264,22 +313,66 @@ function buildItemViewModel(item, lang, tt, optionGroups = []) {
 // Вся видимая часть меню собирается одним запросом (все категории заведения сразу), чтобы лента
 // категорий, scroll-spy и поиск по всему меню работали на одной странице без перезагрузки.
 // Категории без единой позиции сами не попадают в выборку (INNER JOIN в listByVenueGrouped).
-function buildMenuViewModel(venue, groupedRows, lang, req, optionGroupsByItem = new Map()) {
+// Промт 2.3. Человекочитаемая подпись расписания: «Пн–Пт 08:00–11:00 · Сб, Вс 09:00–13:00».
+// Дни и часы форматирует services/availability.js, строку из них собирает словарь — сервис
+// намеренно не знает ни про языки, ни про t().
+function buildScheduleLabel(rules, tt) {
+  const dayShortNames = [1, 2, 3, 4, 5, 6, 7].map((day) => tt(`schedules.weekdayShort_${day}`));
+  const parts = availability.describeRules(rules, dayShortNames);
+  if (parts.length === 0) return null;
+
+  return parts
+    .map((part) => {
+      const period = part.allDay ? tt('schedules.allDay') : tt('schedules.timeRange', { from: part.from, to: part.to });
+      return part.allWeek ? period : `${part.days} ${period}`;
+    })
+    .join(' · ');
+}
+
+function buildMenuViewModel(venue, groupedRows, lang, req, optionGroupsByItem = new Map(), reviewStats = null, schedules = []) {
   const tt = (key, params) => t(key, lang, params);
 
-  const groups = itemModel.groupByCategory(groupedRows).map((group) => ({
-    categoryId: group.categoryId,
-    categoryName: pickLocalized(
+  // Промт 2.3. Доступность считается ЗДЕСЬ, на сервере, в часовом поясе заведения — не на
+  // клиенте: страница кэшируется, и клиентский расчёт показал бы завтраки в семь вечера.
+  const now = availability.venueNow(venue.timezone);
+  const { byCategory: rulesByCategory, byItem: rulesByItem } = availabilityScheduleModel.groupByEntity(schedules);
+
+  const groups = itemModel.groupByCategory(groupedRows).map((group) => {
+    const categoryRules = rulesByCategory.get(group.categoryId) || [];
+    const categoryName = pickLocalized(
       { name_ru: group.categoryNameRu, name_uz: group.categoryNameUz, name_en: group.categoryNameEn },
       'name',
       lang
-    ),
-    items: group.items.map((item) => ({
-      ...buildItemViewModel(item, lang, tt, optionGroupsByItem.get(item.id) || []),
-      // Нужна карточке блюда: лента "ещё из этой категории" собирается на клиенте.
+    );
+
+    return {
       categoryId: group.categoryId,
-    })),
-  }));
+      categoryName,
+      scheduleHiddenMode: group.scheduleHiddenMode,
+      hasSchedule: categoryRules.length > 0,
+      scheduleLabel: buildScheduleLabel(categoryRules, tt),
+      availableNow: availability.isAvailableNow(categoryRules, now),
+      items: group.items.map((item) => {
+        // Расписание позиции ПОЛНОСТЬЮ заменяет расписание категории (промт: «расписание
+        // позиции имеет приоритет»), а не дополняет его: иначе «завтрак кроме понедельника»
+        // было бы невыразимо.
+        const ownRules = rulesByItem.get(item.id) || [];
+        const effectiveRules = ownRules.length > 0 ? ownRules : categoryRules;
+
+        return {
+          ...buildItemViewModel(item, lang, tt, optionGroupsByItem.get(item.id) || []),
+          // Нужны карточке блюда: лента "ещё из этой категории" собирается на клиенте.
+          categoryId: group.categoryId,
+          categoryName,
+          scheduleHiddenMode: group.scheduleHiddenMode,
+          // isAvailable (ручной рубильник «нет в наличии») и availableNow (расписание) — разные
+          // вещи и подписываются гостю по-разному: «нет в наличии» против «доступно с 8:00».
+          availableNow: availability.isAvailableNow(effectiveRules, now),
+          scheduleLabel: effectiveRules.length > 0 ? buildScheduleLabel(effectiveRules, tt) : null,
+        };
+      }),
+    };
+  });
 
   // Теги для панели фильтров — только те, что реально встречаются хотя бы у одной позиции
   // этого заведения ("new" — маркетинговый бейдж, а не признак блюда, в фильтр не идёт).
@@ -289,17 +382,75 @@ function buildMenuViewModel(venue, groupedRows, lang, req, optionGroupsByItem = 
   })));
   const availableTags = Array.from(tagSet).map((key) => ({ key, label: tt(`tags.${key}`) }));
 
+  // allItems — ВСЕ позиции, включая скрытые расписанием: по нему строится и прямая ссылка на
+  // блюдо (?item=<id>), и данные карточек на клиенте. Ссылку на утреннее блюдо, открытую
+  // вечером, честнее встретить карточкой с подписью «доступно с 8:00», чем «позиции больше нет».
   const allItems = groups.reduce((acc, group) => acc.concat(group.items), []);
+  const venueInfo = buildVenueInfo(venue, lang, reviewStats);
 
   return {
-    groups,
+    ...applyScheduleVisibility(groups, tt),
     allItems,
     availableTags,
     lang,
     langSwitcherOptions: buildLangSwitcherOptions(venue.enabled_langs || ['ru', 'uz']),
     t: tt,
-    ...buildVenueInfo(venue, lang),
-    ...buildSeoInfo(venue, req, lang, tt),
+    // Ближайшая граница интервала — потолок жизни страницы в кэше (см. menuCache.set).
+    // null означает «расписаний нет», и тогда TTL остаётся обычным.
+    cacheMaxAgeMs: (() => {
+      const seconds = availability.secondsUntilChange(schedules, now);
+      return seconds === null ? null : seconds * 1000;
+    })(),
+    // Для сообщения «сейчас меню недоступно, откроем в 8:00» (edge case промта). Берётся
+    // ближайшее открытие ЛЮБОГО расписания заведения — гостю важно, когда снова будет что
+    // заказать, а не когда откроется конкретная категория.
+    nextOpeningTime: (() => {
+      const seconds = availability.nextOpeningSeconds(schedules, now);
+      return seconds === null ? null : availability.secondsToTime(seconds);
+    })(),
+    ...venueInfo,
+    ...buildSeoInfo(venue, req, lang, tt, venueInfo),
+  };
+}
+
+// Промт 2.3, раздел 3. Три режима того, что делать с недоступным по времени. Режим берётся
+// у категории и применяется ко всем её позициям, включая те, у которых своё расписание.
+function applyScheduleVisibility(groups, tt) {
+  const visibleGroups = [];
+  // Режим 'section' — одна общая секция «Доступно в другое время» внизу страницы, а не по
+  // секции на категорию: иначе низ страницы превратился бы в копию всего меню.
+  const otherTimeItems = [];
+  let totalItems = 0;
+  let unavailableItems = 0;
+
+  groups.forEach((group) => {
+    const availableItems = group.items.filter((item) => item.availableNow);
+    const hiddenItems = group.items.filter((item) => !item.availableNow);
+    totalItems += group.items.length;
+    unavailableItems += hiddenItems.length;
+
+    if (group.scheduleHiddenMode === 'dim') {
+      visibleGroups.push(group);
+      return;
+    }
+
+    if (group.scheduleHiddenMode === 'section') {
+      hiddenItems.forEach((item) => otherTimeItems.push(item));
+    }
+
+    // hide и section: пустая категория не рендерится вовсе — ни заголовка, ни чипса
+    // (edge case промта). Для 'section' её позиции при этом уже уехали вниз.
+    if (availableItems.length === 0) return;
+    visibleGroups.push({ ...group, items: availableItems });
+  });
+
+  return {
+    groups: visibleGroups,
+    otherTimeItems,
+    otherTimeHeading: tt('schedules.otherTimeHeading'),
+    // Меню целиком вне расписания (гость зашёл ночью). Показывать пустую страницу нельзя —
+    // сообщение с ближайшим временем открытия и контактами собирается в renderMenuPage.
+    allItemsOutOfSchedule: totalItems > 0 && unavailableItems === totalItems,
   };
 }
 
@@ -308,6 +459,9 @@ function buildMenuViewModel(venue, groupedRows, lang, req, optionGroupsByItem = 
 // несуществующего slug (см. промт 1.3, раздел "Поведение публичной страницы").
 function renderNotFound(req, res) {
   const lang = SUPPORTED_LANGS.includes(req.query.lang) ? req.query.lang : DEFAULT_LANG;
+  // Промт 2.5: service worker не должен положить эту страницу в кэш меню — иначе гость,
+  // поставивший приложение, увидел бы «не найдено» и после того, как заведение вернулось.
+  res.set('X-Menu-Cacheable', '0');
   return res.status(404).render('public/menu-not-found', { lang, t: (key, params) => t(key, lang, params) });
 }
 
@@ -316,6 +470,10 @@ function renderNotFound(req, res) {
 // suspended, 410 Gone для archived — ясный сигнал поисковику, что страница не вернётся), но
 // вёрстка и текст одинаковые, без единого намёка на причину (гость не должен знать про неоплату).
 function renderUnavailable(req, res, venue, lang, statusCode) {
+  // Промт 2.5, edge case: «гость установил PWA, заведение перешло в suspended — показывается
+  // страница-заглушка, а не старое кэшированное меню». Network-first уже отдаёт свежий ответ,
+  // но заглушка возвращается с кодом 200 и осела бы в кэше как меню — этот заголовок ей мешает.
+  res.set('X-Menu-Cacheable', '0');
   return res.status(statusCode).render('public/menu-unavailable', {
     venueName: venue.name,
     phone: venue.phone,
@@ -341,11 +499,16 @@ function isOwnerPreview(req, venue) {
 }
 
 async function buildFullViewModel(venue, lang, req) {
-  const [rows, optionGroupsByItem] = await Promise.all([
+  const [rows, optionGroupsByItem, reviewStats, schedules] = await Promise.all([
     itemModel.listByVenueGrouped(venue.id),
     itemOptionModel.listGroupsByItemForVenue(venue.id),
+    // Считаем, только если сбор включён: у заведения без отзывов это лишний запрос на каждый
+    // промах кэша, а результат всё равно не будет использован (см. resolveRating).
+    venue.reviews_enabled ? reviewModel.ratingStats(venue.id) : Promise.resolve(null),
+    // Промт 2.3: все расписания заведения одним запросом — и категорий, и позиций.
+    availabilityScheduleModel.listByVenue(venue.id),
   ]);
-  return buildMenuViewModel(venue, rows, lang, req, optionGroupsByItem);
+  return buildMenuViewModel(venue, rows, lang, req, optionGroupsByItem, reviewStats, schedules);
 }
 
 // Мета-теги и начальное состояние для прямой ссылки на блюдо. Позиции может уже не быть
@@ -456,12 +619,18 @@ async function renderMenuPage(req, res, next) {
     if (preview) {
       const viewModel = await buildFullViewModel(venue, lang, req);
       return res.render('public/menu', {
-        ...viewModel, isPreview: true, ...itemLinkExtras(viewModel, requestedItemId, req, venue),
+        ...viewModel, isPreview: true,
+        ...itemLinkExtras(viewModel, requestedItemId, req, venue),
       });
     }
 
+    // Промт 3.7: ключ кэша включает хост — одно и то же меню на своём домене и на адресе
+    // сервиса отдаёт разные canonical/hreflang/og:url (см. menuUrlPartsFor выше), и общий
+    // ключ раздал бы одну из версий на обоих адресах.
+    const cacheHost = req.get('host') || '';
+
     if (!requestedItemId) {
-      const cached = menuCache.get(slug, lang);
+      const cached = menuCache.get(cacheHost, slug, lang);
       if (cached) {
         res.set('Content-Type', 'text/html; charset=utf-8');
         return res.status(200).send(cached);
@@ -477,7 +646,10 @@ async function renderMenuPage(req, res, next) {
 
     res.render('public/menu', { ...viewModel, isPreview: false, ...extras }, (err, html) => {
       if (err) return next(err);
-      menuCache.set(venue.id, slug, lang, html);
+      // Промт 2.3: страница не должна пережить ближайшую границу интервала расписания —
+      // иначе кэш покажет вчерашние завтраки. Без расписаний cacheMaxAgeMs === null и TTL
+      // остаётся прежним (см. services/menuCache.js).
+      menuCache.set(venue.id, cacheHost, slug, lang, html, viewModel.cacheMaxAgeMs);
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.status(200).send(html);
     });

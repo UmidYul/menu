@@ -8,7 +8,12 @@ const { todayUTC, formatDateOnly } = require('../utils/dateOnly');
 // Fire-and-forget: ни при каких обстоятельствах не должно задержать или сломать сам запрос —
 // ошибка здесь только в лог, next() вызывается независимо от результата записи.
 function recordOwnerSessionHash(req) {
-  if (!req.session || !req.session.admin || req.session.admin.role !== 'venue_admin') return;
+  if (!req.session || !req.session.admin) return;
+  // Промт 3.6: признак «это заходил свой, а не гость» теперь определяется ролью В АКТИВНОМ
+  // заведении, а не типом аккаунта. Официант (staff) сюда по-прежнему не попадает: аналитика
+  // исключает просмотры владельца, а не всего персонала.
+  const venueRole = req.session.admin.venueRole;
+  if (venueRole !== 'owner' && venueRole !== 'manager') return;
   const venueId = req.session.admin.venueId;
   if (!venueId) return;
   const hash = sessionHash(req.ip, req.headers['user-agent']);
@@ -38,6 +43,34 @@ function requireRole(roles) {
   };
 }
 
+// Промт 3.6. Роль внутри заведения — то, чем на самом деле определяется доступ в кабинете.
+// requireRole выше проверяет ТИП АККАУНТА (superadmin против пользователя заведения) и остаётся
+// только для суперадминки; всё, что работает с данными заведения, проверяется здесь.
+//
+// Роль берётся из req.session.admin.venueRole, который на каждый запрос выставляет
+// middlewares/activeVenue.js по свежим данным из admin_venues, — не из сессии как таковой.
+// Разница принципиальная: сессия живёт неделю, а отзыв доступа должен действовать сразу.
+//
+// Раскладка ролей (промт 3.6, раздел 3):
+//   owner   — всё, включая подписку, оплату и управление сотрудниками;
+//   manager — всё, кроме перечисленного выше;
+//   staff   — только стоп-лист и вызовы официанта (плюс белый список маршрутов, промт 3.5).
+function requireVenueRole(roles) {
+  return (req, res, next) => {
+    if (!req.session || !req.session.admin) {
+      return res.redirect('/admin/login');
+    }
+    // Суперадмин в кабинет заведения не ходит: у него нет ни активного заведения, ни роли в нём.
+    // Отдельная ветка нужна, чтобы он получал понятный 403, а не «роль undefined».
+    const venueRole = req.session.admin.venueRole;
+    if (!venueRole || !roles.includes(venueRole)) {
+      return res.status(403).render('errors/403');
+    }
+    recordOwnerSessionHash(req);
+    return next();
+  };
+}
+
 // Промт 1.5: пока не сменит одноразовый пароль, венью-админ не должен попасть никуда, кроме
 // самой формы смены (и логаута). Middleware, а не проверка в шаблоне — иначе прямой POST на
 // любой другой роут в обход интерфейса всё равно сработал бы. Ставится ТОЛЬКО на маунты с
@@ -50,4 +83,4 @@ function redirectIfMustChangePassword(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireRole, redirectIfMustChangePassword };
+module.exports = { requireAuth, requireRole, requireVenueRole, redirectIfMustChangePassword };

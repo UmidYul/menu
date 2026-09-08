@@ -14,7 +14,7 @@
       <div class="admin-content">
         <div class="welcome">
           <div><span class="eyebrow"><%= t('categories.eyebrow') %></span><h1><%= t('categories.heading') %></h1></div>
-          <button type="button" class="btn btn-primary" onclick="document.getElementById('add-category-modal').showModal()">
+          <button type="button" class="btn btn-primary" data-modal-open="add-category-modal">
             <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('categories.addHeading') %>
           </button>
         </div>
@@ -32,7 +32,7 @@
               <h3><%= t('categories.emptyHeading') %></h3>
               <p><%= t('categories.emptyExplain') %></p>
               <p class="empty-state-example"><%= t('categories.emptyExample') %></p>
-              <button type="button" class="btn btn-primary" onclick="document.getElementById('add-category-modal').showModal()">
+              <button type="button" class="btn btn-primary" data-modal-open="add-category-modal">
                 <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('categories.emptyCreateFirst') %>
               </button>
               <form method="POST" action="/admin/categories/demo-fill" style="margin-top:12px;">
@@ -67,7 +67,7 @@
                       <%- include('../partials/icon', { name: 'more', size: 18 }) %>
                     </summary>
                     <div class="item-menu-panel">
-                      <button type="button" onclick="this.closest('details').removeAttribute('open'); document.getElementById('edit-category-<%= category.id %>-modal').showModal()">
+                      <button type="button" data-modal-open="edit-category-<%= category.id %>-modal">
                         <%- include('../partials/icon', { name: 'edit', size: 14 }) %> <%= t('common.edit') %>
                       </button>
                       <form method="POST" action="/admin/categories/<%= category.id %>/move">
@@ -98,10 +98,10 @@
           <% } %>
 
           <% categories.forEach((category) => { %>
-            <dialog id="edit-category-<%= category.id %>-modal" class="modal">
+            <dialog id="edit-category-<%= category.id %>-modal" class="modal" <%= (formTarget === `edit-${category.id}` || (scheduleError && scheduleCategoryId === category.id)) ? "data-autoopen" : "" %>>
               <div class="modal-head">
                 <h3><%= t('categories.editHeading') %></h3>
-                <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+                <button type="button" class="modal-close" data-modal-close>
                   <%- include('../partials/icon', { name: 'x', size: 18 }) %>
                 </button>
               </div>
@@ -125,20 +125,41 @@
                     <input type="text" name="name_en" value="<%= category.name_en || '' %>">
                   </div>
                   <% } %>
+                  <%# Промт 2.3: режим показа того, что сейчас вне расписания, — настройка
+                      категории. Лежит в основной форме категории, а не в блоке расписания:
+                      это свойство самой категории, оно осмысленно и без интервалов. %>
+                  <div class="field">
+                    <label for="schedule_hidden_mode_<%= category.id %>"><%= t('schedules.hiddenModeLabel') %></label>
+                    <select id="schedule_hidden_mode_<%= category.id %>" name="schedule_hidden_mode">
+                      <% ['dim', 'hide', 'section'].forEach((mode) => { %>
+                        <option value="<%= mode %>" <%= category.schedule_hidden_mode === mode ? 'selected' : '' %>><%= t('schedules.hiddenMode_' + mode) %></option>
+                      <% }) %>
+                    </select>
+                    <div class="hint"><%= t('schedules.hiddenModeHint') %></div>
+                  </div>
                   <button type="submit" class="btn btn-primary" style="width:100%;"><%= t('common.save') %></button>
                 </form>
+
+                <%# Расписание — соседняя форма, а не вложенная: вложенные <form> запрещены. %>
+                <%- include('../partials/schedule-editor', {
+                  targetType: 'category',
+                  targetId: category.id,
+                  rules: schedulesByCategory.get(category.id) || [],
+                  availableNow: scheduleStateByCategory.get(category.id).availableNow,
+                  warnings: scheduleStateByCategory.get(category.id).warnings,
+                  maxRules: maxScheduleRules,
+                  error: scheduleError && scheduleCategoryId === category.id ? scheduleError : null,
+                  t, csrfToken,
+                }) %>
               </div>
             </dialog>
-            <% if (formTarget === `edit-${category.id}`) { %>
-              <script>document.getElementById('edit-category-<%= category.id %>-modal').showModal();</script>
-            <% } %>
           <% }) %>
         </div>
 
-        <dialog id="add-category-modal" class="modal">
+        <dialog id="add-category-modal" class="modal" <%= (formTarget === 'add') ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('categories.addHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -166,11 +187,9 @@
             </form>
           </div>
         </dialog>
-        <% if (formTarget === 'add') { %>
-          <script>document.getElementById('add-category-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>
+  <script src="/js/schedule-editor.js" defer></script>
 </body>
 </html>

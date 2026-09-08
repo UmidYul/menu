@@ -322,6 +322,64 @@ const TEMPLATES = {
     },
   },
 
+  // Промт 3.7. Уведомления по своему домену заведения. Все три идут владельцу ЗАВЕДЕНИЯ
+  // (telegram, иначе email — правило одно, см. venueLifecycle.notifyVenue), потому что
+  // действовать по ним должен он: поправить DNS, отключить ненужный домен, разослать новый
+  // адрес гостям.
+  domain_active: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.domainActiveText', lang, { venueName: payload.venue_name, domain: payload.domain }) };
+    },
+    email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const text = tt('bot.templates.domainActiveText', { venueName: payload.venue_name, domain: payload.domain });
+      return {
+        subject: tt('bot.templates.domainActiveSubject', { domain: payload.domain }),
+        html: `<p>${escapeHtml(text)}</p>`,
+        text,
+      };
+    },
+  },
+
+  domain_verification_failed: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.domainVerificationFailedText', lang, { venueName: payload.venue_name, domain: payload.domain }) };
+    },
+    email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const text = tt('bot.templates.domainVerificationFailedText', { venueName: payload.venue_name, domain: payload.domain });
+      return {
+        subject: tt('bot.templates.domainVerificationFailedSubject', { domain: payload.domain }),
+        html: `<p>${escapeHtml(text)}</p>`,
+        text,
+      };
+    },
+  },
+
+  domain_lost: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.domainLostText', lang, { venueName: payload.venue_name, domain: payload.domain }) };
+    },
+    email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const text = tt('bot.templates.domainLostText', { venueName: payload.venue_name, domain: payload.domain });
+      return {
+        subject: tt('bot.templates.domainLostSubject', { domain: payload.domain }),
+        html: `<p>${escapeHtml(text)}</p>`,
+        text,
+      };
+    },
+  },
+
+  // Промт 3.7: «Автопродление — стандартным таймером certbot, с алертом ВЛАДЕЛЬЦУ СЕРВИСА
+  // при неудаче». Именно сервису, а не заведению: продление сертификата — наша работа,
+  // и владелец кафе с ней ничего сделать не может.
+  domain_cert_renew_failed: {
+    telegram(payload, lang) {
+      return { text: t('bot.templates.domainCertRenewFailedTelegram', lang, { domain: payload.domain, venueId: payload.venue_id, reason: payload.reason }) };
+    },
+  },
+
   venue_published: {
     telegram(payload, lang) {
       return { text: t('bot.templates.venuePublishedTelegram', lang, { venueName: payload.venue_name, venueId: payload.venue_id }) };
@@ -418,6 +476,38 @@ const TEMPLATES = {
     },
   },
 
+  // Промт 3.3 — низкая оценка владельцу немедленно. Идёт через notifyVenue (личный Telegram
+  // владельца -> email заведения -> владелец сервиса), поэтому нужен и email-рендер: у части
+  // заведений Telegram владельца не привязан, а именно это сообщение терять нельзя.
+  review_low_rating: {
+    telegram(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const parts = [tt('bot.reviews.lowHeading', { venueName: payload.venue_name, rating: payload.rating })];
+      if (payload.table_number) parts.push(tt('bot.reviews.tableLine', { table: payload.table_number }));
+      parts.push(payload.comment
+        ? tt('bot.reviews.commentLine', { comment: payload.comment })
+        : tt('bot.reviews.noComment'));
+      if (payload.contact) parts.push(tt('bot.reviews.contactLine', { contact: payload.contact }));
+
+      const button = Markup.button.url(tt('bot.reviews.openButton'), `${env.APP_BASE_URL}/admin/reviews`);
+      return { text: parts.join('\n\n'), extra: Markup.inlineKeyboard([[button]]) };
+    },
+    async email(payload, lang) {
+      const tt = (key, params) => t(key, lang, params);
+      const siteSettings = await siteSettingsCache.get();
+      const html = await ejs.renderFile(emailPath('review-low-rating'), {
+        payload, t: tt, siteSettings, escapeHtml, appBaseUrl: env.APP_BASE_URL,
+      });
+      return {
+        subject: tt('bot.reviews.lowSubject', { venueName: payload.venue_name, rating: payload.rating }),
+        html,
+        text: tt('bot.reviews.lowHeading', { venueName: payload.venue_name, rating: payload.rating })
+          + '\n\n'
+          + (payload.comment ? tt('bot.reviews.commentLine', { comment: payload.comment }) : tt('bot.reviews.noComment')),
+      };
+    },
+  },
+
   // Промт 3.2, еженедельная сводка аналитики — bot/worker/scheduler.js, раз в понедельник.
   // Кнопка ведёт на саму страницу аналитики (обычная ссылка, не callback — открывается в
   // браузере, не в боте), тот же приём, что и receiptLine выше у payment_claim_created.
@@ -432,11 +522,34 @@ const TEMPLATES = {
       const trendText = payload.trend_percent === null
         ? ''
         : ` (${payload.trend_percent >= 0 ? '+' : ''}${payload.trend_percent}%)`;
+      // Промт 3.3: высокие оценки владельца немедленно не дёргают — они приходят сюда, одной
+      // строкой рядом с просмотрами. Строки нет вовсе, если за неделю не было ни одной оценки.
+      const reviewsLine = payload.reviews_count > 0
+        ? `\n${t('bot.templates.weeklySummaryReviews', lang, { count: payload.reviews_count, average: payload.reviews_average })}`
+        : '';
       const text = t('bot.templates.weeklySummaryHeading', lang, { venueName: payload.venue_name })
         + `\n${t('bot.templates.weeklySummaryViews', lang, { count: payload.total_views })}${trendText}`
-        + dishesLine + emptySearchLine;
+        + dishesLine + emptySearchLine + reviewsLine;
       const button = Markup.button.url(t('bot.templates.weeklySummaryButton', lang), `${env.APP_BASE_URL}/admin/analytics`);
       return { text, extra: Markup.inlineKeyboard([[button]]) };
+    },
+  },
+
+  // Промт 4.2. Алерт владельцу сервиса о 500-й. Дедупликация живёт не здесь, а в
+  // src/services/errorAlerts.js — шаблон только рисует то, что до него дошло.
+  // В payload намеренно нет ни паролей, ни токенов, ни содержимого сессии: они срезаются
+  // фильтром чувствительных ключей ещё до постановки в очередь.
+  server_error: {
+    telegram(payload, lang) {
+      const parts = [t('bot.templates.serverErrorHeading', lang, { route: payload.route })];
+      if (payload.venue_id) parts.push(t('bot.templates.serverErrorVenue', lang, { venueId: payload.venue_id }));
+      if (payload.repeats > 0) parts.push(t('bot.templates.serverErrorRepeats', lang, { count: payload.repeats }));
+      // Стек в моноширинном блоке: в Telegram он иначе сворачивается в кашу из-за переносов.
+      // parse_mode Markdown, а не HTML: экранировать стек под HTML пришлось бы вручную,
+      // а в моноширинном блоке Markdown спецсимволы значения не имеют.
+      const fence = '```';
+      parts.push(`${fence}\n${payload.stack}\n${fence}`);
+      return { text: parts.join('\n\n'), extra: { parse_mode: 'Markdown' } };
     },
   },
 

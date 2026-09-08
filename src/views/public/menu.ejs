@@ -26,9 +26,29 @@
   <meta name="twitter:description" content="<%= metaDescription %>">
   <meta name="twitter:image" content="<%= ogImageUrl %>">
   <%- include('../partials/head-assets') %>
+  <%# Промт 2.5. Манифест свой на каждое заведение — гость ставит на домашний экран «Одессу MA»,
+      а не «qr.menu». theme_color дублируется мета-тегом: манифест читают не все браузеры,
+      а цвет системной строки хочется видеть и в обычной вкладке. Значение — тот же токен
+      --primary, литералом (в манифесте и мета-теге переменные не работают). %>
+  <link rel="manifest" href="/menu/<%= venueSlug %>/manifest.webmanifest">
+  <meta name="theme-color" content="#c65d42">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="<%= venueName %>">
   <script type="application/ld+json"><%- toSafeJsonLd(restaurantJsonLd) %></script>
 </head>
 <body>
+  <%# Промт 2.5: индикация — ненавязчивая ПОЛОСА, а не модалка, и её можно закрыть.
+      Одна полоса на три сообщения (сохранённое меню / готово обновление / предложение
+      установки): показывать их одновременно всё равно незачем, а три разных элемента
+      в разметке разошлись бы по стилю. %>
+  <div id="pwaBar" class="pwa-bar" hidden role="status" aria-live="polite">
+    <span id="pwaBarText" class="pwa-bar-text"></span>
+    <button type="button" id="pwaBarAction" class="pwa-bar-action" hidden></button>
+    <button type="button" id="pwaBarClose" class="pwa-bar-close" aria-label="<%= t('pwa.closeAriaLabel') %>">
+      <%- include('../partials/icon', { name: 'x', size: 16 }) %>
+    </button>
+  </div>
   <% if (isPreview) { %>
     <div class="preview-banner"><%= t('publicMenu.previewBanner') %></div>
   <% } %>
@@ -44,7 +64,7 @@
               </a>
             <% } %>
             <% if (wifiSsid && wifiPassword) { %>
-              <button type="button" class="header-icon-link" aria-label="<%= t('publicMenu.wifiHeading') %>" title="<%= t('publicMenu.wifiHeading') %>" onclick="document.getElementById('wifi-modal').showModal()">
+              <button type="button" class="header-icon-link" aria-label="<%= t('publicMenu.wifiHeading') %>" title="<%= t('publicMenu.wifiHeading') %>" data-modal-open="wifi-modal">
                 <%- include('../partials/icon', { name: 'wifi', size: 16 }) %>
               </button>
             <% } %>
@@ -67,7 +87,7 @@
           <% }) %>
         </div>
         <% } %>
-        <button type="button" id="shareBtn" aria-label="<%= t('publicMenu.shareButton') %>">
+        <button type="button" id="shareBtn" data-share-button data-share-note="copiedNote" aria-label="<%= t('publicMenu.shareButton') %>">
           <%- include('../partials/icon', { name: 'share', size: 18 }) %>
         </button>
       </div>
@@ -76,17 +96,23 @@
     <div class="venue-page container">
       <div class="venue-page-aside">
         <%- include('../partials/venue-card', {
-          venueName, logoUrl, coverUrl, cuisine, categoryLabel, district, rating, reviewCount,
+          venueName, logoUrl, coverUrl, cuisine, categoryLabel, district, rating, reviewCount, ratingSource,
           description, address, address2gisUrl, workingHours, phone, email, t,
         }) %>
-        <span id="copiedNote" class="copied" style="display:none;">
+        <span id="copiedNote" class="copied" hidden>
           <%- include('../partials/icon', { name: 'check', size: 13 }) %>
           <%= t('publicMenu.shareCopied') %>
         </span>
       </div>
 
       <div class="venue-page-main">
-        <% if (groups.length === 0) { %>
+        <%# «Меню пустое» и «меню сейчас закрыто по расписанию» — разные вещи, и путать их
+            нельзя: первое означает, что заведение ещё не завело позиции, второе — что гость
+            пришёл в неурочный час. В режиме hide на странице не остаётся ни одной секции,
+            и без этой ветки гость увидел бы именно «пустое меню» (edge case промта 2.3). %>
+        <% if (groups.length === 0 && otherTimeItems.length === 0 && allItemsOutOfSchedule) { %>
+          <%- include('../partials/menu-closed-note', { nextOpeningTime, t }) %>
+        <% } else if (groups.length === 0 && otherTimeItems.length === 0) { %>
           <p class="empty-note"><%= t('publicMenu.empty') %></p>
         <% } else { %>
           <div class="menu-toolbar">
@@ -160,7 +186,9 @@
             <div class="category-nav-track" id="categoryNavTrack">
               <button type="button" class="category-chip active" data-category-chip="all"><%= t('publicMenu.allCategoriesLabel') %></button>
               <% groups.forEach((group) => { %>
-                <button type="button" class="category-chip" data-category-chip="category-<%= group.categoryId %>" data-category-id="<%= group.categoryId %>"><%= group.categoryName %></button>
+                <%# Промт 2.3: недоступная сейчас категория приглушена. В режимах hide/section
+                    её здесь уже нет — она отфильтрована на сервере (applyScheduleVisibility). %>
+                <button type="button" class="category-chip <%= group.availableNow ? '' : 'chip-out-of-schedule' %>" data-category-chip="category-<%= group.categoryId %>" data-category-id="<%= group.categoryId %>"><%= group.categoryName %></button>
               <% }) %>
             </div>
             <button type="button" class="category-nav-arrow category-nav-arrow-right" data-scroll-dir="1" aria-label="<%= t('publicMenu.scrollCategoriesRight') %>" hidden>
@@ -170,10 +198,19 @@
 
           <p class="empty-note" id="searchEmptyNote" hidden><%= t('publicMenu.searchEmpty') %></p>
 
+          <%# Режимы dim и section: секции на странице есть, сообщение идёт над ними. %>
+          <% if (allItemsOutOfSchedule) { %>
+            <%- include('../partials/menu-closed-note', { nextOpeningTime, t }) %>
+          <% } %>
+
           <div class="menu-sections" id="menuSections">
             <% groups.forEach((group, groupIndex) => { %>
-              <section class="menu-section" id="category-<%= group.categoryId %>" aria-labelledby="category-heading-<%= group.categoryId %>" data-category-section>
+              <section class="menu-section <%= group.availableNow ? '' : 'section-out-of-schedule' %>" id="category-<%= group.categoryId %>" aria-labelledby="category-heading-<%= group.categoryId %>" data-category-section>
                 <h2 class="menu-section-heading" id="category-heading-<%= group.categoryId %>"><%= group.categoryName %></h2>
+                <%# Мелкая подпись с часами в шапке категории с расписанием (промт 2.3, п.3). %>
+                <% if (group.scheduleLabel) { %>
+                  <p class="menu-section-schedule"><%= group.scheduleLabel %></p>
+                <% } %>
                 <div class="dish-list">
                   <% group.items.forEach((item, itemIndex) => { %>
                     <%- include('../partials/dish-row', {
@@ -185,6 +222,19 @@
                 </div>
               </section>
             <% }) %>
+
+            <%# Режим 'section': всё недоступное по времени — одной секцией внизу. Она вне
+                data-category-section, поэтому не попадает в scroll-spy и чипсы. %>
+            <% if (otherTimeItems.length > 0) { %>
+              <section class="menu-section menu-section-other-time" id="other-time-section" aria-labelledby="other-time-heading">
+                <h2 class="menu-section-heading" id="other-time-heading"><%= otherTimeHeading %></h2>
+                <div class="dish-list">
+                  <% otherTimeItems.forEach((item) => { %>
+                    <%- include('../partials/dish-row', { item, t, categoryName: item.categoryName, reveal: false, revealDelay: 0 }) %>
+                  <% }) %>
+                </div>
+              </section>
+            <% } %>
           </div>
         <% } %>
       </div>
@@ -247,10 +297,88 @@
     </button>
   </div>
 
+  <% if (reviewsAvailable) { %>
+    <%# Промт 3.3. Приглашение к отзыву. В HTML попадает только «сбор включён у заведения» —
+        показывать ли карточку ИМЕННО этому гостю (не оставлял ли он отзыв в последние 30 дней)
+        решает review-flow.js после ответа /review/:slug/context, потому что страница кэшируется
+        по slug+lang. Звёзды — нативные radio: работают с клавиатуры и читаются скринридером,
+        а базовый выбор оценки не требует JS вообще. %>
+    <aside id="reviewPrompt" class="review-prompt" hidden>
+      <button type="button" id="reviewPromptDismiss" class="review-prompt-dismiss" aria-label="<%= t('reviews.dismissAriaLabel') %>">
+        <%- include('../partials/icon', { name: 'x', size: 16 }) %>
+      </button>
+      <p class="review-prompt-title"><%= t('reviews.promptTitle') %></p>
+      <fieldset class="review-stars" id="reviewPromptStars">
+        <legend class="sr-only"><%= t('reviews.ratingLegend') %></legend>
+        <%# Звёзды идут в разметке от 5 к 1, а flex-direction: row-reverse возвращает их на
+            экране в привычный порядок 1..5. Это единственный способ подсветить «все звёзды до
+            выбранной» чистым CSS: селектор ~ умеет смотреть только вперёд по разметке.
+            Плата — стрелки клавиатуры внутри группы идут справа налево; подпись каждой звезды
+            («3 из 5») читается скринридером явно, так что смысл выбора от этого не теряется. %>
+        <% for (let star = 5; star >= 1; star--) { %>
+          <input type="radio" class="review-star-input" name="reviewRating" id="reviewStar<%= star %>" value="<%= star %>">
+          <label class="review-star-label" for="reviewStar<%= star %>" title="<%= t('reviews.starAriaLabel', { star }) %>">
+            <%- include('../partials/icon', { name: 'star', size: 30 }) %>
+            <span class="sr-only"><%= t('reviews.starAriaLabel', { star }) %></span>
+          </label>
+        <% } %>
+      </fieldset>
+    </aside>
+
+    <dialog id="review-modal" class="modal modal-sheet">
+      <div class="modal-head">
+        <h3 id="reviewModalTitle"><%= t('reviews.modalTitle') %></h3>
+        <button type="button" class="modal-close" data-modal-close>
+          <%- include('../partials/icon', { name: 'x', size: 18 }) %>
+        </button>
+      </div>
+      <%# is-high / is-low переставляют местами блок карт и блок «для владельца» (см. CSS,
+          свойство order) — разметка одна, чтобы обе ветки гарантированно жили в одном коде
+          и кнопки публичного отзыва невозможно было случайно спрятать в одной из них. %>
+      <div class="modal-body review-body" id="reviewBody">
+        <div id="reviewError" class="alert alert-error" hidden></div>
+
+        <div class="review-chosen" id="reviewChosen">
+          <span class="review-chosen-stars" id="reviewChosenStars" aria-hidden="true"></span>
+          <button type="button" class="review-change-btn" id="reviewChangeBtn"><%= t('reviews.changeRating') %></button>
+        </div>
+
+        <div class="review-owner-block" id="reviewOwnerBlock">
+          <label class="review-field">
+            <span class="review-field-label" id="reviewCommentLabel"></span>
+            <textarea id="reviewComment" rows="3" maxlength="2000"></textarea>
+          </label>
+          <label class="review-field">
+            <span class="review-field-label"><%= t('reviews.contactLabel') %></span>
+            <input type="text" id="reviewContact" maxlength="120" placeholder="<%= t('reviews.contactPlaceholder') %>">
+          </label>
+          <p class="review-privacy-note"><%= t('reviews.privacyNote') %></p>
+          <button type="button" id="reviewSubmitBtn" class="btn btn-primary review-submit"><%= t('reviews.submitButton') %></button>
+          <p class="review-thanks" id="reviewThanks" hidden></p>
+        </div>
+
+        <%# Кнопки публичного отзыва видны в обеих ветках. В ветке низкой оценки они ниже и
+            спокойнее по акценту, но не спрятаны и не заблокированы: прятать их неэтично и
+            прямо запрещено правилами Google и Яндекса. %>
+        <div class="review-maps" id="reviewMaps" hidden>
+          <p class="review-maps-hint" id="reviewMapsHint"></p>
+          <a id="reviewGoogleLink" class="btn review-map-btn" href="#" target="_blank" rel="noopener" hidden>
+            <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+            <%= t('reviews.googleButton') %>
+          </a>
+          <a id="reviewYandexLink" class="btn review-map-btn" href="#" target="_blank" rel="noopener" hidden>
+            <%- include('../partials/icon', { name: 'externallink', size: 16 }) %>
+            <%= t('reviews.yandexButton') %>
+          </a>
+        </div>
+      </div>
+    </dialog>
+  <% } %>
+
   <dialog id="cart-modal" class="modal">
     <div class="modal-head">
       <h3><%= t('publicMenu.cartTitle') %></h3>
-      <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+      <button type="button" class="modal-close" data-modal-close>
         <%- include('../partials/icon', { name: 'x', size: 18 }) %>
       </button>
     </div>
@@ -275,7 +403,7 @@
   <dialog id="item-options-modal" class="modal modal-sheet">
     <div class="modal-head">
       <h3 id="optionsModalTitle"></h3>
-      <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+      <button type="button" class="modal-close" data-modal-close>
         <%- include('../partials/icon', { name: 'x', size: 18 }) %>
       </button>
     </div>
@@ -298,7 +426,7 @@
     <dialog id="order-modal" class="modal modal-sheet">
       <div class="modal-head">
         <h3 id="orderModalTitle"><%= t('orders.confirmHeading') %></h3>
-        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+        <button type="button" class="modal-close" data-modal-close>
           <%- include('../partials/icon', { name: 'x', size: 18 }) %>
         </button>
       </div>
@@ -353,7 +481,7 @@
     <dialog id="waiter-modal" class="modal modal-sheet">
       <div class="modal-head">
         <h3><%= t('orders.waiterHeading') %></h3>
-        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+        <button type="button" class="modal-close" data-modal-close>
           <%- include('../partials/icon', { name: 'x', size: 18 }) %>
         </button>
       </div>
@@ -405,7 +533,7 @@
     <dialog id="wifi-modal" class="modal wifi-modal">
       <div class="modal-head">
         <h3><%- include('../partials/icon', { name: 'wifi', size: 18 }) %> <%= t('publicMenu.wifiHeading') %></h3>
-        <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+        <button type="button" class="modal-close" data-modal-close>
           <%- include('../partials/icon', { name: 'x', size: 18 }) %>
         </button>
       </div>
@@ -418,7 +546,7 @@
           <span class="wifi-field-label"><%= t('venueSettings.wifiPasswordLabel') %></span>
           <div class="wifi-field-value wifi-field-value-password">
             <span id="wifiPasswordValue"><%= wifiPassword %></span>
-            <button type="button" class="wifi-copy-btn" data-target="wifiPasswordValue" data-note="wifiCopiedNote" aria-label="<%= t('publicMenu.wifiCopyButton') %>" title="<%= t('publicMenu.wifiCopyButton') %>">
+            <button type="button" class="wifi-copy-btn" data-copy-target="wifiPasswordValue" data-copy-note="wifiCopiedNote" aria-label="<%= t('publicMenu.wifiCopyButton') %>" title="<%= t('publicMenu.wifiCopyButton') %>">
               <%- include('../partials/icon', { name: 'copy', size: 15 }) %>
             </button>
           </div>
@@ -439,49 +567,6 @@
   <script src="/js/event-tracker.js" defer></script>
   <script src="/js/public-menu.js" defer></script>
 
-  <script>
-    (function () {
-      var btn = document.getElementById('shareBtn');
-      var note = document.getElementById('copiedNote');
-      if (!btn) return;
-      btn.addEventListener('click', function () {
-        var url = window.location.href;
-        var title = document.title;
-        if (window.eventTracker) window.eventTracker.track('share');
-        if (navigator.share) {
-          navigator.share({ title: title, url: url }).catch(function () {});
-          return;
-        }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(function () {
-            note.style.display = 'inline-flex';
-            setTimeout(function () { note.style.display = 'none'; }, 2000);
-          });
-        }
-      });
-    })();
-  </script>
-
-  <script>
-    // Общий обработчик для всех кнопок копирования wifi-пароля — их может быть несколько
-    // (шапка + инфо-блок), каждая указывает на свою пару value/note через data-атрибуты.
-    (function () {
-      document.querySelectorAll('.wifi-copy-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var valueEl = document.getElementById(btn.dataset.target);
-          var note = document.getElementById(btn.dataset.note);
-          if (!valueEl || !navigator.clipboard || !navigator.clipboard.writeText) return;
-          if (window.eventTracker) window.eventTracker.track('wifi_copy');
-          navigator.clipboard.writeText(valueEl.textContent).then(function () {
-            if (!note) return;
-            note.style.display = 'inline-flex';
-            setTimeout(function () { note.style.display = 'none'; }, 2000);
-          });
-        });
-      });
-    })();
-  </script>
-
   <%#
     Данные меню для клиентской корзины и модалки опций (промт 2.1). JSON, а не набор
     data-атрибутов на строках: модалке нужны группы/варианты целиком, а корзине — ещё и
@@ -495,9 +580,12 @@
         slug: venueSlug,
         // Порядок позиций в меню: ключи объекта items — числовые, и движок JS сортирует их
         // по возрастанию, а лента "ещё из этой категории" должна идти в порядке меню.
-        order: groups.reduce((acc, category) => acc.concat(category.items.map((i) => i.id)), []),
-        items: groups.reduce((acc, category) => {
-          category.items.forEach((item) => {
+        // Промт 2.3: список строится по allItems, а не по видимым группам — иначе прямая ссылка
+        // на утреннее блюдо, открытая вечером, показала бы «позиции больше нет» вместо честной
+        // карточки с подписью «доступно с 8:00».
+        order: allItems.map((i) => i.id),
+        items: allItems.reduce((acc, item) => {
+          {
             acc[item.id] = {
               id: item.id,
               name: item.name,
@@ -513,7 +601,10 @@
               groups: item.optionGroups,
               // Данные карточки блюда (промт 2.2)
               categoryId: item.categoryId,
-              categoryName: category.categoryName,
+              categoryName: item.categoryName,
+              // Промт 2.3: карточка блюда подписывает расписание отдельно от «нет в наличии».
+              availableNow: item.availableNow !== false,
+              scheduleLabel: item.scheduleLabel || null,
               isAvailable: item.isAvailable,
               tags: item.tags,
               calories: item.calories,
@@ -523,7 +614,7 @@
               spicyLevel: item.spicyLevel,
               isPopular: item.isPopular,
             };
-          });
+          }
           return acc;
         }, {}),
         initialItemId: locals.initialItemId || null,
@@ -558,6 +649,23 @@
           orderSentHeading: t('orders.sentOrderNumberLabel'),
           orderGenericError: t('orders.genericError'),
           orderNetworkError: t('orders.networkError'),
+          reviewCommentHigh: t('reviews.commentLabelHigh'),
+          reviewCommentLow: t('reviews.commentLabelLow'),
+          reviewCommentPlaceholderHigh: t('reviews.commentPlaceholderHigh'),
+          reviewCommentPlaceholderLow: t('reviews.commentPlaceholderLow'),
+          reviewTitleHigh: t('reviews.modalTitleHigh'),
+          reviewTitleLow: t('reviews.modalTitleLow'),
+          reviewMapsHintHigh: t('reviews.mapsHintHigh'),
+          reviewMapsHintLow: t('reviews.mapsHintLow'),
+          reviewSubmitHigh: t('reviews.submitButtonHigh'),
+          reviewSubmitLow: t('reviews.submitButtonLow'),
+          reviewThanks: t('reviews.thanks'),
+          reviewThanksContact: t('reviews.thanksWithContact'),
+          reviewAlready: t('reviews.errorAlreadyReviewed'),
+          reviewGenericError: t('reviews.genericError'),
+          reviewStarAria: t('reviews.starAriaLabel', { star: '__STAR__' }),
+          scheduleAvailableAt: t('schedules.availableAt', { schedule: '__SCHEDULE__' }),
+          scheduleOutOfSchedule: t('schedules.outOfScheduleBadge'),
         },
       }).replace(/</g, '\\u003c')
     %>
@@ -565,5 +673,26 @@
   <script src="/js/menu-cart.js" defer></script>
   <script src="/js/dish-card.js" defer></script>
   <% if (ordersAvailable) { %><script src="/js/order-flow.js" defer></script><% } %>
+  <% if (reviewsAvailable) { %><script src="/js/review-flow.js" defer></script><% } %>
+  <%# Промт 2.5. Версия меню уходит в service worker через postMessage (не через URL
+      регистрации): разные заведения в одном браузере делят одну область действия, и смена
+      URL скрипта перерегистрировала бы воркер туда-сюда на каждом переходе между меню. %>
+  <script type="application/json" id="pwaData">
+    <%- JSON.stringify({
+      slug: venueSlug,
+      menuVersion: String(menuVersion),
+      labels: {
+        staleMenu: t('pwa.staleMenu'),
+        updateReady: t('pwa.updateReady'),
+        updateAction: t('pwa.updateAction'),
+        installOffer: t('pwa.installOffer'),
+        installAction: t('pwa.installAction'),
+        installIos: t('pwa.installIos'),
+      },
+    }).replace(/</g, '\u003c') %>
+  </script>
+  <script src="/js/share-button.js" defer></script>
+  <script src="/js/copy-button.js" defer></script>
+  <script src="/js/pwa.js" defer></script>
 </body>
 </html>

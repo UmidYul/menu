@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const { pool } = require('../config/db');
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
+// Промт 3.5: ссылка быстрого входа сотрудника живёт 24 часа — владелец пересылает её официанту
+// в Telegram и не должен гнаться за часовым окном восстановления пароля. Механика та же самая
+// (одноразовый токен, в БД только хеш), отличается лишь срок, поэтому отдельной таблицы нет.
+const STAFF_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function generateRawToken() {
   return crypto.randomBytes(32).toString('base64url');
@@ -14,7 +18,7 @@ function hashToken(rawToken) {
 // Создание нового токена сразу гасит все непогашенные токены этого админа (промт 1.5: "при
 // создании нового токена все предыдущие для этого пользователя помечаются использованными") —
 // возвращает СЫРОЕ значение (для ссылки в письме/сообщении), в БД остаётся только его хеш.
-async function create(adminId, { requestedIpHash } = {}) {
+async function create(adminId, { requestedIpHash, ttlMs } = {}) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -24,7 +28,7 @@ async function create(adminId, { requestedIpHash } = {}) {
     );
     const rawToken = generateRawToken();
     const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+    const expiresAt = new Date(Date.now() + (ttlMs || TOKEN_TTL_MS));
     await client.query(
       `INSERT INTO password_reset_tokens (admin_id, token_hash, expires_at, requested_ip_hash)
        VALUES ($1, $2, $3, $4)`,
@@ -67,4 +71,4 @@ async function claimToken(rawToken) {
   return result.rows[0] || null;
 }
 
-module.exports = { create, findValidByRawToken, claimToken };
+module.exports = { create, findValidByRawToken, claimToken, TOKEN_TTL_MS, STAFF_INVITE_TTL_MS };

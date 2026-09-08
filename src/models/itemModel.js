@@ -8,7 +8,8 @@ async function listByVenueGrouped(venueId) {
             i.price, i.old_price, i.currency, i.photo_url, i.photo_thumb_url, i.tags, i.is_available, i.sort_order,
             i.is_demo, i.weight_value, i.weight_unit, i.cooking_time_minutes, i.allergens, i.spicy_level, i.is_popular,
             c.name_ru AS category_name_ru, c.name_uz AS category_name_uz, c.name_en AS category_name_en,
-            c.sort_order AS category_sort_order
+            c.sort_order AS category_sort_order,
+            c.schedule_hidden_mode AS category_schedule_hidden_mode
      FROM items i
      JOIN categories c ON c.id = i.category_id
      WHERE c.venue_id = $1
@@ -63,6 +64,9 @@ function groupByCategory(items) {
         categoryNameRu: item.category_name_ru,
         categoryNameUz: item.category_name_uz,
         categoryNameEn: item.category_name_en,
+        // Промт 2.3: режим показа того, что сейчас вне расписания, — настройка категории,
+        // позиции своего режима не имеют и наследуют этот.
+        scheduleHiddenMode: item.category_schedule_hidden_mode || 'dim',
         items: [],
       };
       byCategoryId.set(item.category_id, group);
@@ -156,9 +160,20 @@ async function removeDemoItems(client, venueId) {
   );
 }
 
+// Промт 3.6: «каждый запрос к данным обязан фильтровать по activeVenueId В SQL».
+//
+// venueId ОБЯЗАТЕЛЕН у всех мутаций ниже. Вызывающий код и так проверяет владение через
+// loadOwnItemOr404, но проверка отдельным SELECT'ом и мутация по голому id — это два разных
+// запроса: между ними сессия может переключиться на другое заведение, а форма — прийти из
+// вкладки, открытой в первом. С заведением внутри самого UPDATE такой промах невозможен:
+// чужая строка просто не попадёт под условие, и вернётся null.
+//
+// У items своей venue_id нет — заведение у позиции только через категорию, поэтому условие
+// принадлежности везде ниже выражено подзапросом по categories.
+//
 // photoUrl/photoThumbUrl передаются только когда загружено новое фото — если их нет (null),
 // уже сохранённая в БД фотография остаётся без изменений (COALESCE).
-async function update(id, {
+async function update(id, venueId, {
   categoryId, nameRu, nameUz, nameEn, descriptionRu, descriptionUz, descriptionEn,
   compositionRu, compositionUz, compositionEn, calories, price, oldPrice, currency, tags, photoUrl, photoThumbUrl,
   weightValue, weightUnit, cookingTimeMinutes, allergens, spicyLevel, isPopular,
@@ -173,6 +188,10 @@ async function update(id, {
          weight_value = $19, weight_unit = $20, cooking_time_minutes = $21,
          allergens = $22, spicy_level = $23, is_popular = $24
      WHERE id = $18
+       AND category_id IN (SELECT id FROM categories WHERE venue_id = $25)
+       -- И новая категория тоже должна быть своей: иначе UPDATE сам увёл бы позицию
+       -- в чужое заведение, оставаясь при этом «своим» по первому условию.
+       AND $1 IN (SELECT id FROM categories WHERE venue_id = $25)
      RETURNING *`,
     [
       categoryId, nameRu, nameUz, nameEn || null, descriptionRu, descriptionUz, descriptionEn || null,
@@ -185,19 +204,28 @@ async function update(id, {
       allergens || [],
       spicyLevel === undefined ? null : spicyLevel,
       Boolean(isPopular),
+      venueId,
     ]
   );
   return result.rows[0] || null;
 }
 
-async function remove(id) {
-  await pool.query('DELETE FROM items WHERE id = $1', [id]);
+async function remove(id, venueId) {
+  const result = await pool.query(
+    `DELETE FROM items
+     WHERE id = $1 AND category_id IN (SELECT id FROM categories WHERE venue_id = $2)
+     RETURNING id`,
+    [id, venueId]
+  );
+  return result.rows[0] || null;
 }
 
-async function toggleAvailability(id) {
+async function toggleAvailability(id, venueId) {
   const result = await pool.query(
-    'UPDATE items SET is_available = NOT is_available WHERE id = $1 RETURNING *',
-    [id]
+    `UPDATE items SET is_available = NOT is_available
+     WHERE id = $1 AND category_id IN (SELECT id FROM categories WHERE venue_id = $2)
+     RETURNING *`,
+    [id, venueId]
   );
   return result.rows[0] || null;
 }

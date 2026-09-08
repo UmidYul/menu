@@ -1,7 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const itemModel = require('../models/itemModel');
@@ -12,7 +12,7 @@ const {
 } = require('../validators/itemOptionValidators');
 const pgNotify = require('../services/pgNotify');
 
-router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
+router.use(requireAuth, requireVenueRole(['owner', 'manager']), venueStatusGate);
 
 // Ошибки этих форм показываются на /admin/items — там же, где и сами группы (промт 2.1:
 // редактирование внутри формы позиции). Текст передаётся query-параметром с КЛЮЧОМ словаря,
@@ -93,7 +93,7 @@ router.patch('/groups/:groupId', async (req, res, next) => {
     const parsed = groupSchema.safeParse(req.body);
     if (!parsed.success) return redirectBack(res, group.item_id, parsed.error.issues[0].message);
 
-    await itemOptionModel.updateGroup(group.id, {
+    await itemOptionModel.updateGroup(group.id, req.session.admin.venueId, {
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
       nameEn: parsed.data.name_en,
@@ -123,7 +123,7 @@ router.delete('/groups/:groupId', async (req, res, next) => {
     const group = await loadOwnGroup(req);
     if (!group) return redirectBack(res, 0, 'itemOptions.errorGroupNotFound');
 
-    await itemOptionModel.removeGroup(group.id);
+    await itemOptionModel.removeGroup(group.id, req.session.admin.venueId);
 
     await logAction(pool, {
       adminId: req.session.admin.id,
@@ -156,7 +156,7 @@ router.post('/groups/:groupId/move', async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await itemOptionModel.swapGroupOrder(client, ordered[index], ordered[neighborIndex]);
+      await itemOptionModel.swapGroupOrder(client, req.session.admin.venueId, ordered[index], ordered[neighborIndex]);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -209,7 +209,7 @@ router.patch('/options/:optionId', async (req, res, next) => {
     const parsed = optionSchema.safeParse(req.body);
     if (!parsed.success) return redirectBack(res, option.item_id, parsed.error.issues[0].message);
 
-    await itemOptionModel.updateOption(option.id, {
+    await itemOptionModel.updateOption(option.id, req.session.admin.venueId, {
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
       nameEn: parsed.data.name_en,
@@ -230,7 +230,7 @@ router.delete('/options/:optionId', async (req, res, next) => {
     const option = await loadOwnOption(req);
     if (!option) return redirectBack(res, 0, 'itemOptions.errorOptionNotFound');
 
-    await itemOptionModel.removeOption(option.id);
+    await itemOptionModel.removeOption(option.id, req.session.admin.venueId);
     await pgNotify.publishMenuChange(req.session.admin.venueId);
     redirectBack(res, option.item_id);
   } catch (err) {

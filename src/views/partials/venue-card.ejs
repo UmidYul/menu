@@ -7,6 +7,9 @@
 const metaParts = [cuisine, categoryLabel, district].filter((part) => part && String(part).trim());
 const hasRating = rating !== null && rating !== undefined;
 const filledStars = hasRating ? Math.round(rating) : 0;
+// Промт 3.3: если звёзды посчитаны по внутренним оценкам, подпись должна называть вещи своими
+// именами — это оценки гостей прямо в меню, а не отзывы с Google/Яндекса.
+const ratingIsInternal = typeof ratingSource !== 'undefined' && ratingSource === 'internal';
 const hoursFirstLine = workingHours ? workingHours.split('\n')[0].trim() : '';
 const hasContactRow = !!(address || hoursFirstLine || phone || email);
 %>
@@ -31,7 +34,7 @@ const hasContactRow = !!(address || hoursFirstLine || phone || email);
     <% } %>
 
     <% if (hasRating) { %>
-      <div class="venue-card-rating" role="img" aria-label="<%= reviewCount !== null ? t('publicMenu.ratingAriaLabel', { rating: rating.toFixed(1), count: reviewCount }) : t('publicMenu.ratingAriaLabelNoCount', { rating: rating.toFixed(1) }) %>">
+      <div class="venue-card-rating" role="img" aria-label="<%= reviewCount !== null ? t(ratingIsInternal ? 'publicMenu.ratingAriaLabelInternal' : 'publicMenu.ratingAriaLabel', { rating: rating.toFixed(1), count: reviewCount }) : t('publicMenu.ratingAriaLabelNoCount', { rating: rating.toFixed(1) }) %>">
         <span class="venue-card-stars" aria-hidden="true">
           <% for (let i = 1; i <= 5; i++) { %>
             <span class="venue-card-star <%= i <= filledStars ? 'filled' : '' %>"><%- include('./icon', { name: 'star', size: 14 }) %></span>
@@ -40,6 +43,9 @@ const hasContactRow = !!(address || hoursFirstLine || phone || email);
         <span class="venue-card-rating-value"><%= rating.toFixed(1) %></span>
         <% if (reviewCount !== null) { %><span class="venue-card-rating-count">(<%= reviewCount %>)</span><% } %>
       </div>
+      <% if (ratingIsInternal) { %>
+        <p class="venue-card-rating-source"><%= t('publicMenu.ratingSourceInternal') %></p>
+      <% } %>
     <% } %>
 
     <% if (description) { %>

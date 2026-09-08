@@ -2,7 +2,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const venueModel = require('../models/venueModel');
@@ -10,7 +10,7 @@ const venueTableModel = require('../models/venueTableModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { tableNumberSchema, bulkCreateSchema, buildNumbers } = require('../validators/tableValidators');
 
-router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
+router.use(requireAuth, requireVenueRole(['owner', 'manager']), venueStatusGate);
 
 // Те же параметры, что и у QR заведения в adminDashboard.js — один и тот же визуальный код
 // на столе и в кабинете, отличается только зашитая ссылка.

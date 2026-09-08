@@ -15,3 +15,12 @@ pool.on('error', (err) => {
 });
 
 module.exports = { pool };
+
+// Промт 3.6. Диагностика «запрос к данным заведения без фильтра по заведению». Включается
+// переменной QUERY_AUDIT=1 и только вне production — см. queryAudit.js: это подсказка
+// разработчику, а не защита рантайма, и ложные срабатывания там ожидаемы.
+// require здесь, а не сверху: queryAudit читает config/env, который в свою очередь ничего
+// не знает про пул, — так цикл зависимостей не возникает.
+// eslint-disable-next-line global-require
+require('./queryAudit').install(pool);
+

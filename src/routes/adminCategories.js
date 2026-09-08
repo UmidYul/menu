@@ -1,28 +1,62 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { venueStatusGate } = require('../middlewares/venueStatusGate');
 const { pool } = require('../config/db');
 const categoryModel = require('../models/categoryModel');
 const venueModel = require('../models/venueModel');
 const { logAction } = require('../models/adminActionLogModel');
 const { categorySchema } = require('../validators/categoryValidators');
+const scheduleModel = require('../models/availabilityScheduleModel');
+const availability = require('../services/availability');
 const pgNotify = require('../services/pgNotify');
 const demoData = require('../services/demoData');
 
-router.use(requireAuth, requireRole(['venue_admin']), venueStatusGate);
+router.use(requireAuth, requireVenueRole(['owner', 'manager']), venueStatusGate);
+
+// Промт 2.3. Для каждой категории — её интервалы, «сейчас доступно» и предупреждения.
+// Состояние считается в часовом поясе ЗАВЕДЕНИЯ, а не сервера: владелец должен видеть ровно то,
+// что видит гость (venueNow, см. services/availability.js).
+function buildScheduleState(categories, schedules, venue) {
+  const { byCategory } = scheduleModel.groupByEntity(schedules);
+  const now = availability.venueNow(venue && venue.timezone);
+  const stateByCategory = new Map();
+
+  categories.forEach((category) => {
+    const rules = byCategory.get(category.id) || [];
+    stateByCategory.set(category.id, {
+      availableNow: availability.isAvailableNow(rules, now),
+      warnings: availability.scheduleWarnings(rules, { isAvailable: true }),
+    });
+  });
+
+  return { schedulesByCategory: byCategory, scheduleStateByCategory: stateByCategory };
+}
 
 async function renderList(req, res, status, error, formValues, formTarget) {
   const venueId = req.session.admin.venueId;
-  const [categories, langSettings] = await Promise.all([
+  const [categories, langSettings, schedules, venue] = await Promise.all([
     categoryModel.listByVenueWithCounts(venueId),
     venueModel.getLangSettings(venueId),
+    scheduleModel.listByVenue(venueId),
+    venueModel.findById(venueId),
   ]);
   const enabledLangs = (langSettings && langSettings.enabled_langs) || ['ru', 'uz'];
+  const scheduleCategoryId = Number(req.query.schedule_category) || null;
+
   res.status(status || 200).render('admin/categories', {
     categories,
     enabledLangs,
+    ...buildScheduleState(categories, schedules, venue),
+    maxScheduleRules: scheduleModel.MAX_RULES_PER_ENTITY,
+    // Ошибка расписания приходит КЛЮЧОМ словаря в query от /admin/schedules (см. redirectBack
+    // там) — переводится здесь, в шаблоне. Ключ проверяем по префиксу, чтобы произвольная
+    // строка из адресной строки не попала в t() и не отрисовалась как текст.
+    scheduleError: typeof req.query.schedule_error === 'string' && req.query.schedule_error.startsWith('schedules.')
+      ? req.query.schedule_error
+      : null,
+    scheduleCategoryId,
     error: error || null,
     formValues: formValues || { name_ru: '', name_uz: '', name_en: '' },
     formTarget: formTarget || null,
@@ -114,11 +148,15 @@ router.patch('/:id', async (req, res, next) => {
     }
 
     const before = { name_ru: category.name_ru, name_uz: category.name_uz };
-    const updated = await categoryModel.update(category.id, {
+    const updated = await categoryModel.update(category.id, req.session.admin.venueId, {
       nameRu: parsed.data.name_ru,
       nameUz: parsed.data.name_uz,
       nameEn: parsed.data.name_en,
+      scheduleHiddenMode: parsed.data.schedule_hidden_mode,
     });
+    // null — категория перестала принадлежать активному заведению между проверкой и записью
+    // (venue_id теперь в WHERE самого UPDATE, см. categoryModel).
+    if (!updated) return res.status(404).render('errors/403');
 
     await logAction(pool, {
       adminId: req.session.admin.id,
@@ -126,7 +164,14 @@ router.patch('/:id', async (req, res, next) => {
       actionType: 'update',
       entityType: 'category',
       entityId: updated.id,
-      details: { before, after: { name_ru: updated.name_ru, name_uz: updated.name_uz } },
+      details: {
+        before,
+        after: {
+          name_ru: updated.name_ru,
+          name_uz: updated.name_uz,
+          schedule_hidden_mode: updated.schedule_hidden_mode,
+        },
+      },
     });
 
     await pgNotify.publishMenuChange(req.session.admin.venueId);
@@ -152,7 +197,8 @@ router.delete('/:id', async (req, res, next) => {
       );
     }
 
-    await categoryModel.remove(category.id);
+    const removed = await categoryModel.remove(category.id, req.session.admin.venueId);
+    if (!removed) return res.status(404).render('errors/403');
 
     await logAction(pool, {
       adminId: req.session.admin.id,
@@ -239,7 +285,7 @@ router.post('/:id/move', async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await categoryModel.swapOrder(client, ordered[index], ordered[neighborIndex]);
+      await categoryModel.swapOrder(client, req.session.admin.venueId, ordered[index], ordered[neighborIndex]);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');

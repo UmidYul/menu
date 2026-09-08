@@ -10,13 +10,22 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // стороннего сайта иначе как через саму форму), кладётся в res.locals для шаблонов и сверяется
 // на каждый небезопасный метод. Без него SameSite=lax на cookie сессии — единственная линия
 // защиты, а это поведение браузера по умолчанию, а не гарантия уровня приложения.
-function csrfProtection(req, res, next) {
-  if (!req.session) return next();
-
+// Токен нужен не только самому csrfProtection: страницу «нет доступа ни к одному заведению»
+// (промт 3.6) рисует middleware, который стоит РАНЬШЕ него в цепочке, а форма выхода на ней
+// всё равно должна работать. Отдельная функция вместо дублирования этих трёх строк.
+function ensureCsrfToken(req, res) {
+  if (!req.session) return null;
   if (!req.session.csrfToken) {
     req.session.csrfToken = crypto.randomBytes(TOKEN_BYTES).toString('hex');
   }
-  res.locals.csrfToken = req.session.csrfToken;
+  if (res) res.locals.csrfToken = req.session.csrfToken;
+  return req.session.csrfToken;
+}
+
+function csrfProtection(req, res, next) {
+  if (!req.session) return next();
+
+  ensureCsrfToken(req, res);
 
   if (SAFE_METHODS.has(req.method)) return next();
 
@@ -32,4 +41,4 @@ function csrfProtection(req, res, next) {
   next();
 }
 
-module.exports = { csrfProtection };
+module.exports = { csrfProtection, ensureCsrfToken };

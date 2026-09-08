@@ -14,7 +14,7 @@
       <div class="admin-content">
         <div class="welcome">
           <div><span class="eyebrow"><%= t('nav.items') %></span><h1><%= t('items.heading') %></h1></div>
-          <button type="button" class="btn btn-primary" onclick="document.getElementById('add-item-modal').showModal()">
+          <button type="button" class="btn btn-primary" data-modal-open="add-item-modal">
             <%- include('../partials/icon', { name: 'plus', size: 15 }) %> <%= t('items.addHeading') %>
           </button>
         </div>
@@ -57,7 +57,7 @@
                   <span class="empty-state-icon"><%- include('../partials/icon', { name: 'image', size: 18 }) %></span>
                 </div>
                 <p><%= t('items.emptyCategoryExplain') %></p>
-                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('add-item-modal').showModal()">
+                <button type="button" class="btn btn-primary btn-sm" data-modal-open="add-item-modal">
                   <%- include('../partials/icon', { name: 'plus', size: 14 }) %> <%= t('items.emptyCategoryAddButton') %>
                 </button>
               </div>
@@ -91,7 +91,7 @@
                       <%- include('../partials/icon', { name: 'more', size: 18 }) %>
                     </summary>
                     <div class="item-menu-panel">
-                      <button type="button" onclick="this.closest('details').removeAttribute('open'); document.getElementById('edit-item-<%= item.id %>-modal').showModal()">
+                      <button type="button" data-modal-open="edit-item-<%= item.id %>-modal">
                         <%- include('../partials/icon', { name: 'edit', size: 14 }) %> <%= t('common.edit') %>
                       </button>
                       <form method="POST" action="/admin/items/<%= item.id %>?_method=DELETE"
@@ -107,10 +107,10 @@
             <% } %>
 
             <% group.items.forEach((item) => { %>
-              <dialog id="edit-item-<%= item.id %>-modal" class="modal">
+              <dialog id="edit-item-<%= item.id %>-modal" class="modal" <%= (formTarget === `edit-${item.id}` || (optionError && optionErrorItemId === item.id) || (scheduleError && scheduleErrorItemId === item.id)) ? "data-autoopen" : "" %>>
                 <div class="modal-head">
                   <h3><%= t('items.editHeading') %></h3>
-                  <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+                  <button type="button" class="modal-close" data-modal-close>
                     <%- include('../partials/icon', { name: 'x', size: 18 }) %>
                   </button>
                 </div>
@@ -160,19 +160,30 @@
                     t, csrfToken, enabledLangs,
                     maxGroups: maxOptionGroups, maxOptions: maxOptionsPerGroup,
                   }) %>
+
+                  <%# Расписание доступности позиции (промт 2.3). Как и группы опций — соседняя
+                      форма рядом с формой позиции, а не внутри неё. %>
+                  <%- include('../partials/schedule-editor', {
+                    targetType: 'item',
+                    targetId: item.id,
+                    rules: scheduleStateByItem.get(item.id).rules,
+                    availableNow: scheduleStateByItem.get(item.id).availableNow,
+                    warnings: scheduleStateByItem.get(item.id).warnings,
+                    inheritedLabel: scheduleStateByItem.get(item.id).inheritedLabel,
+                    maxRules: maxScheduleRules,
+                    error: scheduleError && scheduleErrorItemId === item.id ? scheduleError : null,
+                    t, csrfToken,
+                  }) %>
                 </div>
               </dialog>
-              <% if (formTarget === `edit-${item.id}` || (optionError && optionErrorItemId === item.id)) { %>
-                <script>document.getElementById('edit-item-<%= item.id %>-modal').showModal();</script>
-              <% } %>
             <% }) %>
           <% }) %>
         </div>
 
-        <dialog id="add-item-modal" class="modal">
+        <dialog id="add-item-modal" class="modal" <%= (formTarget === 'add') ? "data-autoopen" : "" %>>
           <div class="modal-head">
             <h3><%= t('items.addHeading') %></h3>
-            <button type="button" class="modal-close" onclick="this.closest('dialog').close()">
+            <button type="button" class="modal-close" data-modal-close>
               <%- include('../partials/icon', { name: 'x', size: 18 }) %>
             </button>
           </div>
@@ -198,12 +209,10 @@
             </form>
           </div>
         </dialog>
-        <% if (formTarget === 'add') { %>
-          <script>document.getElementById('add-item-modal').showModal();</script>
-        <% } %>
       </div>
     </section>
   </div>
   <script src="/js/option-reorder.js" defer></script>
+  <script src="/js/schedule-editor.js" defer></script>
 </body>
 </html>

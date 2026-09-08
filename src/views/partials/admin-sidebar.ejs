@@ -1,18 +1,36 @@
 <%
 // Ожидает: role, login, active (ключ текущего пункта меню), venueSlug (опционально), lang, t
+// Промт 3.6: venues и venueRole приходят из res.locals (middlewares/activeVenue.js) — у страниц
+// суперадмина их нет, поэтому оба читаются через typeof.
+const _venues = typeof venues !== 'undefined' ? venues : [];
+const _venueRole = typeof venueRole !== 'undefined' ? venueRole : null;
 let _navItems = [];
 if (role === 'venue_admin') {
   _navItems = [
+    // Промт 3.6, раздел 4: «Если у администратора больше одного заведения — пункт „Все заведения“».
+    // Первым: это взгляд на сеть целиком, а всё, что ниже, относится к одной активной точке.
+    ...(_venues.length > 1 ? [{ key: 'allVenues', href: '/admin/venues', icon: 'store', label: t('nav.allVenues') }] : []),
     { key: 'dashboard', href: '/admin', icon: 'grid', label: t('nav.dashboard') },
     { key: 'categories', href: '/admin/categories', icon: 'list', label: t('nav.categories') },
     { key: 'items', href: '/admin/items', icon: 'utensils', label: t('nav.items') },
     { key: 'analytics', href: '/admin/analytics', icon: 'barchart', label: t('nav.analytics') },
+    { key: 'reviews', href: '/admin/reviews', icon: 'star', label: t('nav.reviews'), badge: typeof reviewsUnreadCount !== 'undefined' ? reviewsUnreadCount : 0 },
     { key: 'tables', href: '/admin/tables', icon: 'qrcode', label: t('nav.tables') },
     { key: 'ordersSettings', href: '/admin/orders-settings', icon: 'cart', label: t('nav.ordersSettings') },
+    { key: 'stoplist', href: '/admin/stoplist', icon: 'list', label: t('nav.stoplist') },
+    { key: 'staff', href: '/admin/staff', icon: 'users', label: t('nav.staff') },
+    { key: 'print', href: '/admin/print', icon: 'image', label: t('nav.print') },
     { key: 'venueSettings', href: '/admin/venue-settings', icon: 'sliders', label: t('nav.venueSettings') },
+    { key: 'domain', href: '/admin/domain', icon: 'link', label: t('nav.domain') },
     { key: 'subscription', href: '/admin/subscription', icon: 'clock', label: t('nav.subscription') },
     { key: 'password', href: '/admin/password', icon: 'key', label: t('nav.access') },
   ];
+  // Промт 3.6, раздел 3: manager — «всё, кроме подписки, оплаты и управления сотрудниками».
+  // Маршруты это уже проверяют (requireVenueRole), но пункт меню, ведущий на гарантированный
+  // отказ, — просто дефект: человек должен видеть то, что ему доступно, а не упираться в 403.
+  if (_venueRole === 'manager') {
+    _navItems = _navItems.filter((item) => item.key !== 'subscription' && item.key !== 'staff');
+  }
 } else if (role === 'superadmin') {
   _navItems = [
     { key: 'venues', href: '/superadmin/venues', icon: 'store', label: t('nav.venues') },

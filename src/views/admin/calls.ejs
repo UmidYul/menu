@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venueName %> — <%= t('staff.callsHeading') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body class="staff-body">
+  <div class="staff-shell">
+    <%- include('../partials/staff-header', {
+      active: 'calls', venueName, displayName, ordersEnabled, lang, t, csrfToken,
+    }) %>
+
+    <main class="staff-main">
+      <% if (!ordersEnabled) { %>
+        <p class="empty-note"><%= t('staff.callsDisabled') %></p>
+      <% } else { %>
+        <div id="callsBanner" class="stoplist-banner" hidden role="status" aria-live="polite">
+          <span id="callsBannerText"></span>
+        </div>
+
+        <div class="calls-list" id="callsList">
+          <p class="empty-note" id="callsEmpty" <%= calls.length > 0 ? 'hidden' : '' %>><%= t('staff.callsEmpty') %></p>
+          <% calls.forEach((call) => { %>
+            <article class="call-row is-<%= call.status %>" data-call-row data-call-id="<%= call.id %>" data-status="<%= call.status %>">
+              <div class="call-row-main">
+                <b class="call-row-table">
+                  <%= call.table_number_snapshot ? t('staff.callTable', { table: call.table_number_snapshot }) : t('staff.callNoTable') %>
+                </b>
+                <span class="call-row-type"><%= t('orders.waiter' + call.call_type.charAt(0).toUpperCase() + call.call_type.slice(1)) %></span>
+                <span class="call-row-time"><%= call.created_at.toISOString().slice(11, 16) %></span>
+              </div>
+              <div class="call-row-side">
+                <% if (call.status === 'new') { %>
+                  <button type="button" class="btn btn-primary call-ack-btn" data-call-ack="<%= call.id %>">
+                    <%= t('staff.callAck') %>
+                  </button>
+                <% } else { %>
+                  <span class="call-row-ack" data-ack-label>
+                    <%- include('../partials/icon', { name: 'check', size: 14 }) %>
+                    <%= call.acknowledged_by_name ? t('staff.callAckedBy', { name: call.acknowledged_by_name }) : t('staff.callAcked') %>
+                  </span>
+                <% } %>
+              </div>
+            </article>
+          <% }) %>
+        </div>
+      <% } %>
+    </main>
+  </div>
+
+  <% if (ordersEnabled) { %>
+    <script type="application/json" id="callsLabels">
+      <%- JSON.stringify({
+        csrf: csrfToken,
+        offline: t('staff.errorOffline'),
+        failed: t('staff.errorSaveFailed'),
+        acked: t('staff.callAcked'),
+        ackedBy: t('staff.callAckedBy', { name: '__NAME__' }),
+        alreadyAcked: t('staff.callAlreadyAcked'),
+        ackButton: t('staff.callAck'),
+        tableLabel: t('staff.callTable', { table: '__TABLE__' }),
+        noTable: t('staff.callNoTable'),
+        callTypes: {
+          come: t('orders.waiterCome'),
+          bill: t('orders.waiterBill'),
+          cutlery: t('orders.waiterCutlery'),
+        },
+      }).replace(/</g, '\\u003c') %>
+    </script>
+    <script src="/js/staff-calls.js" defer></script>
+  <% } %>
+</body>
+</html>

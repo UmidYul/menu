@@ -13,6 +13,13 @@ const sessionMiddleware = session({
   secret: env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  // Промт 4.2: rolling-обновление при активности. Без него сессия истекает ровно через неделю
+  // после ВХОДА, даже если человек работал в кабинете каждый день, — и его выкидывает посреди
+  // работы. С rolling срок продлевается на каждый запрос, а неактивная сессия всё так же
+  // умирает через maxAge.
+  // resave остаётся false: connect-pg-simple сам продлевает строку в user_sessions, когда
+  // rolling меняет cookie, — переписывать сессию на КАЖДЫЙ запрос ради этого не нужно.
+  rolling: true,
   cookie: {
     httpOnly: true,
     secure: env.isProduction,

@@ -110,13 +110,19 @@
     return html + '</div>';
   }
 
+  // Промт 2.3. «Заказать нельзя» бывает по двум причинам, и подписи у них разные: ручной
+  // рубильник владельца («нет в наличии») и расписание («доступно с 8:00 до 11:00»).
+  function canOrder(item) {
+    return item.isAvailable && item.availableNow !== false;
+  }
+
   // Лента "ещё из этой категории": максимум 3 доступные позиции, текущая исключается.
   function siblingsHtml(item) {
     var siblings = (DATA.order || [])
       .map(function (id) { return api.getItem(id); })
       .filter(function (candidate) {
         return candidate && candidate.id !== item.id
-          && candidate.categoryId === item.categoryId && candidate.isAvailable;
+          && candidate.categoryId === item.categoryId && canOrder(candidate);
       })
       .slice(0, 3);
     if (siblings.length === 0) return '';
@@ -170,18 +176,23 @@
       html += '<p class="dish-card-allergens"><b>' + escapeHtml(L.allergensPrefix) + ':</b> '
         + escapeHtml(item.allergens.join(', ')) + '</p>';
     }
-    if (!item.isAvailable) {
+    // Расписание важнее ручного рубильника в подписи: гостю полезнее узнать, что блюдо бывает
+    // по утрам, чем что его нет прямо сейчас (та же логика, что в partials/dish-row.ejs).
+    if (item.availableNow === false && item.scheduleLabel) {
+      html += '<p class="dish-card-unavailable">'
+        + escapeHtml(L.scheduleAvailableAt.replace('__SCHEDULE__', item.scheduleLabel)) + '</p>';
+    } else if (!item.isAvailable) {
       html += '<p class="dish-card-unavailable">' + escapeHtml(L.unavailable) + '</p>';
     }
-    if (item.isAvailable && item.groups.length > 0) {
+    if (canOrder(item) && item.groups.length > 0) {
       html += '<div class="dish-card-options" id="dishCardOptions">'
         + api.optionGroupsHtml(item, api.defaultSelectionFor(item)) + '</div>';
     }
     html += siblingsHtml(item);
     bodyEl.innerHTML = html;
 
-    footEl.hidden = !item.isAvailable;
-    if (item.isAvailable) api.refreshSelectionState(bodyEl, item, submitBtn);
+    footEl.hidden = !canOrder(item);
+    if (canOrder(item)) api.refreshSelectionState(bodyEl, item, submitBtn);
   }
 
   // ---- открытие и закрытие ---------------------------------------------------------------

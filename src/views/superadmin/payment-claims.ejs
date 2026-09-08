@@ -21,7 +21,7 @@
 
         <form method="GET" action="/superadmin/payment-claims" class="field-grid" style="max-width:340px; margin-bottom:20px;">
           <div class="field" style="margin-bottom:0;">
-            <select name="status" onchange="this.form.submit()">
+            <select name="status" data-submit-on-change>
               <option value=""><%= t('superadmin.claimsFilterAllStatuses') %></option>
               <% ['pending', 'approved', 'rejected', 'cancelled'].forEach((s) => { %>
                 <option value="<%= s %>" <%= filterStatus === s ? 'selected' : '' %>><%= t(`subscription.claimStatus.${s}`) %></option>

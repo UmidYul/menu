@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= venue.name %> — <%= t('nav.reviews') %></title>
+  <%- include('../partials/head-assets') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('../partials/admin-sidebar', { role, login, active: 'reviews', venueSlug, lang, t }) %>
+    <section class="admin-main">
+      <%- include('../partials/admin-topbar', { crumb: venue.name, section: t('nav.reviews'), lang, currentPath: '/admin/reviews', venueSlug, t }) %>
+      <div class="admin-content">
+        <div class="welcome">
+          <div>
+            <span class="eyebrow"><%= venue.name %></span>
+            <h1><%= t('nav.reviews') %></h1>
+          </div>
+        </div>
+
+        <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+        <%# 1. Что сейчас с рейтингом. Промт требует, чтобы правило подмены ручного рейтинга
+            внутренним было видно владельцу, а не жило только в коде. %>
+        <div class="dashboard-card">
+          <h3><%= t('reviews.statsHeading') %></h3>
+          <div class="reviews-stats">
+            <div class="reviews-stat">
+              <span class="reviews-stat-value"><%= stats.average === null ? '—' : stats.average.toFixed(1) %></span>
+              <small><%= t('reviews.statsAverage') %></small>
+            </div>
+            <div class="reviews-stat">
+              <span class="reviews-stat-value"><%= stats.count %></span>
+              <small><%= t('reviews.statsCount') %></small>
+            </div>
+          </div>
+          <% if (!venue.reviews_enabled) { %>
+            <p class="analytics-card-hint"><%= t('reviews.statsDisabledHint') %></p>
+          <% } else if (stats.count >= minReviewsForRating) { %>
+            <p class="analytics-card-hint"><%= t('reviews.statsInternalActive', { count: stats.count }) %></p>
+          <% } else { %>
+            <p class="analytics-card-hint"><%= t('reviews.statsNeedMore', { needed: minReviewsForRating - stats.count, min: minReviewsForRating }) %></p>
+          <% } %>
+        </div>
+
+        <%# 2. Настройки сбора. %>
+        <div class="dashboard-card">
+          <h3><%= t('reviews.settingsHeading') %></h3>
+
+          <form method="POST" action="/admin/reviews/toggle" class="analytics-toggle-row">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div>
+              <b><%= t('reviews.enabledLabel') %></b>
+              <small><%= t('reviews.enabledHint') %></small>
+            </div>
+            <button type="submit" class="toggle <%= venue.reviews_enabled ? 'on' : '' %>" aria-pressed="<%= venue.reviews_enabled %>"><i></i></button>
+          </form>
+
+          <form method="POST" action="/admin/reviews/settings" class="reviews-settings-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+            <label class="tables-create-field">
+              <span><%= t('reviews.googleUrlLabel') %></span>
+              <input type="url" name="google_review_url" value="<%= settings.google_review_url %>" placeholder="https://g.page/r/…">
+            </label>
+            <%# Найти прямую ссылку на форму отзыва действительно неочевидно — поэтому шаги,
+                а не одна строка «вставьте ссылку». %>
+            <details class="reviews-howto">
+              <summary><%= t('reviews.googleHowtoSummary') %></summary>
+              <ol>
+                <li><%= t('reviews.googleHowto1') %></li>
+                <li><%= t('reviews.googleHowto2') %></li>
+                <li><%= t('reviews.googleHowto3') %></li>
+                <li><%= t('reviews.googleHowto4') %></li>
+              </ol>
+              <p class="analytics-card-hint"><%= t('reviews.googleHowtoFallback') %></p>
+            </details>
+
+            <label class="tables-create-field">
+              <span><%= t('reviews.yandexUrlLabel') %></span>
+              <input type="url" name="yandex_review_url" value="<%= settings.yandex_review_url %>" placeholder="https://yandex.uz/maps/org/…/reviews/">
+            </label>
+            <details class="reviews-howto">
+              <summary><%= t('reviews.yandexHowtoSummary') %></summary>
+              <ol>
+                <li><%= t('reviews.yandexHowto1') %></li>
+                <li><%= t('reviews.yandexHowto2') %></li>
+                <li><%= t('reviews.yandexHowto3') %></li>
+              </ol>
+            </details>
+
+            <div class="reviews-settings-row">
+              <label class="tables-create-field">
+                <span><%= t('reviews.delayLabel') %></span>
+                <input type="text" inputmode="numeric" name="reviews_prompt_delay_sec" value="<%= settings.reviews_prompt_delay_sec %>" placeholder="45">
+              </label>
+              <label class="tables-create-field">
+                <span><%= t('reviews.thresholdLabel') %></span>
+                <select name="reviews_threshold">
+                  <% for (let value = 1; value <= 5; value++) { %>
+                    <option value="<%= value %>" <%= String(value) === String(settings.reviews_threshold) ? 'selected' : '' %>><%= value %></option>
+                  <% } %>
+                </select>
+              </label>
+            </div>
+            <p class="analytics-card-hint"><%= t('reviews.delayHint') %></p>
+            <p class="analytics-card-hint"><%= t('reviews.thresholdHint') %></p>
+
+            <button type="submit" class="btn btn-primary"><%= t('common.save') %></button>
+          </form>
+        </div>
+
+        <%# 3. Предпросмотр — ровно те же классы, что и на публичной странице, чтобы владелец
+            видел настоящий вид приглашения, а не его описание словами. %>
+        <div class="dashboard-card">
+          <h3><%= t('reviews.previewHeading') %></h3>
+          <p class="analytics-card-hint"><%= t('reviews.previewHint') %></p>
+          <div class="reviews-preview">
+            <div class="reviews-preview-card">
+              <p class="review-prompt-title"><%= t('reviews.promptTitle') %></p>
+              <div class="review-stars reviews-preview-stars" aria-hidden="true">
+                <% for (let star = 5; star >= 1; star--) { %>
+                  <span class="review-star-label"><%- include('../partials/icon', { name: 'star', size: 26 }) %></span>
+                <% } %>
+              </div>
+            </div>
+            <div class="reviews-preview-branches">
+              <div class="reviews-preview-branch">
+                <span class="reviews-preview-branch-label"><%= t('reviews.previewHigh', { threshold: venue.reviews_threshold }) %></span>
+                <p class="reviews-preview-line"><%= t('reviews.mapsHintHigh') %></p>
+                <% if (venue.google_review_url) { %><span class="reviews-preview-btn is-primary"><%= t('reviews.googleButton') %></span><% } %>
+                <% if (venue.yandex_review_url) { %><span class="reviews-preview-btn is-primary"><%= t('reviews.yandexButton') %></span><% } %>
+                <% if (!venue.google_review_url && !venue.yandex_review_url) { %>
+                  <p class="reviews-preview-line reviews-preview-warning"><%= t('reviews.previewNoLinks') %></p>
+                <% } %>
+                <p class="reviews-preview-line"><%= t('reviews.commentLabelHigh') %></p>
+              </div>
+              <div class="reviews-preview-branch">
+                <span class="reviews-preview-branch-label"><%= t('reviews.previewLow', { threshold: venue.reviews_threshold }) %></span>
+                <p class="reviews-preview-line"><%= t('reviews.commentLabelLow') %></p>
+                <span class="reviews-preview-btn is-primary"><%= t('reviews.submitButtonLow') %></span>
+                <p class="reviews-preview-line"><%= t('reviews.mapsHintLow') %></p>
+                <% if (venue.google_review_url) { %><span class="reviews-preview-btn"><%= t('reviews.googleButton') %></span><% } %>
+                <% if (venue.yandex_review_url) { %><span class="reviews-preview-btn"><%= t('reviews.yandexButton') %></span><% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%# 4. Сам список. %>
+        <div class="dashboard-card">
+          <h3><%= t('reviews.listHeading') %></h3>
+
+          <form method="GET" action="/admin/reviews" class="reviews-filters">
+            <label class="tables-create-field">
+              <span><%= t('reviews.filterStatus') %></span>
+              <select name="status">
+                <option value=""><%= t('reviews.filterAny') %></option>
+                <% statuses.forEach((value) => { %>
+                  <option value="<%= value %>" <%= filters.status === value ? 'selected' : '' %>><%= t('reviews.status_' + value) %></option>
+                <% }) %>
+              </select>
+            </label>
+            <label class="tables-create-field">
+              <span><%= t('reviews.filterRating') %></span>
+              <select name="rating">
+                <option value=""><%= t('reviews.filterAny') %></option>
+                <% for (let value = 5; value >= 1; value--) { %>
+                  <option value="<%= value %>" <%= filters.rating === value ? 'selected' : '' %>><%= value %></option>
+                <% } %>
+              </select>
+            </label>
+            <button type="submit" class="btn btn-outline"><%= t('reviews.filterApply') %></button>
+            <% if (filters.status || filters.rating) { %>
+              <a class="btn btn-outline" href="/admin/reviews"><%= t('reviews.filterReset') %></a>
+            <% } %>
+          </form>
+
+          <% if (reviews.length === 0) { %>
+            <p class="empty-note"><%= t('reviews.listEmpty') %></p>
+          <% } else { %>
+            <% const backQuery = (filters.status ? 'status=' + filters.status : '') + (filters.status && filters.rating ? '&' : '') + (filters.rating ? 'rating=' + filters.rating : ''); %>
+            <div class="reviews-list">
+              <% reviews.forEach((review) => { %>
+                <article class="review-item is-<%= review.status %>">
+                  <header class="review-item-head">
+                    <span class="review-item-stars" aria-label="<%= t('reviews.starAriaLabel', { star: review.rating }) %>">
+                      <% for (let i = 1; i <= 5; i++) { %><span class="<%= i <= review.rating ? 'filled' : '' %>">★</span><% } %>
+                    </span>
+                    <span class="review-item-status status-<%= review.status %>"><%= t('reviews.status_' + review.status) %></span>
+                    <% if (review.is_suspicious) { %>
+                      <span class="review-item-flag" title="<%= t('reviews.suspiciousHint') %>"><%= t('reviews.suspiciousLabel') %></span>
+                    <% } %>
+                    <span class="review-item-date"><%= review.created_at.toISOString().slice(0, 16).replace('T', ' ') %></span>
+                  </header>
+
+                  <% if (review.comment) { %>
+                    <p class="review-item-text"><%= review.comment %></p>
+                  <% } else { %>
+                    <p class="review-item-text review-item-text-empty"><%= t('reviews.noComment') %></p>
+                  <% } %>
+
+                  <div class="review-item-meta">
+                    <% if (review.table_number) { %><span><%= t('reviews.metaTable', { table: review.table_number }) %></span><% } %>
+                    <span><%= t('reviews.metaLang', { lang: (review.lang || '—').toUpperCase() }) %></span>
+                    <%# Формулировка честная: мы знаем только, что гость НАЖАЛ кнопку. Написал
+                        ли он что-то на Google/Яндексе, узнать невозможно. %>
+                    <% if (review.went_external) { %>
+                      <span class="review-item-external">
+                        <%- include('../partials/icon', { name: 'externallink', size: 13 }) %>
+                        <%= t('reviews.metaWentExternal', { target: t('reviews.target_' + review.external_target) }) %>
+                      </span>
+                    <% } %>
+                  </div>
+
+                  <% if (review.contact) { %>
+                    <div class="review-item-contact">
+                      <span class="review-item-contact-value"><%= review.contact %></span>
+                      <%# Кнопки строятся только из того, что реально похоже на телефон или
+                          на @username: гость пишет контакт свободной строкой. %>
+                      <% const digits = review.contact.replace(/[^+\d]/g, ''); %>
+                      <% if (digits.length >= 7) { %>
+                        <a class="btn btn-outline btn-small" href="tel:<%= digits %>">
+                          <%- include('../partials/icon', { name: 'phone', size: 14 }) %>
+                          <%= t('reviews.callButton') %>
+                        </a>
+                      <% } %>
+                      <% const tgMatch = review.contact.match(/@([A-Za-z0-9_]{5,32})/); %>
+                      <% if (tgMatch) { %>
+                        <a class="btn btn-outline btn-small" href="https://t.me/<%= tgMatch[1] %>" target="_blank" rel="noopener">
+                          <%- include('../partials/icon', { name: 'telegram', size: 14 }) %>
+                          <%= t('reviews.telegramButton') %>
+                        </a>
+                      <% } %>
+                    </div>
+                  <% } %>
+
+                  <div class="review-item-actions">
+                    <% ['read', 'resolved', 'spam'].forEach((next) => { %>
+                      <% if (review.status !== next) { %>
+                        <form method="POST" action="/admin/reviews/<%= review.id %>/status<%= backQuery ? '?' + backQuery : '' %>">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <input type="hidden" name="status" value="<%= next %>">
+                          <button type="submit" class="btn btn-outline btn-small"><%= t('reviews.action_' + next) %></button>
+                        </form>
+                      <% } %>
+                    <% }) %>
+                  </div>
+
+                  <form method="POST" action="/admin/reviews/<%= review.id %>/note<%= backQuery ? '?' + backQuery : '' %>" class="review-item-note">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <label class="tables-create-field">
+                      <span><%= t('reviews.noteLabel') %></span>
+                      <textarea name="owner_reply" rows="2" maxlength="2000" placeholder="<%= t('reviews.notePlaceholder') %>"><%= review.owner_reply || '' %></textarea>
+                    </label>
+                    <button type="submit" class="btn btn-outline btn-small"><%= t('common.save') %></button>
+                  </form>
+                </article>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

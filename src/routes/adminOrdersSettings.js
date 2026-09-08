@@ -1,7 +1,7 @@
 const express = require('express');
 
 const router = express.Router();
-const { requireAuth, requireRole } = require('../middlewares/auth');
+const { requireAuth, requireVenueRole } = require('../middlewares/auth');
 const { pool } = require('../config/db');
 const env = require('../config/env');
 const venueModel = require('../models/venueModel');
@@ -12,7 +12,7 @@ const { minOrderAmountSchema } = require('../validators/orderValidators');
 // venueStatusGate здесь намеренно нет — по той же причине, что и на /admin/analytics: это не
 // редактирование меню. Приостановленное заведение должно иметь возможность хотя бы посмотреть
 // и выключить приём заказов, а не упереться в редирект.
-router.use(requireAuth, requireRole(['venue_admin']));
+router.use(requireAuth, requireVenueRole(['owner', 'manager']));
 
 async function renderPage(req, res, status, error) {
   const venueId = req.session.admin.venueId;

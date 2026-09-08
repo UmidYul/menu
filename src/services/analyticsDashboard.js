@@ -253,7 +253,11 @@ async function buildDashboard(venue, query, lang, tt) {
     searchEmptyTop,
     langBreakdown: buildBreakdown(merged, 'lang', ['ru', 'uz', 'en'], (k) => tt(`analytics.langName.${k}`)),
     deviceBreakdown: buildBreakdown(merged, 'device', ['mobile', 'tablet', 'desktop'], (k) => tt(`analytics.device.${k}`)),
-    sourceBreakdown: buildBreakdown(merged, 'source', ['qr', 'link', 'social', 'direct'], (k) => tt(`analytics.source.${k}`)),
+    // 'pwa' добавлен в промте 2.5 — заходы с домашнего экрана из установленного приложения
+    // (start_url манифеста несёт ?src=pwa). Список здесь жёсткий намеренно: он задаёт порядок
+    // строк и гарантирует, что источник с нулём за период всё равно виден, — но именно поэтому
+    // новый источник надо дописывать и сюда, иначе он молча не покажется.
+    sourceBreakdown: buildBreakdown(merged, 'source', ['qr', 'link', 'social', 'direct', 'pwa'], (k) => tt(`analytics.source.${k}`)),
     tableTop: sumByDimension(rowsForMetric(merged, 'order_sent_table'), TOP_LIST_LIMIT),
   };
 }
